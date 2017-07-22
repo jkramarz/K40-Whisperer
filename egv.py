@@ -51,12 +51,12 @@ class egv:
                             units = 'in',
                             Feed = None,
                             speed_text="V1752241021000191",
-                            Raster_step=0):
+                            Raster_step=0, dpi=1000):
         ########################################################
         if units == 'in':
-            scale = 1000.0
+            scale = float(dpi)
         if units == 'mm':
-            scale = 1000.0/25.4;
+            scale = float(dpi)/25.4;
         ecoords=[]
         for i in range(len(ecoords_in)):
             e0 = int(round(ecoords_in[i][0]*scale,0))
