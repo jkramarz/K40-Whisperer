@@ -1748,16 +1748,16 @@ class Application(Frame):
         if self.k40 != None:
             self.k40.timeout       = int(self.t_timeout.get())
             self.k40.n_timeouts    = int(self.n_timeouts.get())
-            self.k40.send_data(data,self.update_gui,self.stop)
+            self.k40.send_data(data)
         else:
-            k40 = K40_CLASS()
+            # k40 = K40_CLASS()
             self.master.update()
             self.stop[0]=False
 
         self.statusMessage.set("Saving Data to File....")
         self.write_egv_to_file(data)
         self.statusMessage.set("Done Saving Data to File....")
-        #self.set_gui("normal")
+        self.set_gui("normal")
         self.stop[0]=False
         self.menu_View_Refresh()
 
@@ -1768,7 +1768,7 @@ class Application(Frame):
             fname = "EGV_DATA.EGV"
             fout = open(fname,'w')
         except:
-            self.statusMessage.set("Unable to open file for writing: %s" %(fname))
+            print("Unable to open file for writing: %s" %(fname))
             return
         #ctog="B"
         for char_val in data:
@@ -1782,7 +1782,7 @@ class Application(Frame):
             else:
                 fout.write("%s" %(char))
         fout.write("\n")
-        fout.close
+        fout.close()
 
     def Home(self):
         if self.k40 != None:
@@ -1814,7 +1814,7 @@ class Application(Frame):
     def Release_USB(self):
         if self.k40 != None:
             try:
-                self.k40.release_usb()
+                self.k40.release()
                 self.statusMessage.set("USB Release Succeeded")
             except:
                 pass
@@ -1823,11 +1823,8 @@ class Application(Frame):
     def Initialize_Laser(self,junk=None):
         self.stop[0]=False
         self.Release_USB()
-        self.k40=K40_CLASS()
         try:
-            self.k40.initialize_device()
-            self.k40.read_data()
-            self.k40.say_hello()
+            self.k40=K40_CLASS()
             self.Home()
         except StandardError as e:
             self.statusMessage.set("USB Error: %s" %(e))
