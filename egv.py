@@ -108,35 +108,25 @@ class egv:
             self.Modal_on   = laser_on
         self.Modal_dist = 0
 
-    def make_distance(self,dist_mils):
-        dist_mils=float(dist_mils)
-        if abs(dist_mils-round(dist_mils,0)) > 0.000001:
-            print "dist_mils = ",dist_mils
-            raise StandardError('Distance values should be integer value (inches*1000)')
-        DIST=0.0
-        code = []
-        v122 = 255
-        dist_milsA = int(dist_mils)
+    def make_distance(self, points):
+        distance = int(points)
+        full_range = 255
+        full_range_code = 122 # ASCII "z"
+        full_ranges = distance / full_range
+        code = [full_range_code] * full_ranges
+        remainder = distance % full_range
 
-        for i in range(0,int(floor(dist_mils/v122))):
-            code.append(122)
-            dist_milsA = dist_milsA-v122
-            DIST = DIST+v122
-        if dist_milsA==0:
-            pass
-        elif dist_milsA < 26:  # codes  "a" through  "y"
-            code.append(96+dist_milsA)
-        elif dist_milsA < 52:  # codes "|a" through "|z"
-            code.append(124)
-            code.append(96+dist_milsA-25)
-        elif dist_milsA < 255:
-            num_str =  "%03d" %(int(round(dist_milsA)))
-            code.append(ord(num_str[0]))
-            code.append(ord(num_str[1]))
-            code.append(ord(num_str[2]))
-        else:
-            raise StandardError("Error in EGV make_distance_in(): dist_milsA=",dist_milsA)
-        return code
+        if remainder == 0:
+            return code
+        elif remainder < 26: # encodes to ASCII range "a" to "y"
+            return code + [96 + remainder]
+        elif remainder < 52: # encodes to ASCII range "a" to "y", prefixed with "|"
+            return code + [124, 96 + remainder - 25]
+        else: # or zero-padded string
+            return code +  map(
+                ord,
+                list("%03d" % remainder)
+            )
 
 
     def make_dir_dist(self,dxmils,dymils,laser_on=False):
