@@ -95,9 +95,6 @@ class egv:
             if direction == self.UP or direction == self.DOWN:
                 self.Modal_AY = direction
 
-
-
-
     def flush(self,laser_on=None):
         if self.Modal_dist > 0:
             self.write(self.Modal_dir)
@@ -110,21 +107,6 @@ class egv:
                 self.write(self.OFF)
             self.Modal_on   = laser_on
         self.Modal_dist = 0
-
-
-    #  The one wire CRC algorithm is derived from the OneWire.cpp Library
-    #  The library location: http://www.pjrc.com/teensy/td_libs_OneWire.html
-    def OneWireCRC(self,line):
-        crc=0
-        for i in range(len(line)):
-            inbyte=line[i]
-            for j in range(8):
-                mix = (crc ^ inbyte) & 0x01
-                crc >>= 1
-                if (mix):
-                    crc ^= 0x8C
-                inbyte >>= 1
-        return crcS
 
     def make_distance(self,dist_mils):
         dist_mils=float(dist_mils)
