@@ -145,7 +145,7 @@ def beziersplitatt(((bx0,by0),(bx1,by1),(bx2,by2),(bx3,by3)),t):
     m4=tpoint(m1,m2,t)
     m5=tpoint(m2,m3,t)
     m=tpoint(m4,m5,t)
-    
+
     return ((bx0,by0),m1,m4,m),(m,m5,m3,(bx3,by3))
 
 '''
@@ -153,9 +153,9 @@ Approximating the arc length of a bezier curve
 according to <http://www.cit.gu.edu.au/~anthony/info/graphics/bezier.curves>
 
 if:
-    L1 = |P0 P1| +|P1 P2| +|P2 P3| 
+    L1 = |P0 P1| +|P1 P2| +|P2 P3|
     L0 = |P0 P3|
-then: 
+then:
     L = 1/2*L0 + 1/2*L1
     ERR = L1-L0
 ERR approaches 0 as the number of subdivisions (m) increases
@@ -165,7 +165,7 @@ Reference:
 Jens Gravesen <gravesen@mat.dth.dk>
 "Adaptive subdivision and the length of Bezier curves"
 mat-report no. 1992-10, Mathematical Institute, The Technical
-University of Denmark. 
+University of Denmark.
 '''
 def pointdistance((x1,y1),(x2,y2)):
     return math.sqrt(((x2 - x1) ** 2) + ((y2 - y1) ** 2))
@@ -234,7 +234,7 @@ def beziertatlength(((bx0,by0),(bx1,by1),(bx2,by2),(bx3,by3)), l = 0.5, toleranc
         if diff < 0:
             t += tdiv
         else:
-            t -= tdiv            
+            t -= tdiv
         curlen = Simpson(balf, 0.0, t, 4096, tolerance)
         diff = curlen - targetlen
     return t

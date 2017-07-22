@@ -10,7 +10,7 @@ def maxdist(((p0x,p0y),(p1x,p1y),(p2x,p2y),(p3x,p3y))):
 
     s1 = Segment(p0,p3)
     return max(s1.distanceToPoint(p1),s1.distanceToPoint(p2))
-    
+
 
 def cspsubdiv(csp,flat):
     for sp in csp:
@@ -22,7 +22,7 @@ def subdiv(sp,flat,i=1):
         p1 = sp[i-1][2]
         p2 = sp[i][0]
         p3 = sp[i][1]
-        
+
         b = (p0,p1,p2,p3)
         m = maxdist(b)
         if m <= flat:

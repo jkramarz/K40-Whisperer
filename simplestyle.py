@@ -211,7 +211,7 @@ def parseColor(c):
                 else:
                     converted_numbers.append(int(num))
             return tuple(converted_numbers)
-        else:    
+        else:
             return (0,0,0)
     try:
         r=int(c[1:3],16)
@@ -220,7 +220,7 @@ def parseColor(c):
     except:
         # unknown color ...
         # Return a default color. Maybe not the best thing to do but probably
-        # better than raising an exception. 
+        # better than raising an exception.
        return(0,0,0)
     return (r,g,b)
 

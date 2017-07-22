@@ -5,11 +5,11 @@ import py2exe
 
 setup(
     options = {
-		"py2exe": 
+		"py2exe":
 		{
 			"compressed": 1, "optimize": 0,
 			"includes": ["lxml.etree", "lxml._elementpath", "gzip"],
-		} 
+		}
 	},
     zipfile = None,
     windows=[
@@ -19,4 +19,3 @@ setup(
 		}
 	],
 )
-

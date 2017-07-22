@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 '''
 This script comunicated with the K40 Laser Cutter.
 
@@ -42,12 +42,12 @@ class K40_CLASS:
         self.write_addr = 0x2   # Write address
         self.read_addr  = 0x82  # Read address
         self.read_length= 168
-        
+
         self.hello   = [160]
         self.unlock  = [166,0,73,83,50,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,15]
         self.home    = [166,0,73,80,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,228]
         self.estop  =  [166,0,73,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,130]
-        
+
     def say_hello(self):
         self.dev.write(self.write_addr,self.hello,self.timeout)
         return self.read_data()
@@ -55,7 +55,7 @@ class K40_CLASS:
     def send_array(self,array):
         self.dev.write(self.write_addr,array,self.timeout)
         print self.read_data()
-    
+
     def unlock_rail(self):
         self.dev.write(self.write_addr,self.unlock,self.timeout)
         return self.say_hello()
@@ -75,7 +75,7 @@ class K40_CLASS:
         self.dev.write(self.write_addr,self.home,self.timeout)
         print self.say_hello()
         return self.say_hello()
-    
+
     #######################################################################
     #  The one wire CRC algorithm is derived from the OneWire.cpp Library
     #  The latest version of this library may be found at:
@@ -96,7 +96,7 @@ class K40_CLASS:
     def none_function(self,dummy=None):
         #Don't delete this function (used in send_data)
         pass
-    
+
     def send_data(self,data,update_gui=None,stop_calc=None):
         if stop_calc == None:
             stop_calc=[]
@@ -143,7 +143,7 @@ class K40_CLASS:
                 return
         ##############################################################
         update_gui( "Packets sent = %d of %d" %( packet_cnt, len(packets) ) )
-        
+
     def rapid_move(self,dxmils,dymils):
         data=[]
         egv_inst = egv(target=lambda s:data.append(s))
@@ -158,7 +158,7 @@ class K40_CLASS:
             except:
                 break
             return data
-    
+
     def initialize_device(self,verbose=False):
         try:
             self.release_usb()
@@ -211,14 +211,14 @@ class K40_CLASS:
             print ctrlxfer
 
         #return True
-        
+
     def hex2dec(self,hex_in):
         #format of "hex_in" is ["40","e7"]
         dec_out=[]
         for a in hex_in:
             dec_out.append(int(a,16))
         return dec_out
-    
+
     def open_egv_file_print_feed(self,filename):
         try:
             fin = open(filename,'r')
@@ -236,7 +236,7 @@ class K40_CLASS:
                 cur=""
             cur = cur+c
             last = c
-            
+
         data.append(cur)
         print data[6]
 
@@ -257,7 +257,7 @@ class K40_CLASS:
 
         # %Ystart_pos %Xstart_pos %Yend_pos %Xend_pos  (start pos is the location of the head before the coade is run)
         # value = 39.4 * position in mm (at least for 10mm)
-        
+
         header_pct = ""
         while c!="V":
             header_pct=header_pct+c
@@ -276,13 +276,13 @@ class K40_CLASS:
                 if NSE=="NSE":
                     cur=cur+" FNSE"
                     c=" "
-                    
+
             if c=="R" or c=="B" or c=="N":
                 cur=cur+" "+c+" "
             else:
                 cur=cur+c
             c = fin.read(1)
-            
+
 
         print "%-20s  " %(header_pct),feed_rate,cur
 if __name__ == "__main__":
@@ -294,9 +294,9 @@ if __name__ == "__main__":
         k40.initialize_device(verbose=True)
     # the following does not work for python 2.5
     except StandardError as e: #(RuntimeError, TypeError, NameError, StandardError):
-        print e    
+        print e
         print "Exiting..."
-        os._exit(0) 
+        os._exit(0)
 
     #k40.initialize_device()
     print k40.read_data()
@@ -304,7 +304,3 @@ if __name__ == "__main__":
     #print k40.reset_position()
     #print k40.unlock_rail()
     print "DONE"
-
-    
-
-    

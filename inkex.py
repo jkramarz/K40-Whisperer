@@ -87,11 +87,11 @@ def debug(what):
 
 def errormsg(msg):
     """Intended for end-user-visible error messages.
-    
+
        (Currently just writes to stderr with an appended newline, but could do
        something better in future: e.g. could add markup to distinguish error
        messages from status messages or debugging output.)
-      
+
        Note that this should always be combined with translation:
 
          import inkex
@@ -159,10 +159,10 @@ class Effect:
         self.OptionParser = optparse.OptionParser(usage="usage: %prog [options] SVGfile",
                                                   option_class=InkOption)
         self.OptionParser.add_option("--id",
-                        action="append", type="string", dest="ids", default=[], 
+                        action="append", type="string", dest="ids", default=[],
                         help="id attribute of object to manipulate")
         self.OptionParser.add_option("--selected-nodes",
-                        action="append", type="string", dest="selected_nodes", default=[], 
+                        action="append", type="string", dest="selected_nodes", default=[],
                         help="id:subpath:position of selected nodes, if any")
         # TODO write a parser for this
 
@@ -269,8 +269,8 @@ class Effect:
 
     def output(self):
         """Serialize document into XML on stdout"""
-        original = etree.tostring(self.original_document)        
-        result = etree.tostring(self.document)        
+        original = etree.tostring(self.original_document)
+        result = etree.tostring(self.document)
         if original != result:
             self.document.write(sys.stdout)
 
@@ -388,7 +388,7 @@ class Effect:
         param = re.compile(r'(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)')
 
         p = param.match(string)
-        u = unit.search(string)    
+        u = unit.search(string)
         if p:
             retval = float(p.string[p.start():p.end()])
         else:

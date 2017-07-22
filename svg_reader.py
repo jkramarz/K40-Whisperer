@@ -18,10 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 '''
 # standard library
-import math
 import tempfile, os, sys, shutil
 from subprocess import Popen, PIPE
-import zipfile
 import re
 # local library
 import inkex

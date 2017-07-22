@@ -3,7 +3,7 @@
 cubicsuperpath.py
 
 Copyright (C) 2005 Aaron Spike, aaron@ekips.org
-
+def move
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
@@ -19,7 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-import simplepath 
+import simplepath
 from math import *
 
 def matprod(mlist):
@@ -96,7 +96,7 @@ def ArcToPath(p1,params):
         applymat(mat, pts[1])
         applymat(mat, pts[2])
     return(p)
-    
+
 def CubicSuperPath(simplepath):
     csp = []
     subpath = -1
@@ -104,7 +104,7 @@ def CubicSuperPath(simplepath):
     last = []
     lastctrl = []
     for s in simplepath:
-        cmd, params = s        
+        cmd, params = s
         if cmd == 'M':
             if last:
                 csp[subpath].append([lastctrl[:],last[:],last[:]])
@@ -148,7 +148,7 @@ def CubicSuperPath(simplepath):
             lastctrl = subpathstart[:]
     #append final superpoint
     csp[subpath].append([lastctrl[:],last[:],last[:]])
-    return csp    
+    return csp
 
 def unCubicSuperPath(csp):
     a = []

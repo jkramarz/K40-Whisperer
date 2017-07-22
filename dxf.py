@@ -2,7 +2,7 @@
 """
     DXF Utilities
 
-    Copyright (C) <2017>  <Scorch>              
+    Copyright (C) <2017>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -1014,23 +1014,23 @@ class DXF_CLASS:
 
         if close_loops:
             self.V_Carve_It(clean_flag=0,DXF_FLAG = close_loops)
-        
+
         dxf_code = []
         # Create a header section just in case the reading software needs it
         dxf_code.append("999")
         dxf_code.append("DXF created by G-Code Ripper <by Scorch, www.scorchworks.com>")
-        
+
         dxf_code.append("0")
         dxf_code.append("SECTION")
         dxf_code.append("2")
         dxf_code.append("HEADER")
         dxf_code.append("0")
         dxf_code.append("ENDSEC")
-        #         
+        #
         #Tables Section
-        #These can be used to specify predefined constants, line styles, text styles, view 
-        #tables, user coordinate systems, etc. We will only use tables to define some layers 
-        #for use later on. Note: not all programs that support DXF import will support 
+        #These can be used to specify predefined constants, line styles, text styles, view
+        #tables, user coordinate systems, etc. We will only use tables to define some layers
+        #for use later on. Note: not all programs that support DXF import will support
         #layers and those that do usually insist on the layers being defined before use
         #
         # The following will initialise layers 1 and 2 for use with moves and rapid moves.
@@ -1098,7 +1098,7 @@ class DXF_CLASS:
         dxf_code.append("ENDTAB")
         dxf_code.append("0")
         dxf_code.append("ENDSEC")
-        
+
         #This block section is not necessary but apperantly it's good form to include one anyway.
         #The following is an empty block section.
         dxf_code.append("0")
@@ -1121,7 +1121,7 @@ class DXF_CLASS:
         #for line in side:
         for line in self.coords:
             XY = line
-            
+
             #if line[0] == 1 or (line[0] == 0 and Rapids):
             dxf_code.append("LINE")
             dxf_code.append("  5")
@@ -1134,7 +1134,7 @@ class DXF_CLASS:
             #if line[0] == 1:
             #    dxf_code.append("1")
             #else:
-            #    dxf_code.append("2")    
+            #    dxf_code.append("2")
             #dxf_code.append(" 62") #color code
             #if line[0] == 1:
             #    dxf_code.append("10")
@@ -1144,7 +1144,7 @@ class DXF_CLASS:
             dxf_code.append(" 62") #color code
             dxf_code.append("150")
             ###########################
-            
+
             dxf_code.append("100")
             dxf_code.append("AcDbLine")
             dxf_code.append(" 10")

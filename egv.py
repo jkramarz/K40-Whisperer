@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 '''
 This script reads/writes egv format
 
@@ -45,12 +45,12 @@ class egv:
         self.ON    = 68 #ord("D")=68
         self.OFF   = 85 #ord("U")=85
 
-        
+
         # % Yxtart % Xstart % Yend % Xend % I % C VXXXXXXX CUT_TYPE R YYY B XXX
 
         # %Ystart_pos %Xstart_pos %Yend_pos %Xend_pos  (start pos is the location of the head before the code is run)
         # value = 39.37 * position in mm (at least for 10mm)
-        
+
         # X/Y Start/End are the position in mm * 39.37
         # I is always I ?
         # C is C for cutting or Marking otherwise it is omitted
@@ -63,7 +63,7 @@ class egv:
 
         if angle_dirs==None:
             angle_dirs = [self.Modal_AX,self.Modal_AY]
-            
+
         if direction == self.Modal_dir         \
             and laser_on == self.Modal_on      \
             and angle_dirs[0] == self.Modal_AX \
@@ -78,7 +78,7 @@ class egv:
                 else:
                     self.write(self.OFF)
                 self.Modal_on = laser_on
-                    
+
             if direction == self.ANGLE:
                 if angle_dirs[0]!=self.Modal_AX:
                     self.write(angle_dirs[0])
@@ -86,7 +86,7 @@ class egv:
                 if angle_dirs[1]!=self.Modal_AY:
                     self.write(angle_dirs[1])
                     self.Modal_AY = angle_dirs[1]
-                
+
             self.Modal_dir  = direction
             self.Modal_dist = distance
 
@@ -94,10 +94,10 @@ class egv:
                 self.Modal_AX = direction
             if direction == self.UP or direction == self.DOWN:
                 self.Modal_AY = direction
-                
 
-        
-        
+
+
+
     def flush(self,laser_on=None):
         if self.Modal_dist > 0:
             self.write(self.Modal_dir)
@@ -111,7 +111,7 @@ class egv:
             self.Modal_on   = laser_on
         self.Modal_dist = 0
 
-        
+
     #  The one wire CRC algorithm is derived from the OneWire.cpp Library
     #  The library location: http://www.pjrc.com/teensy/td_libs_OneWire.html
     def OneWireCRC(self,line):
@@ -135,7 +135,7 @@ class egv:
         code = []
         v122 = 255
         dist_milsA = int(dist_mils)
-        
+
         for i in range(0,int(floor(dist_mils/v122))):
             code.append(122)
             dist_milsA = dist_milsA-v122
@@ -155,7 +155,7 @@ class egv:
         else:
             raise StandardError("Error in EGV make_distance_in(): dist_milsA=",dist_milsA)
         return code
-    
+
 
     def make_dir_dist(self,dxmils,dymils,laser_on=False):
         adx = abs(dxmils)
@@ -171,8 +171,8 @@ class egv:
                     self.move(self.RIGHT,adx,laser_on)
                 else:
                     self.move(self.LEFT ,adx,laser_on)
-            
-    
+
+
     def make_cut_line(self,dxmils,dymils):
         XCODE = self.RIGHT
         if dxmils < 0.0:
@@ -180,7 +180,7 @@ class egv:
         YCODE = self.UP
         if dymils < 0.0:
             YCODE = self.DOWN
-            
+
         if abs(dxmils-round(dxmils,0)) > 0.0 or abs(dymils-round(dymils,0)) > 0.0:
             raise StandardError('Distance values should be integer value (inches*1000)')
 
@@ -190,7 +190,7 @@ class egv:
         if dxmils == 0:
             self.move(YCODE,abs(dymils),laser_on=True)
         elif dymils == 0:
-            self.move(XCODE,abs(dxmils),laser_on=True)      
+            self.move(XCODE,abs(dxmils),laser_on=True)
         elif dxmils==dymils:
             self.move(self.ANGLE,abs(dxmils),laser_on=True,angle_dirs=[XCODE,YCODE])
         else:
@@ -238,7 +238,7 @@ class egv:
                 d2cnt=d2cnt+d2
                 d2=0.0
 
-        
+
             DX = d2cnt
             DY = (d1cnt+d2cnt)
             if adx < ady:
@@ -246,7 +246,7 @@ class egv:
             else:
                 error = max(DY-abs(dxmils),DX-abs(dymils))
             if error > 0:
-                print "egv.py: Error delta =", error 
+                print "egv.py: Error delta =", error
         #out_str=""
         #for c in cdata:
         #    out_str =out_str+"%s" %chr(c)
@@ -256,7 +256,7 @@ class egv:
 
         #return cdata
 
-        
+
     def make_speed(self,Feed=None,speed_text=None,Raster_step=0):
         #speed_text = "CV1752241021000191"
         speed=[]
@@ -277,7 +277,7 @@ class egv:
                 speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
             if Feed < 7:
                 speed_text = speed_text + "C"
-            
+
         print "speed_text=",speed_text
         for c in speed_text:
             speed.append(ord(c))
@@ -292,7 +292,7 @@ class egv:
             self.write(83)
             self.write(49)
             self.write(80)
-    
+
     def make_egv_data(self, ecoords_in,
                             startX=0,
                             startY=0,
@@ -319,15 +319,15 @@ class egv:
             speed = self.make_speed(Feed,speed_text=speed_text)
         else:
             speed = self.make_speed(Feed,Raster_step=Raster_step)
-            
+
         self.write(ord("I"))
         for code in speed:
             self.write(code)
-        
+
         lastx     = ecoords[0][0]
         lasty     = ecoords[0][1]
         loop_last = ecoords[0][2]
-                
+
         if Raster_step==0:
             self.make_dir_dist(lastx-startX,lasty-startY)
             self.flush(laser_on=False)
@@ -358,13 +358,13 @@ class egv:
                             self.rapid_move_slow(dx,dy)
                         else:
                             self.rapid_move_fast(dx,dy)
-                        
+
                 lastx   = ecoords[i][0]
                 lasty   = ecoords[i][1]
- 
+
             if laser:
                 laser = False
-                
+
             self.make_dir_dist(startX-lastx,startY-lasty)
               ###########################################################
         else: # Raster
@@ -381,10 +381,10 @@ class egv:
                 else:
                     scanline[-1].append(ecoords[i])
             ###################################################
-                
+
             lastx     = ecoords[0][0]
             lasty     = ecoords[0][1]
-        
+
             DXstart = lastx-startX
             DYstart = lasty-startY
             self.make_dir_dist(DXstart,DYstart)
@@ -452,9 +452,9 @@ class egv:
                     else:
                         self.make_dir_dist( dxr,0)
                     lastx = lastx+dxr
-                    
+
                 Rapid_flag=False
-                ######################################   
+                ######################################
                 for j in rng:
                     x  = scan[j][0]
                     dx = x - lastx
@@ -468,8 +468,8 @@ class egv:
                     lastx = x
                     loop_last=loop
                 lasty = y
-            
-            # Make final move to ensure last move is to the right 
+
+            # Make final move to ensure last move is to the right
             self.make_dir_dist(pad,0)
             lastx = lastx + pad
             # If sign is negative the final move will have incremented the
@@ -478,7 +478,7 @@ class egv:
                 lasty = lasty - Raster_step
 
             self.flush(laser_on=False)
-            
+
             self.write(ord("N"))
             dx_final = (startX - lastx)
             dy_final = (startY - lasty) - Raster_step
@@ -487,7 +487,7 @@ class egv:
             self.write(ord("S"))
             self.write(ord("E"))
             ###########################################################
-                        
+
         # Append Footer
         self.flush(laser_on=False)
         self.write(ord("F"))
@@ -533,7 +533,7 @@ class egv:
             self.write(self.LEFT)
         else:
             self.write(self.RIGHT)
-                            
+
     def test_move_calc(self):
         vals = [0.0033,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1,6.48,6.5,6.6,6.7,6.8,6.9,7,7.1,7.2,7.3,7.4,7.5,7.6,7.7,7.71,7.72,7.73,7.74,7.75,7.76,7.77,7.775,7.775,7.776,7.777,7.778,7.779,7.779,7.78,7.79,7.8,7.825,7.85,7.875,7.9,8,8.1,8.2,8.3,8.4,8.5,8.6,8.7,8.8,8.9,9,10,10.1,10.2,10.3,10.4,10.5,10.6,10.7,10.8,10.9,11,11.1,11.2,11.3,11.4,11.5,11.6,11.7,11.8,11.9,12,12.1,12.2,12.3,12.4,12.5,12.6,12.7,12.8,12.9,13,14,15,16,17,18,19,20,30,40,50,60,70,80,90,100]
         for i in vals:
@@ -543,7 +543,7 @@ class egv:
             for j in range(len(code_in)): #,len(code_mm))):
                 print code_in[j],
             print ""
-    
+
     def open_egv_file_print_feed(self,filename):
         #print "Opening file: ",filename
         try:
@@ -562,7 +562,7 @@ class egv:
                 cur=""
             cur = cur+c
             last = c
-            
+
         data.append(cur)
         print data[6]
 
@@ -609,16 +609,16 @@ class egv:
                 if NSE=="NSE":
                     cur=cur+" FNSE"
                     c=" "
-                    
+
             if c=="R" or c=="B" or c=="N":
                 cur=cur+" "+c+" "
             else:
                 cur=cur+c
             c = fin.read(1)
-            
+
 
         #print "%-20s  " %(header_pct),"%-3s" %(cut_code1),feed_rate, "%-10s" %(cut_code2), cur
-        
+
         #print "%-20s  " %(header_pct),
         #print "%-3s"    %(cut_code1),
         #print "%-10s"   %(feed_rate),
@@ -640,57 +640,57 @@ class egv:
         print "  ",feed_rate,
         print ""
 
-    
+
     def test_make_feed(self):
         data = []
-        data.append([5.00,  235, 238,   1,   6,   0, 223 ]) 
-        data.append([6.00,  239,  69,   1,   7,   0, 159 ]) 
-        data.append([6.40,  240,  80,   1,   7,   0, 149 ]) 
-        data.append([6.50,  240, 142,   1,   7,   0, 147 ]) 
-        data.append([6.60,  240, 202,   1,   7,   0, 145 ]) 
-        data.append([6.70,  241,   4,   1,   7,   0, 143 ]) 
-        data.append([6.80,  241,  60,   1,   7,   0, 140 ]) 
-        data.append([6.90,  241, 115,   1,   7,   0, 138 ]) 
-        data.append([6.95,  241, 141,   1,   7,   0, 137 ]) 
-        data.append([6.99,  241, 162,   1,   7,   0, 136 ]) 
-        data.append([7.00,   64,  54,   1,   8,   5, 155 ]) 
-        data.append([7.01,   64, 117,   1,   8,   5, 153 ]) 
-        data.append([7.02,   64, 180,   1,   8,   5, 151 ]) 
-        data.append([7.03,   64, 242,   1,   8,   5, 149 ]) 
-        data.append([7.04,   65,  48,   1,   8,   5, 147 ]) 
-        data.append([7.05,   65, 110,   1,   8,   5, 145 ]) 
-        data.append([7.10,   66, 162,   1,   8,   5, 135 ]) 
-        data.append([8.00,   85, 175,   1,   9,   4,  92 ]) 
-        data.append([9.00,  102,  99,   1,  10,   3, 125 ]) 
-        data.append([10.00,  115, 192,   1,  11,   2, 219 ]) 
-        data.append([15.00,  155, 213,   1,  16,   1,  79 ]) 
-        data.append([20.00,  175, 224,   1,  21,   0, 191 ]) 
-        data.append([21.00,  178, 189,   1,  22,   0, 174 ]) 
-        data.append([22.00,  181,  87,   1,  23,   0, 158 ]) 
-        data.append([25.40,  188, 168,   1,  26,   0, 121 ]) 
-        data.append([30.00,  195, 235,   2,  31,   0,  86 ]) 
-        data.append([40.00,  205, 240,   2,  41,   0,  49 ]) 
-        data.append([40.05,  205, 250,   2,  41,   0,  48 ]) 
-        data.append([40.06,  205, 252,   2,  41,   0,  48 ]) 
-        data.append([40.07,  205, 254,   2,  41,   0,  48 ]) 
-        data.append([40.08,  206,   0,   2,  41,   0,  48 ]) 
-        data.append([40.10,  206,   3,   2,  41,   0,  48 ]) 
-        data.append([40.33,  206,  47,   2,  41,   0,  48 ]) 
-        data.append([41.00,  206, 172,   2,  42,   0,  46 ]) 
-        data.append([42.00,  207,  95,   2,  43,   0,  44 ]) 
-        data.append([55.50,  214,  86,   2,  56,   0,  25 ]) 
-        data.append([70.00,  216, 211,   3,  71,   0,  16 ]) 
-        data.append([100.00,  221, 250,   3, 101,   0,   7 ]) 
-        data.append([105.00,  222, 141,   3, 106,   0,   7 ]) 
-        data.append([110.00,  223,  18,   3, 111,   0,   6 ]) 
-        data.append([195.00,  225, 214,   4, 128,   0,   3 ]) 
-        data.append([200.00,  225, 253,   4, 128,   0,   3 ]) 
-        data.append([254.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([255.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([300.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([350.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([400.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([500.00,  172, 224,   1,  20,   0, 211 ]) 
+        data.append([5.00,  235, 238,   1,   6,   0, 223 ])
+        data.append([6.00,  239,  69,   1,   7,   0, 159 ])
+        data.append([6.40,  240,  80,   1,   7,   0, 149 ])
+        data.append([6.50,  240, 142,   1,   7,   0, 147 ])
+        data.append([6.60,  240, 202,   1,   7,   0, 145 ])
+        data.append([6.70,  241,   4,   1,   7,   0, 143 ])
+        data.append([6.80,  241,  60,   1,   7,   0, 140 ])
+        data.append([6.90,  241, 115,   1,   7,   0, 138 ])
+        data.append([6.95,  241, 141,   1,   7,   0, 137 ])
+        data.append([6.99,  241, 162,   1,   7,   0, 136 ])
+        data.append([7.00,   64,  54,   1,   8,   5, 155 ])
+        data.append([7.01,   64, 117,   1,   8,   5, 153 ])
+        data.append([7.02,   64, 180,   1,   8,   5, 151 ])
+        data.append([7.03,   64, 242,   1,   8,   5, 149 ])
+        data.append([7.04,   65,  48,   1,   8,   5, 147 ])
+        data.append([7.05,   65, 110,   1,   8,   5, 145 ])
+        data.append([7.10,   66, 162,   1,   8,   5, 135 ])
+        data.append([8.00,   85, 175,   1,   9,   4,  92 ])
+        data.append([9.00,  102,  99,   1,  10,   3, 125 ])
+        data.append([10.00,  115, 192,   1,  11,   2, 219 ])
+        data.append([15.00,  155, 213,   1,  16,   1,  79 ])
+        data.append([20.00,  175, 224,   1,  21,   0, 191 ])
+        data.append([21.00,  178, 189,   1,  22,   0, 174 ])
+        data.append([22.00,  181,  87,   1,  23,   0, 158 ])
+        data.append([25.40,  188, 168,   1,  26,   0, 121 ])
+        data.append([30.00,  195, 235,   2,  31,   0,  86 ])
+        data.append([40.00,  205, 240,   2,  41,   0,  49 ])
+        data.append([40.05,  205, 250,   2,  41,   0,  48 ])
+        data.append([40.06,  205, 252,   2,  41,   0,  48 ])
+        data.append([40.07,  205, 254,   2,  41,   0,  48 ])
+        data.append([40.08,  206,   0,   2,  41,   0,  48 ])
+        data.append([40.10,  206,   3,   2,  41,   0,  48 ])
+        data.append([40.33,  206,  47,   2,  41,   0,  48 ])
+        data.append([41.00,  206, 172,   2,  42,   0,  46 ])
+        data.append([42.00,  207,  95,   2,  43,   0,  44 ])
+        data.append([55.50,  214,  86,   2,  56,   0,  25 ])
+        data.append([70.00,  216, 211,   3,  71,   0,  16 ])
+        data.append([100.00,  221, 250,   3, 101,   0,   7 ])
+        data.append([105.00,  222, 141,   3, 106,   0,   7 ])
+        data.append([110.00,  223,  18,   3, 111,   0,   6 ])
+        data.append([195.00,  225, 214,   4, 128,   0,   3 ])
+        data.append([200.00,  225, 253,   4, 128,   0,   3 ])
+        data.append([254.00,  172, 224,   1,  20,   0, 211 ])
+        data.append([255.00,  172, 224,   1,  20,   0, 211 ])
+        data.append([300.00,  172, 224,   1,  20,   0, 211 ])
+        data.append([350.00,  172, 224,   1,  20,   0, 211 ])
+        data.append([400.00,  172, 224,   1,  20,   0, 211 ])
+        data.append([500.00,  172, 224,   1,  20,   0, 211 ])
 
         for line in data:
             print "%8.3f " %(line[0]),
@@ -705,7 +705,7 @@ class egv:
             print feed
             #print "%5.2f %5.2f" %(feed[0], line[1]-feed)
 
-            
+
 if __name__ == "__main__":
 
     EGV=egv()
@@ -742,7 +742,7 @@ if __name__ == "__main__":
             print chr(n),
         print ""
 
-    
+
     #EGV.test_make_feed()
     print "DONE"
     print EGV.make_distance(round(131,0))
