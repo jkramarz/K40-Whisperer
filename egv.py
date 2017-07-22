@@ -72,7 +72,7 @@ class egv:
         else:
             speed = self.make_speed(Feed,Raster_step=Raster_step)
 
-        self.write(ord("I"))
+        self._write_string("I")
         for code in speed:
             self.write(code)
 
@@ -83,13 +83,7 @@ class egv:
         if Raster_step==0:
             self.make_dir_dist(lastx-startX,lasty-startY)
             self.flush(laser_on=False)
-            self.write(ord("N"))
-            self.write(ord("R"))
-            self.write(ord("B"))
-            # Insert "SIE"
-            self.write(ord("S"))
-            self.write(ord("1"))
-            self.write(ord("E"))
+            self._write_string("NRBS1E")
             ###########################################################
             laser   = False
             for i in range(1,len(ecoords)):
@@ -140,15 +134,8 @@ class egv:
             DXstart = lastx-startX
             DYstart = lasty-startY
             self.make_dir_dist(DXstart,DYstart)
-            #insert "NRB"
             self.flush(laser_on=False)
-            self.write(ord("N"))
-            self.write(ord("R"))
-            self.write(ord("B"))
-            # Insert "S1E"
-            self.write(ord("S"))
-            self.write(ord("1"))
-            self.write(ord("E"))
+            self._write_string("NRBS1E")
             dx_last   = 0
 
             sign = -1
@@ -176,11 +163,10 @@ class egv:
                     else:
                         yoffset = Raster_step
                     self.flush(laser_on=False)
-                    self.write(ord("N"))
+                    self._write_string("N")
                     self.make_dir_dist(0,dy+yoffset)
                     self.flush(laser_on=False)
-                    self.write(ord("S"))
-                    self.write(ord("E"))
+                    self._write_string("SE")
                     Rapid_flag=True
                     lasty = y
                 ######################################
@@ -231,21 +217,18 @@ class egv:
 
             self.flush(laser_on=False)
 
-            self.write(ord("N"))
+            sself._write_string("N")
             dx_final = (startX - lastx)
             dy_final = (startY - lasty) - Raster_step
             self.make_dir_dist(dx_final,dy_final)
             self.flush(laser_on=False)
-            self.write(ord("S"))
-            self.write(ord("E"))
+            self._write_string("SE")
             ###########################################################
 
         # Append Footer
         self.flush(laser_on=False)
-        self.write(ord("F"))
-        self.write(ord("N"))
-        self.write(ord("S"))
-        self.write(ord("E"))
+        self._write_string("FNSE")
+
         return
 
 
@@ -462,17 +445,15 @@ class egv:
             speed.append(ord(c))
         return speed
 
-
     def make_move_data(self,dxmils,dymils):
         if (abs(dxmils)+abs(dymils)) > 0:
             self.write(73) # I
             self.make_dir_dist(dxmils,dymils)
             self.flush()
-            self.write(83)
-            self.write(49)
-            self.write(80)
+            self._write_string("S1P")
+
+
     def rapid_move_slow(self,dx,dy):
-        #self.make_cut_line(dx,dy)
         self.make_dir_dist(dx,dy)
 
     def rapid_move_fast(self,dx,dy):
@@ -483,11 +464,19 @@ class egv:
         self.flush(laser_on=False)
 
         if dx+pad < 0.0:
-            self.write(ord("B"))
+            self._write_string("BN")
         else:
-            self.write(ord("T"))
-        self.write(ord("N"))
+            self._write_string("TN")
+
         self.make_dir_dist(dx+pad,dy-pad)
         self.flush(laser_on=False)
-        self.write(ord("S"))
-        self.write(ord("E"))
+
+        self._write_string("SE")
+
+
+    def _write_string(self, data):
+        for byte in map(
+            list(data),
+            ord
+        ):
+            self.write(byte)
