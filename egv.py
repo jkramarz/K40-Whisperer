@@ -45,7 +45,6 @@ class egv:
         self.ON    = 68 #ord("D")=68
         self.OFF   = 85 #ord("U")=85
 
-
     def make_egv_data(self, ecoords_in,
                             startX=0,
                             startY=0,
@@ -337,20 +336,21 @@ class egv:
 
 
     def make_dir_dist(self,dxmils,dymils,laser_on=False):
-        adx = abs(dxmils)
         ady = abs(dymils)
-        if adx > 0 or ady > 0:
-            if ady > 0:
-                if dymils > 0:
-                    self.move(self.UP  ,ady,laser_on)
-                else:
-                    self.move(self.DOWN,ady,laser_on)
-            if adx > 0:
-                if dxmils > 0:
-                    self.move(self.RIGHT,adx,laser_on)
-                else:
-                    self.move(self.LEFT ,adx,laser_on)
+        if ady > 0:
+            self.move(
+                self.UP if dymils > 0 else self.DOWN,
+                ady,
+                laser_on
+            )
 
+        adx = abs(dxmils)
+        if adx > 0:
+            self.move(
+                self.RIGHT if dymils > 0 else self.LEFT,
+                adx,
+                laser_on
+            )
 
     def make_cut_line(self,dxmils,dymils):
         XCODE = self.RIGHT
