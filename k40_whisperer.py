@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.01'
+version = '0.02'
 
 import sys
 from math import *
@@ -55,7 +55,7 @@ if VERSION < 3 and sys.version_info[1] < 6:
 try:
     import psyco
     psyco.full()
-    LOAD_MSG = LOAD_MSG+"Psyco Loaded\n"
+    LOAD_MSG = LOAD_MSG+"\nPsyco Loaded\n"
 except:
     pass
 
@@ -68,40 +68,19 @@ import getopt
 import operator
 import webbrowser
 
+
 PIL = True
-if PIL == True:
-    try:
-        from PIL import Image
-        from PIL import ImageTk
-        from PIL import ImageOps
-        from PIL import ImageEnhance
-        import _imaging
-    except:
-        try:
-            from PIL.Image import core as _imaging # for debian jessie
-        except:
-            PIL = False
+from PIL import Image
+from PIL import ImageTk
+#from PIL import ImageEnhance
+try:
+    import _imaging
+except:
+    PIL = False
 
 if PIL == False:
-    LOAD_MSG = LOAD_MSG+"PIL Failed to Load.\n"
-    
-NUMPY = True
-if NUMPY == True:
-    try:
-        try:
-            import numpy.numarray as numarray
-            import numpy.core
-            olderr = numpy.core.seterr(divide='ignore')
-            plus_inf = (numarray.array((1.,))/0.)[0]
-            numpy.core.seterr(**olderr)
-        except ImportError:
-            import numarray, numarray.ieeespecial
-            plus_inf = numarray.ieeespecial.inf
-    except:
-        NUMPY = False
-if NUMPY == False:
-    LOAD_MSG = LOAD_MSG+"NUMPY Failed to Load.\n"
-   
+    LOAD_MSG = LOAD_MSG+"\nPIL '_imaging' Failed to Load.\nRaster image with not display."
+       
 #raw_input("Press the <ENTER> key to continue...")
 
 #Setting QUIET to True will stop almost all console messages
@@ -155,6 +134,9 @@ class Application(Frame):
         self.rstep      = StringVar()
         self.funits     = StringVar()
 
+        self.intensity_min = StringVar()
+        self.intensity_max = StringVar()
+
         self.LaserXsize = StringVar()
         self.LaserYsize = StringVar()
 
@@ -182,6 +164,9 @@ class Application(Frame):
         self.Vcut_feed.set("10")
         self.jog_step.set("10.0")
         self.rstep.set("0.0508")
+
+        self.intensity_min.set("0")
+        self.intensity_max.set("100")
                                         
         self.board_name.set("LASER-M2") # Options are
                                         #    "LASER-M2",
@@ -224,8 +209,8 @@ class Application(Frame):
         self.Vcut_bounds = (0,0,0,0)
 
 
-        self.LaserXsize.set("300")
-        self.LaserYsize.set("200")
+        self.LaserXsize.set("325")
+        self.LaserYsize.set("220")
 
         self.gotoX.set("0.0")
         self.gotoY.set("0.0")
@@ -573,6 +558,11 @@ class Application(Frame):
         header.append('(k40_whisperer_set gotoX         %s )'  %( self.gotoX.get()          ))
         header.append('(k40_whisperer_set gotoY         %s )'  %( self.gotoY.get()          ))
 
+        header.append('(k40_whisperer_set intensity_min %s )'  %( self.intensity_min.get()  ))
+        header.append('(k40_whisperer_set intensity_max %s )'  %( self.intensity_max.get()  ))
+
+
+
         
         header.append('(k40_whisperer_set t_timeout     %s )'  %( self.t_timeout.get()      ))
         header.append('(k40_whisperer_set n_timeouts    %s )'  %( self.n_timeouts.get()     ))
@@ -652,13 +642,12 @@ class Application(Frame):
         xmin,xmax,ymin,ymax = self.Reng_bounds
         
         X = self.laserX + dx_inches
-        Y = self.laserY + dy_inches
-
         X = min(MAXX-(xmax-xmin),X)
-        Y = min(MAXY,Y)
-
         X = max(MINX,X)
+        
+        Y = self.laserY + dy_inches
         Y = max(MINY+(ymax-ymin),Y)
+        Y = min(MAXY,Y)
         
         X = round(X,3)
         Y = round(Y,3)
@@ -781,7 +770,18 @@ class Application(Frame):
         self.SCALE = 0
         self.menu_View_Refresh()
 
+    def Intensity_Min_Callback(self, varName=None, index=None, mode=None):
+        Imin = int(self.intensity_min.get())
+        Imax = int(self.intensity_max.get())
+        if Imax < Imin:
+            self.intensity_max.set(self.intensity_min.get())
 
+    def Intensity_Max_Callback(self, varName=None, index=None, mode=None):
+        Imin = int(self.intensity_min.get())
+        Imax = int(self.intensity_max.get())
+        if Imin > Imax:
+            self.intensity_min.set(self.intensity_max.get())
+            
     #############################
     def Entry_Timeout_Check(self):
         try:
@@ -1103,32 +1103,12 @@ class Application(Frame):
                     nw=int(wim / npixels)
                     nh=int(him / npixels)
                     image_temp = image_temp.resize((nw,nh))
+                    
                     image_temp = self.convert_halftoning(image_temp)
                     image_temp = image_temp.resize((wim,him))
                     #print time()-start
-                    #image_temp.save("halftone_out0.png", 'png')
 
-
-##                    start = time()
-##                    ht_size_mils =  round( 1000.0 / float(self.ht_size.get()) ,1)
-##                    npixels = int( round(ht_size_mils,1) )
-##                    if npixels == 0:
-##                        return
-##                    wim,him = image_temp.size
-##                    # Convert to Halftoning and save
-##                    nw=int(wim / npixels)
-##                    nh=int(him / npixels)
-##                    image_temp = image_temp.resize((nw,nh))
-##                    image_temp = image_temp.convert("1")
-##                    image_temp = image_temp.resize((wim,him))
-##                    image_temp = image_temp.convert("L")
-##                    print time()-start
-##                    image_temp.save("halftone_out1.png", 'png')
-
-
-                      
-                #image_temp.save("halftone_out.png", 'png')
-                Reng_np = numpy.asarray(image_temp)
+                Reng_np = image_temp.load()
                 #######################################
                 x=0
                 y=0
@@ -1140,14 +1120,14 @@ class Application(Frame):
                     self.master.update()
                     line = []
                     cnt=1
-                    for j in range(self.wim):
-                        if (Reng_np[i,j] == Reng_np[i,j-1]):
+                    for j in range(1,self.wim):
+                        if (Reng_np[j,i] == Reng_np[j-1,i]):
                             cnt = cnt+1
                         else:
-                            laser = "U" if Reng_np[i,j-1] > cutoff else "D"
+                            laser = "U" if Reng_np[j-1,i] > cutoff else "D"
                             line.append((cnt,laser))
                             cnt=1
-                    laser = "U" if Reng_np[i,j-1] > cutoff else "D"
+                    laser = "U" if Reng_np[j-1,i] > cutoff else "D"
                     line.append((cnt,laser))
                     
                     y=(self.him-i)/1000.0
@@ -1182,6 +1162,22 @@ class Application(Frame):
         x_lim, y_lim = image.size
         pixel = image.load()
 
+
+        Imin = float(self.intensity_min.get())
+        Imax = float(self.intensity_max.get())
+        if round(Imin) > 0 or round(Imin) < 100:
+            Slope = (Imax-Imin)/100.0
+            for y in range(1, y_lim):
+                self.statusMessage.set("Raster Engraving: Adjusting Image Intensity: %.1f %%" %( (100.0*y)/y_lim ) )
+                self.master.update()
+                for x in range(1, x_lim):
+                    pix_in = pixel[x, y]
+                    if pix_in < 253:
+                        Vi = ( 255 - float(pix_in) )*100.0/255.0
+                        Vo = Vi*Slope+Imin
+                        pixel[x, y] = 255-int(Vo*255.0/100.0)
+        image.save("adjusted.png","PNG")
+                    
         for y in range(1, y_lim):
             self.statusMessage.set("Raster Engraving: Creating Halftone Image: %.1f %%" %( (100.0*y)/y_lim ) )
             self.master.update()
@@ -1288,6 +1284,11 @@ class Application(Frame):
                 elif "gotoY"    in line:
                      self.gotoY.set(line[line.find("gotoY"):].split()[1])
 
+                elif "intensity_min"    in line:
+                     self.intensity_min.set(line[line.find("intensity_min"):].split()[1])
+                elif "intensity_max"    in line:
+                     self.intensity_max.set(line[line.find("intensity_max"):].split()[1])
+        
                 elif "t_timeout"    in line:
                      self.t_timeout.set(line[line.find("t_timeout"):].split()[1])
                 elif "n_timeouts"    in line:
@@ -1763,9 +1764,9 @@ class Application(Frame):
             self.master.update()
             self.stop[0]=False
 
-        self.statusMessage.set("Saving Data to File....")
-        self.write_egv_to_file(data)
-        self.statusMessage.set("Done Saving Data to File....")
+        #self.statusMessage.set("Saving Data to File....")
+        #self.write_egv_to_file(data)
+        #self.statusMessage.set("Done Saving Data to File....")
         #self.set_gui("normal")
         self.stop[0]=False
         self.menu_View_Refresh()
@@ -2047,10 +2048,20 @@ class Application(Frame):
             self.Label_Halftone_DPI.configure(state="normal")
             self.Halftone_DPI_OptionMenu.configure(state="normal")
             self.Label_Halftone_u.configure(state="normal")
+            self.Label_Intensity_Min.configure(state="normal")
+            self.Intensity_Min_Slider.configure(state="normal")
+            self.Label_Intensity_Max.configure(state="normal")
+            self.Intensity_Max_Slider.configure(state="normal")
+        
         else:
             self.Label_Halftone_DPI.configure(state="disabled")
             self.Halftone_DPI_OptionMenu.configure(state="disabled")
             self.Label_Halftone_u.configure(state="disabled")
+            self.Label_Intensity_Min.configure(state="disabled")
+            self.Intensity_Min_Slider.configure(state="disabled")
+            self.Label_Intensity_Max.configure(state="disabled")
+            self.Intensity_Max_Slider.configure(state="disabled")
+
             
     def Set_Input_States_RASTER_Event(self,event):
         self.Set_Input_States_RASTER()
@@ -2352,7 +2363,9 @@ class Application(Frame):
     #                          Raster Settings Window                              #
     ################################################################################
     def RASTER_Settings_Window(self):
-        raster_settings = Toplevel(width=300, height=200)
+        Wset=425
+        Hset=260
+        raster_settings = Toplevel(width=Wset, height=Hset)
         raster_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
         raster_settings.resizable(0,0)
         raster_settings.title('Raster Settings')
@@ -2377,7 +2390,7 @@ class Application(Frame):
         D_dY = 24
         xd_label_L = 12
 
-        w_label=110
+        w_label=125
         w_entry=60
         w_units=35
         xd_entry_L=xd_label_L+w_label+10
@@ -2422,7 +2435,29 @@ class Application(Frame):
         self.Label_Halftone_u = Label(raster_settings,text="dpi", anchor=W)
         self.Label_Halftone_u.place(x=xd_units_L+30, y=D_Yloc, width=w_units, height=21)
 
+
         ############
+        D_Yloc=D_Yloc+D_dY-4
+        self.Label_Intensity_Min  = Label(raster_settings,text="Min Darkness % (0)", anchor=CENTER )
+        self.Intensity_Min_Slider = Scale(raster_settings, from_=0, to=100, orient=HORIZONTAL, variable=self.intensity_min)
+        #self.Intensity_Min_Slider.set(255)
+        self.Intensity_Min_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25 ))
+        D_Yloc=D_Yloc+21
+        self.Label_Intensity_Min.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.intensity_min.trace_variable("w", self.Intensity_Min_Callback)
+        
+        D_Yloc=D_Yloc+D_dY-8
+        self.Label_Intensity_Max  = Label(raster_settings,text="Max Darkness % (100)", anchor=CENTER )
+        self.Intensity_Max_Slider = Scale(raster_settings, from_=0, to=100, orient=HORIZONTAL, variable=self.intensity_max)
+        #self.Intensity_Max_Slider.set(255)
+        self.Intensity_Max_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25 ))
+        D_Yloc=D_Yloc+21
+        self.Label_Intensity_Max.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.intensity_max.trace_variable("w", self.Intensity_Max_Callback)
+        
+        
+
+        
 
 
         ## Buttons ##
@@ -2433,6 +2468,7 @@ class Application(Frame):
         self.RASTER_Close = Button(raster_settings,text="Close",command=self.Close_Current_Window_Click)
         self.RASTER_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
 
+        self.Intensity_Min_Callback()
         self.Set_Input_States_RASTER()
 
         

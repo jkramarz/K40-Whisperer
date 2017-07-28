@@ -30,18 +30,7 @@ import simpletransform
 import cubicsuperpath
 import cspsubdiv
 
-PIL = True
-if PIL == True:
-    try:
-        from PIL import Image
-        from PIL import ImageTk
-        from PIL import ImageOps
-        import _imaging
-    except:
-        PIL = False
-        print "PIL not loaded"
-
-
+from PIL import Image
 
 try:
     inkex.localize()
@@ -296,7 +285,6 @@ class SVG_READER(inkex.Effect):
         if trans:
             self.groupmat.pop()
             
-            
     def Make_PNG(self):
         #create OS temp folder
         tmp_dir = tempfile.mkdtemp()
@@ -312,13 +300,12 @@ class SVG_READER(inkex.Effect):
                         "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
                         "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
-                self.raster_PIL = Image.open(png_temp_file)
-                self.raster_PIL = self.raster_PIL.convert("L")
             except:
                 raise StandardError("Inkscape Execution Failed.")
+            self.raster_PIL = Image.open(png_temp_file)
+            self.raster_PIL = self.raster_PIL.convert("L")
         else:
             raise StandardError("Inkscape Not found.")
-            
         try:
             shutil.rmtree(tmp_dir) 
         except:
@@ -330,7 +317,7 @@ class SVG_READER(inkex.Effect):
         # a dictionary of unit to user unit conversion factors
         uuconv = {'in': 25.4,
                   'pt': 25.4/72.0,
-                  'px': 25.4/self.inkscape_dpi,
+                  #'px': 25.4/self.inkscape_dpi,
                   'mm': 1.0,
                   'cm': 10.0,
                   'm' : 1000.0,
@@ -383,9 +370,9 @@ class SVG_READER(inkex.Effect):
     
     def make_paths(self):
         msg               = ""
-        self.inkscape_dpi = 96.0 
+        #self.inkscape_dpi = 96.0 
         self.txt2paths    = False
-        
+ 
         if (self.txt2paths):
             self.convert_text2paths()
             
@@ -400,19 +387,25 @@ class SVG_READER(inkex.Effect):
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
         except:
-            raise StandardError('Units not set in SVG File')
-
+            raise StandardError("Units not set in SVG File.\n\nIn Inkscape: 'File'-'Document Properties'-'Units'\n(set to 'mm' or 'in' in the 'Custom Size' region on the 'Page' tab)")
+        
         
         try:
             view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
             view_box_list = view_box_str.split(' ')
             Wpix = float(view_box_list[2])
             Hpix = float(view_box_list[3])
-            scale = h_mm/Hpix
-            Dx = float(view_box_list[0]) / ( float(view_box_list[2])/w_mm )
-            Dy = float(view_box_list[1]) / ( float(view_box_list[3])/h_mm )
+            scale_h = h_mm/Hpix
+            scale_w = w_mm/Wpix
         except:
-            raise StandardError('Cannot determine SVG scale.')
+            raise StandardError("Cannot determine SVG scale.\n\nIn Inkscape: 'File'-'Document Properties'-'Units'\n(set to 'mm' or 'in' in the 'Custom Size' region on the 'Page' tab)")
+        
+        if abs(1.0-scale_h/scale_w) > .01:
+            raise StandardError("SVG Files with different scales in X and Y are not supported.\n\nIn Inkscape v0.92): 'File'-'Document Properties'-'Scale'(on the 'Page' tab adjust the scale)")
+
+        Dx = float(view_box_list[0]) * scale_w
+        Dy = float(view_box_list[1]) * scale_h
+        
         
         for node in self.document.getroot().xpath('//svg:g', namespaces=inkex.NSS):
             if node.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
@@ -427,8 +420,8 @@ class SVG_READER(inkex.Effect):
                 if layer and not layer in self.layers:
                     self.layers.append(layer)
 
-        self.groupmat = [[[scale,    0.0,  0.0-Dx],
-                          [0.0  , -scale, h_mm+Dy]]]
+        self.groupmat = [[[scale_w,    0.0,  0.0-Dx],
+                          [0.0  , -scale_h, h_mm+Dy]]]
         #doc = self.document.getroot()
         self.process_group(self.document.getroot())
 
