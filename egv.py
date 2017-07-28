@@ -278,7 +278,6 @@ class egv:
             if Feed < 7:
                 speed_text = speed_text + "C"
             
-        print "speed_text=",speed_text
         for c in speed_text:
             speed.append(ord(c))
         return speed
@@ -423,13 +422,34 @@ class egv:
                         yoffset = Raster_step*3
                     else:
                         yoffset = Raster_step
-                    self.flush(laser_on=False)
-                    self.write(ord("N"))
-                    self.make_dir_dist(0,dy+yoffset)
-                    self.flush(laser_on=False)
-                    self.write(ord("S"))
-                    self.write(ord("E"))
-                    Rapid_flag=True
+                    
+                    if (dy+yoffset) < 0:
+                        self.flush(laser_on=False)
+                        self.write(ord("N"))
+                        self.make_dir_dist(0,dy+yoffset)
+                        self.flush(laser_on=False)
+                        self.write(ord("S"))
+                        self.write(ord("E"))
+                        Rapid_flag=True
+                    else:
+                        adj_steps = -dy/Raster_step
+                        #print "Raster_step = ",Raster_step
+                        #print "dy = "         ,dy
+                        #print "adj_steps = "  ,adj_steps
+                        
+                        for stp in range(1,adj_steps):
+                            #print "stp= ",stp
+                            adj_dist=1000
+                            self.make_dir_dist(sign*adj_dist,0)
+                            lastx = lastx + sign*adj_dist
+                            ##
+                            sign  = -sign
+                            if sign == 1:
+                                xr = scan[0][0]
+                            else:
+                                xr = scan[-1][0]
+                            dxr = xr - lastx
+                            ##
                     lasty = y
                 ######################################
                 if sign == 1:
@@ -442,10 +462,6 @@ class egv:
                 pad = 2
                 if (dxr*sign <= 0.0):
                     if (Rapid_flag == False):
-                        #print dxr,sign
-                        #self.write(ord("_"))
-                        #self.make_dir_dist(-sign*2    ,0)
-                        #self.make_dir_dist( sign*2+dxr,0)
                         self.make_dir_dist(-sign*pad,0)
                         self.make_dir_dist( dxr,0)
                         self.make_dir_dist( sign*pad,0)

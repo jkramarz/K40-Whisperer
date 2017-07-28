@@ -1,0 +1,8 @@
+Version 0.01:
+- Initial Release
+
+Version 0.02:
+- Added Min/Max darkness cutoff settings for halftone raster images.
+- Fixed bug that could cause raster engraving to start engraving the wrong direction.
+- Fixed error messages and added better error messages.
+- Removed dependency on Numpy.
