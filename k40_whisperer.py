@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.02'
+version = '0.03'
 
 import sys
 from math import *
@@ -1840,7 +1840,10 @@ class Application(Frame):
             self.k40.say_hello()
             self.Home()
         except StandardError as e:
-            self.statusMessage.set("USB Error: %s" %(e))
+            error_text = "%s" %(e)
+            if "BACKEND" in error_text.upper():
+                error_text = error_text + " (libUSB driver not installed)"
+            self.statusMessage.set("USB Error: %s" %(error_text))
             self.statusbar.configure( bg = 'red' )
             self.k40=None
         except:
