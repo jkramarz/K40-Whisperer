@@ -59,7 +59,6 @@ class K40_CLASS:
 
         ep = usb.util.find_descriptor(
             cfg[(0,0)],
-            intf,
             # match the first OUT endpoint
             custom_match = \
             lambda e: \
@@ -132,7 +131,7 @@ class K40_CLASS:
 
     def _data_to_packets(self, data):
         for i in xrange(0, len(data), self.packet_data_length):
-            yield _decorate_packet(
+            yield self._decorate_packet(
                     data[i:i + self.packet_data_length],
                 )
 
