@@ -439,7 +439,7 @@ class egv:
                         
                         for stp in range(1,adj_steps):
                             #print "stp= ",stp
-                            adj_dist=1000
+                            adj_dist=5
                             self.make_dir_dist(sign*adj_dist,0)
                             lastx = lastx + sign*adj_dist
                             ##

@@ -6,3 +6,8 @@ Version 0.02:
 - Fixed bug that could cause raster engraving to start engraving the wrong direction.
 - Fixed error messages and added better error messages.
 - Removed dependency on Numpy.
+
+Version 0.03:
+- Added more descriptive test to "No Backend Error" to indicate libUSB is not installed
+- Removed debugging code that could have resulted in the head moving 1" away from raster image.
+- Updated Raster test pattern SVG
