@@ -50,8 +50,8 @@ class egv:
                             startY=0,
                             units = 'in',
                             Feed = None,
-                            speed_text="V1752241021000191",
-                            Raster_step=0, dpi=1000):
+                            Raster_step=0,
+                            dpi=1000):
         ########################################################
         if units == 'in':
             scale = float(dpi)
@@ -67,14 +67,12 @@ class egv:
         startY = int(round(startY*scale,0))
 
         ########################################################
-        if Feed==None:
-            speed = self.make_speed(Feed,speed_text=speed_text)
-        else:
-            speed = self.make_speed(Feed,Raster_step=Raster_step)
 
         self._write_string("I")
-        for code in speed:
-            self.write(code)
+
+        self._write_string(
+            self._make_speed(Feed, Raster_step)
+        )
 
         lastx     = ecoords[0][0]
         lasty     = ecoords[0][1]
@@ -217,7 +215,7 @@ class egv:
 
             self.flush(laser_on=False)
 
-            sself._write_string("N")
+            self._write_string("N")
             dx_final = (startX - lastx)
             dy_final = (startY - lasty) - Raster_step
             self.make_dir_dist(dx_final,dy_final)
@@ -279,9 +277,9 @@ class egv:
             self.Modal_dir  = direction
             self.Modal_dist = distance
 
-            if direction == self.RIGHT or direction == self.LEFT:
+            if direction in (self.RIGHT, self.LEFT):
                 self.Modal_AX = direction
-            if direction == self.UP or direction == self.DOWN:
+            if direction in (self.UP, self.DOWN):
                 self.Modal_AY = direction
 
     def flush(self,laser_on=None):
@@ -330,7 +328,7 @@ class egv:
         adx = abs(dxmils)
         if adx > 0:
             self.move(
-                self.RIGHT if dymils > 0 else self.LEFT,
+                self.RIGHT if dxmils > 0 else self.LEFT,
                 adx,
                 laser_on
             )
@@ -409,49 +407,37 @@ class egv:
                 error = max(DY-abs(dxmils),DX-abs(dymils))
             if error > 0:
                 print "egv.py: Error delta =", error
-        #out_str=""
-        #for c in cdata:
-        #    out_str =out_str+"%s" %chr(c)
-        #print out_str
-        #print "error = ",error
-        #return str #,DX,DY,error
 
-        #return cdata
+    def _make_speed(self, feed_rate, raster_step):
 
+        if feed_rate < 7:
+            B = 255.97
+            M = 100.21
+        else:
+            B = 236.0
+            M = 1202.5
 
-    def make_speed(self,Feed=None,speed_text=None,Raster_step=0):
-        #speed_text = "CV1752241021000191"
-        speed=[]
-        if speed_text==None:
-            if Feed < 7:
-                B = 255.97
-                M = 100.21
-            else:
-                B = 236
-                M = 1202.5
-            V  = B-M/Feed
-            C1 = floor(V)
-            C2 = floor((V-C1)*255)
-            if Raster_step==0:
-                speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
-                #speed_text = "CV1752241021000191"
-            else:
-                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
-            if Feed < 7:
-                speed_text = speed_text + "C"
+        V  = B-M/feed_rate
+        C1 = floor(V)
+        C2 = floor((V-C1)*255)
 
-        print "speed_text=",speed_text
-        for c in speed_text:
-            speed.append(ord(c))
-        return speed
+        if raster_step==0:
+            speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
+        else:
+            speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,raster_step)
+
+        if feed_rate < 7:
+            speed_text = speed_text + "C"
+
+        return speed_text
+
 
     def make_move_data(self,dxmils,dymils):
         if (abs(dxmils)+abs(dymils)) > 0:
-            self.write(73) # I
+            self._write_string("I")
             self.make_dir_dist(dxmils,dymils)
             self.flush()
             self._write_string("S1P")
-
 
     def rapid_move_slow(self,dx,dy):
         self.make_dir_dist(dx,dy)
@@ -476,7 +462,6 @@ class egv:
 
     def _write_string(self, data):
         for byte in map(
-            list(data),
-            ord
+            ord, list(data),
         ):
             self.write(byte)
