@@ -152,9 +152,9 @@ class BSplineClass:
 
         # Incoming inspection, fit the upper node number, etc.
         if  self.Knots_len< self.degree+1:
-            fmessage("SPLINE: degree greater than number of control points.")
+            raise StandardError("SPLINE: degree greater than number of control points.")
         if self.Knots_len != (self.CPts_len + self.degree+1):
-            fmessage("SPLINE: Knot/Control Point/degree number error.")
+            raise StandardError("SPLINE: Knot/Control Point/degree number error.")
 
     #Modified Version of Algorithm A3.2 from "THE NURBS BOOK" pg.93
     def bspline_ders_evaluate(self,n=0,u=0):
@@ -198,6 +198,8 @@ class BSplineClass:
             else:
                 low=mid
             mid=int((low+high)/2)
+            if low==high: #new
+                break     #new
         return mid
 
     #Algorithm A2.3 from "THE NURBS BOOK" pg.72
@@ -359,7 +361,11 @@ class Blocks:
 
 class DXF_CLASS:
     def __init__(self):
+        self.units = 0
+        self.dxf_messages = ""
         self.coords = []
+        self.cut_coords = []
+        self.eng_coords = []
         strings = []
         floats = []
         ints = []
@@ -368,9 +374,9 @@ class DXF_CLASS:
         floats += list(range(10, 60))     #Double precision 3D point
         ints += list(range(60, 80))       #16-bit integer value
         ints += list(range(90,100))       #32-bit integer value
-        strings += [100]            #String (255 characters maximum; less for Unicode strings)
-        strings += [102]            #String (255 characters maximum; less for Unicode strings
-        strings += [105]            #String representing hexadecimal (hex) handle value
+        strings += [100]                  #String (255 characters maximum; less for Unicode strings)
+        strings += [102]                  #String (255 characters maximum; less for Unicode strings
+        strings += [105]                  #String representing hexadecimal (hex) handle value
         floats += list(range(140, 148))   #Double precision scalar floating-point value
         ints += list(range(170, 176))     #16-bit integer value
         ints += list(range(280, 290))     #8-bit integer value
@@ -378,11 +384,12 @@ class DXF_CLASS:
         strings += list(range(310, 320))  #String representing hex value of binary chunk
         strings += list(range(320, 330))  #String representing hex handle value
         strings += list(range(330, 369))  #String representing hex object IDs
-        strings += [999]            #Comment (string)
+        strings += [999]                  #Comment (string)
         strings += list(range(1000, 1010))#String (255 characters maximum; less for Unicode strings)
         floats += list(range(1010, 1060)) #Floating-point value
         ints += list(range(1060, 1071))   #16-bit integer value
-        ints += [1071]              #32-bit integer value
+        ints += [1071]                    #32-bit integer value
+
 
         self.funs = []
         for i in range(0,1072):
@@ -397,6 +404,22 @@ class DXF_CLASS:
         for i in ints:
             self.funs[i] = self.read_int
 
+        self.unit_vals = ["Unitless",
+                     "Inches",
+                     "Feet",
+                     "Miles",
+                     "Millimeters",
+                     "Centimeters",
+                     "Meters",
+                     "Kilometers",
+                     "Microinches",
+                     "Mils"]
+        self.POLY_FLAG   = None
+        self.POLY_CLOSED = None
+
+    def dxf_message(self,text):
+        self.dxf_messages = self.dxf_messages + "\n" + text
+        
     def read_int(self,data):
         return int(float(data))
 
@@ -513,7 +536,7 @@ class DXF_CLASS:
         bcoords.append([xa,ya,x1,y1])
         return bcoords
 
-    def add_coords(self,line,offset,scale,rotate):
+    def add_coords(self,line,offset,scale,rotate,color=0,layer=0):
         x0s = line[0]*scale[0]
         y0s = line[1]*scale[1]
         x1s = line[2]*scale[0]
@@ -536,16 +559,41 @@ class DXF_CLASS:
         x1 = x1r + offset[0]
         y1 = y1r + offset[1]
 
+        # Check if line is blue
+        Color_Blue    = (color == 5) or (color >= 140 and color <=180)
+        try:
+            Layer_Engrave = str.find(layer.upper(),'ENGRAVE') != -1
+        except:
+            Layer_Engrave = False
+            try:
+                for lay in layer:
+                    Layer_Engrave = (str.find(lay.upper(),'ENGRAVE') != -1) or Layer_Engrave
+            except:
+                pass
+            
+        if Color_Blue or Layer_Engrave:
+            self.eng_coords.append([x0,y0,x1,y1])
+        else: #if (color >= 10 and color <=28) or (color >= 230 and color <=249): #red
+            self.cut_coords.append([x0,y0,x1,y1])
+            
         self.coords.append([x0,y0,x1,y1])
 
     def eval_entity(self,e,bl,tol_deg=5,offset=[0,0],scale=[1,1],rotate=0):
+        try:
+            color = e.data["62"]
+        except:
+            color = 0
+        try:
+            layer = e.data["8"]
+        except:
+            layer = 0
         ############# LINE ############
         if e.type == "LINE":
             x0 = e.data["10"]
             y0 = e.data["20"]
             x1 = e.data["11"]
             y1 = e.data["21"]
-            self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+            self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
         ############# ARC #############
         elif e.type == "ARC":
             x     = e.data["10"]
@@ -570,7 +618,7 @@ class DXF_CLASS:
                 phi = start_r + pcnt*step_phi
                 x1 = x + r * cos(phi)
                 y1 = y + r * sin(phi)
-                self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                 x0=x1
                 y0=y1
                 pcnt += 1
@@ -597,9 +645,9 @@ class DXF_CLASS:
                     if bulge0 != 0:
                         bcoords = self.bulge_coords(x0,y0,x1,y1,bulge0,tol_deg)
                         for line in bcoords:
-                            self.add_coords(line,offset,scale,rotate)
+                            self.add_coords(line,offset,scale,rotate,color,layer)
                     else:
-                        self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                        self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                     x0     = x1
                     y0     = y1
                     bulge0 = bulge1
@@ -610,9 +658,9 @@ class DXF_CLASS:
                 if bulge0 != 0:
                     bcoords = self.bulge_coords(x0,y0,x1,y1,bulge1,tol_deg)
                     for line in bcoords:
-                        self.add_coords(line,offset,scale,rotate)
+                        self.add_coords(line,offset,scale,rotate,color,layer)
                 else:
-                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
         ########### CIRCLE ############
         elif e.type == "CIRCLE":
             x = e.data["10"]
@@ -637,7 +685,7 @@ class DXF_CLASS:
                 phi = start_r + pcnt*step_phi
                 x1 = x + r * cos(phi)
                 y1 = y + r * sin(phi)
-                self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                 x0=x1
                 y0=y1
                 pcnt += 1
@@ -678,7 +726,7 @@ class DXF_CLASS:
                     y0=y1
                     flag=1
                 else:
-                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                     x0=x1
                     y0=y1
 
@@ -742,7 +790,7 @@ class DXF_CLASS:
                     step = step/2
                 else:
                     phi+=step
-                    self.add_coords([x1,y1,x2,y2],offset,scale,rotate)
+                    self.add_coords([x1,y1,x2,y2],offset,scale,rotate,color,layer)
                     step = step*2
                     x1=x2
                     y1=y2
@@ -781,7 +829,7 @@ class DXF_CLASS:
                 phi = start_r + pcnt*step_phi
                 x1 = xcp + ( a*cos(phi) * cos(rotation) - b*sin(phi) * sin(rotation) );
                 y1 = ycp + ( a*cos(phi) * sin(rotation) + b*sin(phi) * cos(rotation) );
-                self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                 x0=x1
                 y0=y1
                 pcnt += 1
@@ -797,7 +845,7 @@ class DXF_CLASS:
                     y0=y1
                     flag=1
                 else:
-                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
                     x0=x1
                     y0=y1
 
@@ -812,7 +860,7 @@ class DXF_CLASS:
                 elif (TYPE==1):
                     self.POLY_CLOSED=1
                 else:
-                    fmessage("DXF Import Ignored: - %s - Entity" %(e.type))
+                    self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
                     self.POLY_FLAG = 0
             except:
                 pass
@@ -831,12 +879,12 @@ class DXF_CLASS:
                     if self.bulge != 0:
                         bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,tol_deg)
                         for line in bcoords:
-                            self.add_coords(line,offset,scale,rotate)
+                            self.add_coords(line,offset,scale,rotate,color,layer)
                     else:
-                        self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                        self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
 
             else:
-                fmessage("DXF Import Ignored: - %s - Entity" %(e.type))
+                self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
 
         ########### VERTEX ###########
         elif e.type == "VERTEX":
@@ -863,16 +911,16 @@ class DXF_CLASS:
                 if self.bulge != 0:
                     bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,tol_deg)
                     for line in bcoords:
-                        self.add_coords(line,offset,scale,rotate)
+                        self.add_coords(line,offset,scale,rotate,color,layer)
                 else:
-                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
+                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
 
                 try:
                     self.bulge = e.data["42"]
                 except:
                     self.bulge = 0
             else:
-                fmessage("DXF Import Ignored: - %s - Entity" %(e.type))
+                self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
                 pass
         ########### END VERTEX ###########
         ########### INSERT ###########
@@ -894,15 +942,44 @@ class DXF_CLASS:
             except:
                 rotate = 0
 
+            try:
+                x_block_ref = bl.blocks[key].data.get("10")
+                y_block_ref = bl.blocks[key].data.get("20")
+            except:
+                x_block_ref = 0
+                y_block_ref = 0
+
+            xoff = xoff - x_block_ref
+            yoff = yoff - y_block_ref
+            
             for e in bl.blocks[key].entities:
                 self.eval_entity(e,bl,tol_deg,offset=[xoff,yoff],scale=[xscale,yscale],rotate=rotate)
 
         ########### END INSERT ###########
+
+        elif e.type == "SOLID":
+            x0 = e.data["10"]
+            y0 = e.data["20"]
+            x1 = e.data["11"]
+            y1 = e.data["21"]
+            x2 = e.data["12"]
+            y2 = e.data["22"]
+            try:
+                x3 = e.data["13"]
+                y3 = e.data["23"]
+            except:
+                x3 = x2
+                y3 = y2
+            self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
+            self.add_coords([x1,y1,x3,y3],offset,scale,rotate,color,layer)
+            self.add_coords([x3,y3,x2,y2],offset,scale,rotate,color,layer)
+            self.add_coords([x2,y2,x0,y0],offset,scale,rotate,color,layer)
+
         elif e.type == "HATCH":
             #quietly ignore HATCH
             pass
         else:
-            fmessage("DXF Import Ignored: %s Entity" %(e.type))
+            self.dxf_message("DXF Import Ignored: %s Entity" %(e.type))
             pass
 
 
@@ -912,7 +989,7 @@ class DXF_CLASS:
         try:
             self.read_dxf_data(fd, data)
         except:
-            fmessage("\nUnable to read input DXF data!")
+            self.dxf_message("\nUnable to read input DXF data!")
             return 1
         data = iter(data)
         g_code, value = None, None
@@ -976,7 +1053,12 @@ class DXF_CLASS:
                         g_code, value = next(data)
                     except:
                         break
-
+        try:
+            unit_val = he.variables.get("$INSUNITS").get("70")
+            self.units = self.unit_vals[int(unit_val)]
+        except:
+            self.units = self.unit_vals[0]
+            
         for e in en.entities:
             self.eval_entity(e,bl,tol_deg)
 
@@ -1006,6 +1088,36 @@ class DXF_CLASS:
         return coords_out
 
 
+    def DXF_COORDS_GET_TYPE(self,engrave=True,new_origin=True):
+        if engrave==True:
+            coords = self.eng_coords
+        else:
+            coords = self.cut_coords
+        
+        if (new_origin==True):
+            ymin=99999
+            xmin=99999
+            for line in coords:
+                XY=line
+                if XY[0] < xmin:
+                        xmin = XY[0]
+                if XY[1] < ymin:
+                        ymin = XY[1]
+                if XY[2] < xmin:
+                        xmin = XY[2]
+                if XY[3] < ymin:
+                        ymin = XY[3]
+        else:
+            xmin=0
+            ymin=0
+
+        coords_out=[]
+        for line in coords:
+            XY=line
+            coords_out.append([XY[0]-xmin, XY[1]-ymin, XY[2]-xmin, XY[3]-ymin])
+        return coords_out
+
+
 
     ##################################################
     ###  Begin Dxf_Write G-Code Writing Function   ###
@@ -1018,7 +1130,7 @@ class DXF_CLASS:
         dxf_code = []
         # Create a header section just in case the reading software needs it
         dxf_code.append("999")
-        dxf_code.append("DXF created by G-Code Ripper <by Scorch, www.scorchworks.com>")
+        dxf_code.append("DXF created by dxf library <by Scorch, www.scorchworks.com>")
         
         dxf_code.append("0")
         dxf_code.append("SECTION")
@@ -1168,3 +1280,4 @@ class DXF_CLASS:
         ## END G-CODE WRITING for Dxf_Write ##
         ######################################
         return dxf_code
+

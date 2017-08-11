@@ -129,7 +129,7 @@ class egv:
     def make_distance(self,dist_mils):
         dist_mils=float(dist_mils)
         if abs(dist_mils-round(dist_mils,0)) > 0.000001:
-            print "dist_mils = ",dist_mils
+            #print "dist_mils = ",dist_mils
             raise StandardError('Distance values should be integer value (inches*1000)')
         DIST=0.0
         code = []
@@ -246,7 +246,7 @@ class egv:
             else:
                 error = max(DY-abs(dxmils),DX-abs(dymils))
             if error > 0:
-                print "egv.py: Error delta =", error 
+                raise StandardError("egv.py: Error delta =%f" %(error))
         #out_str=""
         #for c in cdata:
         #    out_str =out_str+"%s" %chr(c)
@@ -291,6 +291,11 @@ class egv:
             self.write(83)
             self.write(49)
             self.write(80)
+
+    #######################################################################
+    def none_function(self,dummy=None):
+        #Don't delete this function (used in make_egv_data)
+        pass
     
     def make_egv_data(self, ecoords_in,
                             startX=0,
@@ -298,7 +303,15 @@ class egv:
                             units = 'in',
                             Feed = None,
                             speed_text="V1752241021000191",
-                            Raster_step=0):
+                            Raster_step=0,
+                            update_gui=None,
+                            stop_calc=None):
+        ########################################################
+        if stop_calc == None:
+            stop_calc=[]
+            stop_calc.append(0)
+        if update_gui == None:
+            update_gui = self.none_function
         ########################################################
         if units == 'in':
             scale = 1000.0
@@ -340,6 +353,10 @@ class egv:
             ###########################################################
             laser   = False
             for i in range(1,len(ecoords)):
+                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords))))
+                if stop_calc[0]==True:
+                    raise StandardError("Action Stoped by User.")
+            
                 if (ecoords[i][2] == ecoords[i-1][2]) and (not laser):
                     laser = True
                 elif (ecoords[i][2] != ecoords[i-1][2]) and (laser):
@@ -399,7 +416,12 @@ class egv:
             dx_last   = 0
 
             sign = -1
+            cnt = 1
             for scan in scanline:
+                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
+                if stop_calc[0]==True:
+                    raise StandardError("Action Stoped by User.")
+                cnt = cnt+1
                 #self.write(ord(" "))
                 ######################################
                 ## Flip direction and reset loop    ##
@@ -565,7 +587,7 @@ class egv:
         try:
             fin = open(filename,'r')
         except:
-            print "Unable to open file: %s" %(filename)
+            print("Unable to open file: %s" %(filename))
             return
 
         cur = ""

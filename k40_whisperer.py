@@ -2,7 +2,7 @@
 """
     K40 Whisperer
 
-    Copyright (C) <2017>  <Scorch>              
+    Copyright (C) <2017>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.03'
+version = '0.04'
 
 import sys
 from math import *
@@ -25,6 +25,7 @@ from egv import egv
 from nano_library import K40_CLASS
 from dxf import DXF_CLASS
 from svg_reader import SVG_READER
+from interpolate import interpolate
 
 import inkex
 import simplestyle
@@ -86,6 +87,14 @@ if PIL == False:
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
+
+
+
+
+
+        
+
+
 ################################################################################
 class Application(Frame):
     def __init__(self, master):
@@ -107,11 +116,8 @@ class Application(Frame):
         
         self.master.bind("<Configure>", self.Master_Configure)
         self.master.bind('<Enter>', self.bindConfigure)
-        self.master.bind('<Escape>', self.KEY_ESC)
         self.master.bind('<F1>', self.KEY_F1)
-        self.master.bind('<F2>', self.KEY_F2)
         self.master.bind('<F5>', self.KEY_F5)
-        self.master.bind('<Control-g>', self.KEY_CTRL_G)
 
         self.master.bind('<Control-Left>' , self.Move_Left)
         self.master.bind('<Control-Right>', self.Move_Right)
@@ -131,11 +137,13 @@ class Application(Frame):
         self.board_name = StringVar()
         self.units      = StringVar()
         self.jog_step   = StringVar()
-        self.rstep      = StringVar()
+        self.rast_step  = StringVar()
         self.funits     = StringVar()
+        
 
-        self.intensity_min = StringVar()
-        self.intensity_max = StringVar()
+        self.bezier_M1     = StringVar()
+        self.bezier_M2     = StringVar()
+        self.bezier_weight = StringVar()
 
         self.LaserXsize = StringVar()
         self.LaserYsize = StringVar()
@@ -163,10 +171,16 @@ class Application(Frame):
         self.Veng_feed.set("20")
         self.Vcut_feed.set("10")
         self.jog_step.set("10.0")
-        self.rstep.set("0.0508")
+        self.rast_step.set("0.002")
+        
+        self.bezier_weight.set("3.5")
+        self.bezier_M1.set("2.5")
+        self.bezier_M2.set("0.50")
 
-        self.intensity_min.set("0")
-        self.intensity_max.set("100")
+        self.bezier_weight_default = float(self.bezier_weight.get())
+        self.bezier_M1_default     = float(self.bezier_M1.get())
+        self.bezier_M2_default     = float(self.bezier_M2.get())
+        
                                         
         self.board_name.set("LASER-M2") # Options are
                                         #    "LASER-M2",
@@ -271,21 +285,21 @@ class Application(Frame):
         
         self.Label_Reng_feed_u = Label(self.master,textvariable=self.funits, anchor=W)
         self.Entry_Reng_feed   = Entry(self.master,width="15")
-        self.Entry_Reng_feed.configure(textvariable=self.Reng_feed)
+        self.Entry_Reng_feed.configure(textvariable=self.Reng_feed,justify='center',fg="black")
         self.Entry_Reng_feed.bind('<Return>', self.Recalculate_Click)
         self.Reng_feed.trace_variable("w", self.Entry_Reng_feed_Callback)
         self.NormalColor =  self.Entry_Reng_feed.cget('bg')
 
         self.Label_Veng_feed_u = Label(self.master,textvariable=self.funits, anchor=W)
         self.Entry_Veng_feed   = Entry(self.master,width="15")
-        self.Entry_Veng_feed.configure(textvariable=self.Veng_feed)
+        self.Entry_Veng_feed.configure(textvariable=self.Veng_feed,justify='center',fg="blue")
         self.Entry_Veng_feed.bind('<Return>', self.Recalculate_Click)
         self.Veng_feed.trace_variable("w", self.Entry_Veng_feed_Callback)
         self.NormalColor =  self.Entry_Veng_feed.cget('bg')
 
         self.Label_Vcut_feed_u = Label(self.master,textvariable=self.funits, anchor=W)
         self.Entry_Vcut_feed   = Entry(self.master,width="15")
-        self.Entry_Vcut_feed.configure(textvariable=self.Vcut_feed)
+        self.Entry_Vcut_feed.configure(textvariable=self.Vcut_feed,justify='center',fg="red")
         self.Entry_Vcut_feed.bind('<Return>', self.Recalculate_Click)
         self.Vcut_feed.trace_variable("w", self.Entry_Vcut_feed_Callback)
         self.NormalColor =  self.Entry_Vcut_feed.cget('bg')
@@ -343,7 +357,7 @@ class Application(Frame):
         self.Label_Step   = Label(self.master,text="Jog Step", anchor=CENTER )
         self.Label_Step_u = Label(self.master,textvariable=self.units, anchor=W)
         self.Entry_Step   = Entry(self.master,width="15")
-        self.Entry_Step.configure(textvariable=self.jog_step)
+        self.Entry_Step.configure(textvariable=self.jog_step, justify='center')
         self.jog_step.trace_variable("w", self.Entry_Step_Callback)
 
         ###########################################################################
@@ -550,7 +564,7 @@ class Application(Frame):
         header.append('(k40_whisperer_set Vcut_feed     %s )'  %( self.Vcut_feed.get()      ))
         header.append('(k40_whisperer_set jog_step      %s )'  %( self.jog_step.get()       ))
 
-        header.append('(k40_whisperer_set rstep         %s )'  %( self.rstep.get()          ))
+        header.append('(k40_whisperer_set rast_step     %s )'  %( self.rast_step.get()      ))
         header.append('(k40_whisperer_set ht_size       %s )'  %( self.ht_size.get()        ))
         
         header.append('(k40_whisperer_set LaserXsize    %s )'  %( self.LaserXsize.get()     ))
@@ -558,8 +572,10 @@ class Application(Frame):
         header.append('(k40_whisperer_set gotoX         %s )'  %( self.gotoX.get()          ))
         header.append('(k40_whisperer_set gotoY         %s )'  %( self.gotoY.get()          ))
 
-        header.append('(k40_whisperer_set intensity_min %s )'  %( self.intensity_min.get()  ))
-        header.append('(k40_whisperer_set intensity_max %s )'  %( self.intensity_max.get()  ))
+        header.append('(k40_whisperer_set bezier_M1     %s )'  %( self.bezier_M1.get()      ))
+        header.append('(k40_whisperer_set bezier_M2     %s )'  %( self.bezier_M2.get()      ))
+        
+        header.append('(k40_whisperer_set bezier_weight %s )'  %( self.bezier_weight.get()  ))
 
 
 
@@ -662,9 +678,6 @@ class Application(Frame):
     def Close_Current_Window_Click(self):
         win_id=self.grab_current()
         win_id.destroy()
-
-    def Stop_Click(self, event):
-        self.stop[0]=True
         
     # Left Column #
     #############################
@@ -748,20 +761,15 @@ class Application(Frame):
     def Entry_Rstep_Check(self):
         try:
             value = self.get_raster_step_1000in()
-                
             if  value <= 0 or value > 63:
-                if (self.units.get() == 'in'):
-                    self.statusMessage.set(" Step should be between 0.001 and 0.063 in")
-                else:
-                    self.statusMessage.set(" Step should be between than 0.0254 and 1.62 mm")
+                self.statusMessage.set(" Step should be between 0.001 and 0.063 in")
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
         return 0         # Value is a valid number
     def Entry_Rstep_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_Rstep, self.Entry_Rstep_Check(), new=1)
-
-        
+ 
     #############################
     # End Left Column #
     #############################
@@ -770,17 +778,28 @@ class Application(Frame):
         self.SCALE = 0
         self.menu_View_Refresh()
 
-    def Intensity_Min_Callback(self, varName=None, index=None, mode=None):
-        Imin = int(self.intensity_min.get())
-        Imax = int(self.intensity_max.get())
-        if Imax < Imin:
-            self.intensity_max.set(self.intensity_min.get())
+    def bezier_weight_Callback(self, varName=None, index=None, mode=None):
+        self.bezier_plot()
+        
+    def bezier_M1_Callback(self, varName=None, index=None, mode=None):
+        self.bezier_plot()
 
-    def Intensity_Max_Callback(self, varName=None, index=None, mode=None):
-        Imin = int(self.intensity_min.get())
-        Imax = int(self.intensity_max.get())
-        if Imin > Imax:
-            self.intensity_min.set(self.intensity_max.get())
+    def bezier_M2_Callback(self, varName=None, index=None, mode=None):
+        self.bezier_plot()
+
+    def bezier_plot(self):
+        self.BezierCanvas.delete('bez')
+
+        #self.BezierCanvas.create_line( 5,260-0,260,260-255,fill="black", capstyle="round", width = 2, tags='bez')
+        M1 = float(self.bezier_M1.get())
+        M2 = float(self.bezier_M2.get())
+        w  = float(self.bezier_weight.get())
+        num = 10
+        x,y = self.generate_bezier(M1,M2,w,n=num)
+        for i in range(0,num):
+            self.BezierCanvas.create_line( 5+x[i],260-y[i],5+x[i+1],260-y[i+1],fill="black", \
+                                           capstyle="round", width = 2, tags='bez')
+        self.BezierCanvas.create_text(128, 0, text="Output Level vs. Input Level",anchor="n", tags='bez')
             
     #############################
     def Entry_Timeout_Check(self):
@@ -901,7 +920,6 @@ class Application(Frame):
         self.LaserXsize.set(  '%.3f' %(float(self.LaserXsize.get() )*factor ))
         self.LaserYsize.set(  '%.3f' %(float(self.LaserYsize.get() )*factor ))
         self.jog_step.set  (  '%.3g' %(float(self.jog_step.get()   )*factor ))
-        self.rstep.set     (  '%.3g' %(float(self.rstep.get()      )*factor ))
         self.gotoX.set     (  '%.3f' %(float(self.gotoX.get()      )*factor ))
         self.gotoY.set     (  '%.3f' %(float(self.gotoY.get()      )*factor ))
         
@@ -1039,20 +1057,18 @@ class Application(Frame):
         ##########################
         self.Vcut,self.Vcut_bounds = self.make_ecoords(svg_reader.cut_lines,scale=1/25.4)
         self.Veng,self.Veng_bounds = self.make_ecoords(svg_reader.eng_lines,scale=1/25.4)
-        
+        self.Veng_bounds = None
+        self.Vcut_bounds = None
         ##########################
         ###   Load Image       ###
         ##########################
         self.Reng_image = svg_reader.raster_PIL
-        self.Reng_image = self.Reng_image.convert("L")
+        #self.Reng_image = self.Reng_image.convert("L")
         
         if (self.Reng_image != None):
             self.wim, self.him = self.Reng_image.size
             self.aspect_ratio =  float(self.wim-1) / float(self.him-1)
             #self.make_raster_coords()
-        else:
-            pass
-            #print "self.Reng_image = None"
 
     def make_ecoords(self,coords,scale=1):
         xmax, ymax = -1e10, -1e10
@@ -1085,11 +1101,32 @@ class Application(Frame):
         bounds = (xmin,xmax,ymin,ymax)
         return ecoords,bounds
 
+##    def convert_greyscale(self,image):
+##        image = image.convert('RGB')
+##        x_lim, y_lim = image.size
+##        grey = Image.new("L", image.size, color=255)
+##        
+##        pixel = image.load()
+##        grey_pixel = grey.load()
+##        
+##        for y in range(1, y_lim):
+##            self.statusMessage.set("Converting to greyscale: %.1f %%" %( (100.0*y)/y_lim ) )
+##            self.master.update()
+##            for x in range(1, x_lim):
+##                value = pixel[x, y]
+##                grey_pixel[x,y] = int( value[0]*.333 + value[1]*.333 +value[2]*.333 )
+##                #grey_pixel[x,y] = int( value[0]*.210 + value[1]*.720 +value[2]*.007 )
+##                grey_pixel[x,y] = int( value[0]*.299 + value[1]*.587 +value[2]*.114 )
+##
+##        grey.save("adjusted_grey.png","PNG")
+##        return grey
+
+    
     #####################################################################
     def make_raster_coords(self):
             ecoords=[]
             if (self.Reng_image != None):
-                cutoff=125
+                cutoff=128
                 image_temp = self.Reng_image.convert("L")
 
                 if self.halftone.get():
@@ -1118,6 +1155,8 @@ class Application(Frame):
                 for i in range(0,self.him,Raster_step):
                     self.statusMessage.set("Raster Engraving: Creating Scan Lines: %.1f %%" %( (100.0*i)/self.him ) )
                     self.master.update()
+                    if self.stop[0]==True:
+                        raise StandardError("Action stopped by User.")
                     line = []
                     cnt=1
                     for j in range(1,self.wim):
@@ -1148,12 +1187,33 @@ class Application(Frame):
     #######################################################################
 
     def get_raster_step_1000in(self):
-        if (self.units.get() == 'in'):
-            value = float(self.rstep.get())
-        else:
-            value = float(self.rstep.get())/25.4
-        value = int(round(value*1000.0,1))
+        val_in = float(self.rast_step.get())
+        value = int(round(val_in*1000.0,1))
         return value
+
+
+    def generate_bezier(self,M1,M2,w,n=100):
+        if (M1==M2):
+            x1=0
+            y1=0
+        else:
+            x1 = 255*(1-M2)/(M1-M2)
+            y1 = M1*x1
+        x=[]
+        y=[]
+        # Calculate Bezier Curve
+        for step in range(0,n+1):
+            t    = float(step)/float(n)
+            Ct   = 1 / ( pow(1-t,2)+2*(1-t)*t*w+pow(t,2) )
+            #x0 = 0
+            #y0 = 0
+            #x2 = 255
+            #y2 = 255
+            #x.append( Ct*( pow(1-t,2)*x0+2*(1-t)*t*w*x1+pow(t,2)*x2) )
+            #y.append( Ct*( pow(1-t,2)*y0+2*(1-t)*t*w*y1+pow(t,2)*y2) )
+            x.append( Ct*( 2*(1-t)*t*w*x1+pow(t,2)*255) )
+            y.append( Ct*( 2*(1-t)*t*w*y1+pow(t,2)*255) )
+        return x,y
 
     '''This Example opens an Image and transform the image into halftone.  -Isai B. Cicourel'''
     # Create a Half-tone version of the image
@@ -1161,26 +1221,35 @@ class Application(Frame):
         image = image.convert('L')
         x_lim, y_lim = image.size
         pixel = image.load()
-
-
-        Imin = float(self.intensity_min.get())
-        Imax = float(self.intensity_max.get())
-        if round(Imin) > 0 or round(Imin) < 100:
-            Slope = (Imax-Imin)/100.0
+        
+        M1 = float(self.bezier_M1.get())
+        M2 = float(self.bezier_M2.get())
+        w  = float(self.bezier_weight.get())
+        
+        if w > 0:
+            x,y = self.generate_bezier(M1,M2,w)
+            
+            interp = interpolate(x, y) # Set up interpolate class
+            val_map=[]
+            # Map Bezier Curve to values between 0 and 255
+            for val in range(0,256):
+                val_out = int(round(interp[val])) # Get the interpolated value at each value
+                val_map.append(val_out)
+            # Adjust image
             for y in range(1, y_lim):
-                self.statusMessage.set("Raster Engraving: Adjusting Image Intensity: %.1f %%" %( (100.0*y)/y_lim ) )
+                self.statusMessage.set("Raster Engraving: Adjusting Image Darkness: %.1f %%" %( (100.0*y)/y_lim ) )
                 self.master.update()
                 for x in range(1, x_lim):
-                    pix_in = pixel[x, y]
-                    if pix_in < 253:
-                        Vi = ( 255 - float(pix_in) )*100.0/255.0
-                        Vo = Vi*Slope+Imin
-                        pixel[x, y] = 255-int(Vo*255.0/100.0)
-        image.save("adjusted.png","PNG")
+                    pixel[x, y] = val_map[ pixel[x, y] ]
+                    
+        #image.save("adjusted.png","PNG")
                     
         for y in range(1, y_lim):
             self.statusMessage.set("Raster Engraving: Creating Halftone Image: %.1f %%" %( (100.0*y)/y_lim ) )
             self.master.update()
+            if self.stop[0]==True:
+                raise StandardError("Action stopped by User.")
+                    
             for x in range(1, x_lim):
                 oldpixel = pixel[x, y]
                 newpixel = 255*floor(oldpixel/128)
@@ -1188,11 +1257,11 @@ class Application(Frame):
                 perror = oldpixel - newpixel
 
                 if x < x_lim - 1:
-                    pixel[x+1, y  ] = pixel[x+1, y] + round(perror * 7/16)
+                    pixel[x+1, y  ] = pixel[x+1, y  ] + round(perror * 7/16)
                 if x > 1 and y < y_lim - 1:
                     pixel[x-1, y+1] = pixel[x-1, y+1] + round(perror * 3/16)
                 if y < y_lim - 1:
-                    pixel[x  , y+1] = pixel[x, y+1] + round(perror * 5/16)
+                    pixel[x  , y+1] = pixel[x  , y+1] + round(perror * 5/16)
                 if x < x_lim - 1 and y < y_lim - 1:
                     pixel[x+1, y+1] = pixel[x+1, y+1] + round(perror * 1/16)
         return image
@@ -1216,24 +1285,70 @@ class Application(Frame):
         self.DXF_FILE = filemname
         dxf_import=DXF_CLASS()
         segarc = 5
-
         try:
             fd = open(self.DXF_FILE)
             dxf_import.GET_DXF_DATA(fd,tol_deg=segarc)
             fd.close()
+        except StandardError as e:
+            msg1 = "DXF Load Failed:"
+            msg2 = "%s" %(e)
+            self.statusMessage.set( msg1+msg2 )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
         except:
             fmessage("Unable To open Drawing Exchange File (DXF) file.")
             return
         
-        new_origin=True
-        dxfcoords=dxf_import.DXF_COORDS_GET(new_origin)
+        new_origin=False
+        #dxfcoords=dxf_import.DXF_COORDS_GET(new_origin)
+        dxf_engrave_coords = dxf_import.DXF_COORDS_GET_TYPE(engrave=True, new_origin=False)
+        dxf_cut_coords     = dxf_import.DXF_COORDS_GET_TYPE(engrave=False,new_origin=False)
+        
+        dxf_units = dxf_import.units
+        if dxf_import.dxf_messages != "":
+            message_box("DXF Import:",dxf_import.dxf_messages)
+            
+        if dxf_units=="Unitless":
+            d = UnitsDialog(root)
+            dxf_units = d.result
 
+        if dxf_units=="Inches":
+            dxf_scale = 1.0
+        elif dxf_units=="Feet":
+            dxf_scale = 12.0
+        elif dxf_units=="Miles":
+            dxf_scale = 5280.0*12.0
+        elif dxf_units=="Millimeters":
+            dxf_scale = 1.0/25.4
+        elif dxf_units=="Centimeters":
+            dxf_scale = 1.0/2.54
+        elif dxf_units=="Meters":
+            dxf_scale = 1.0/254.0
+        elif dxf_units=="Kilometers":
+            dxf_scale = 1.0/254000.0
+        elif dxf_units=="Microinches":
+            dxf_scale = 1.0/1000000.0
+        elif dxf_units=="Mils":
+            dxf_scale = 1.0/1000.0
+        else:
+            return
+        
         ##########################
         ###   Create ECOORDS   ###
         ##########################
-        self.Vcut,self.Vcut_bounds = self.make_ecoords(dxfcoords,scale=1.0/25.4)
-        self.Reng_bounds = self.Vcut_bounds
-    
+        #self.Vcut,self.Vcut_bounds = self.make_ecoords(dxfcoords,scale=1.0/25.4)
+        #self.Reng_bounds = self.Vcut_bounds
+
+        self.Vcut,self.Vcut_bounds = self.make_ecoords(dxf_cut_coords    , scale=dxf_scale)
+        self.Veng,self.Veng_bounds = self.make_ecoords(dxf_engrave_coords, scale=dxf_scale)
+
+        xmin = min(self.Vcut_bounds[0],self.Veng_bounds[0])
+        xmax = max(self.Vcut_bounds[1],self.Veng_bounds[1])
+        ymin = min(self.Vcut_bounds[2],self.Veng_bounds[2])
+        ymax = max(self.Vcut_bounds[3],self.Veng_bounds[3])
+        self.Reng_bounds = (xmin,xmax,ymin,ymax)
+
+
     def Open_Settings_File(self,filename):
         try:
             fin = open(filename,'r')
@@ -1270,8 +1385,8 @@ class Application(Frame):
                 elif "jog_step"    in line:
                      self.jog_step.set(line[line.find("jog_step"):].split()[1])
 
-                elif "rstep"    in line:
-                     self.rstep.set(line[line.find("rstep"):].split()[1])
+                elif "rast_step"    in line:
+                     self.rast_step.set(line[line.find("rast_step"):].split()[1])
                 elif "ht_size"    in line:
                      self.ht_size.set(line[line.find("ht_size"):].split()[1])
 
@@ -1284,10 +1399,12 @@ class Application(Frame):
                 elif "gotoY"    in line:
                      self.gotoY.set(line[line.find("gotoY"):].split()[1])
 
-                elif "intensity_min"    in line:
-                     self.intensity_min.set(line[line.find("intensity_min"):].split()[1])
-                elif "intensity_max"    in line:
-                     self.intensity_max.set(line[line.find("intensity_max"):].split()[1])
+                elif "bezier_M1"    in line:
+                     self.bezier_M1.set(line[line.find("bezier_M1"):].split()[1])
+                elif "bezier_M2"    in line:
+                     self.bezier_M2.set(line[line.find("bezier_M2"):].split()[1])
+                elif "bezier_weight"    in line:
+                     self.bezier_weight.set(line[line.find("bezier_weight"):].split()[1])
         
                 elif "t_timeout"    in line:
                      self.t_timeout.set(line[line.find("t_timeout"):].split()[1])
@@ -1484,6 +1601,7 @@ class Application(Frame):
     
 
     def Vector_Cut(self):
+        self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Vector Cut: Processing Vector Data.")
@@ -1497,6 +1615,7 @@ class Application(Frame):
         self.set_gui("normal")
         
     def Vector_Eng(self):
+        self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Vector Engrave: Processing Vector Data.")
@@ -1509,18 +1628,26 @@ class Application(Frame):
         self.set_gui("normal")
 
     def Raster_Eng(self):
+        self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Raster Engraving: Processing Image Data.")
         self.master.update()
-        
-        self.make_raster_coords()
-        if self.Reng!=[]:
-            Raster_step = self.get_raster_step_1000in()
-            self.send_data("Raster_Eng",Raster_step=Raster_step)
-        else:
-            self.statusbar.configure( bg = 'yellow' )
-            self.statusMessage.set("No raster data to engrave")
+        try:
+            self.make_raster_coords()
+            if self.Reng!=[]:
+                Raster_step = self.get_raster_step_1000in()
+                self.send_data("Raster_Eng",Raster_step=Raster_step)
+            else:
+                self.statusbar.configure( bg = 'yellow' )
+                self.statusMessage.set("No raster data to engrave")
+        except StandardError as e:
+            msg1 = "Making Raster Data Stopped: "
+            msg2 = "%s" %(e)
+            self.statusMessage.set( msg1+msg2 )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            pass
         self.set_gui("normal")
 
     ################################################################################
@@ -1702,57 +1829,76 @@ class Application(Frame):
                 self.loops[i]=[]
   
     def send_data(self,operation_type=None,Raster_step=0):
-        if self.units.get()=='in':
-            feed_factor = 25.4/60.0
-        else:
-            feed_factor = 1.0
-
-        self.stop[0]=False
-        #self.set_gui("disabled")
-        xmin,xmax,ymin,ymax = self.Reng_bounds
-        
-        data=[]
-        egv_inst = egv(target=lambda s:data.append(s))
-        
-        if (operation_type=="Vector_Cut") and  (self.Vcut!=[]):
-            Feed_Rate = float(self.Vcut_feed.get())*feed_factor
-            self.statusMessage.set("Vector Cut: Determining Cut Order....")
-            self.master.update()
-            self.Vcut = self.optimize_paths(self.Vcut)
-            egv_inst.make_egv_data(
-                                            self.Vcut,                        \
-                                            startX=xmin,                      \
-                                            startY=ymax,                      \
-                                            Feed = Feed_Rate,                 \
-                                            )
-
-        if (operation_type=="Vector_Eng") and  (self.Veng!=[]):
-            Feed_Rate = float(self.Veng_feed.get())*feed_factor
-            self.statusMessage.set("Vector Engrave: Determining Cut Order....")
-            self.master.update()
-            self.Veng = self.optimize_paths(self.Veng)
-            egv_inst.make_egv_data(
-                                            self.Veng,                        \
-                                            startX=xmin,                      \
-                                            startY=ymax,                      \
-                                            Feed = Feed_Rate,                 \
-                                            )
-
-        if (operation_type=="Raster_Eng") and  (self.Reng!=[]):
-            Feed_Rate = float(self.Reng_feed.get())*feed_factor
-            egv_inst.make_egv_data(
-                                            self.Reng,                        \
-                                            startX=xmin,                      \
-                                            startY=ymax,                      \
-                                            Feed = Feed_Rate,                 \
-                                            Raster_step = Raster_step         \
-                                            )
+        try:
+            if self.units.get()=='in':
+                feed_factor = 25.4/60.0
+            else:
+                feed_factor = 1.0
             
-        self.master.update()
-        self.send_egv_data(data)
-        self.statusMessage.set("Finished Sending Data to laser.")
-        self.statusbar.configure( bg = 'white' )
-        self.master.update()
+            xmin,xmax,ymin,ymax = self.Reng_bounds
+            data=[]
+            egv_inst = egv(target=lambda s:data.append(s))
+            
+            if (operation_type=="Vector_Cut") and  (self.Vcut!=[]):
+                Feed_Rate = float(self.Vcut_feed.get())*feed_factor
+                self.statusMessage.set("Vector Cut: Determining Cut Order....")
+                self.master.update()
+                self.Vcut = self.optimize_paths(self.Vcut)
+                self.statusMessage.set("Generating EGV data...")
+                self.master.update()
+                egv_inst.make_egv_data(
+                                                self.Vcut,                        \
+                                                startX=xmin,                      \
+                                                startY=ymax,                      \
+                                                Feed = Feed_Rate,                 \
+                                                Raster_step = 0,                  \
+                                                update_gui=self.update_gui,       \
+                                                stop_calc=self.stop
+                                                )
+
+            if (operation_type=="Vector_Eng") and  (self.Veng!=[]):
+                Feed_Rate = float(self.Veng_feed.get())*feed_factor
+                self.statusMessage.set("Vector Engrave: Determining Cut Order....")
+                self.master.update()
+                self.Veng = self.optimize_paths(self.Veng)
+                self.statusMessage.set("Generating EGV data...")
+                self.master.update()
+                egv_inst.make_egv_data(
+                                                self.Veng,                        \
+                                                startX=xmin,                      \
+                                                startY=ymax,                      \
+                                                Feed = Feed_Rate,                 \
+                                                Raster_step = 0,                  \
+                                                update_gui=self.update_gui,       \
+                                                stop_calc=self.stop
+                                                )
+
+            if (operation_type=="Raster_Eng") and  (self.Reng!=[]):
+                Feed_Rate = float(self.Reng_feed.get())*feed_factor
+                self.statusMessage.set("Generating EGV data...")
+                self.master.update()
+                egv_inst.make_egv_data(
+                                                self.Reng,                        \
+                                                startX=xmin,                      \
+                                                startY=ymax,                      \
+                                                Feed = Feed_Rate,                 \
+                                                Raster_step = Raster_step,        \
+                                                update_gui=self.update_gui,       \
+                                                stop_calc=self.stop
+                                                )
+                
+            self.master.update()
+            self.send_egv_data(data)
+            self.menu_View_Refresh()
+            
+        except StandardError as e:
+            msg1 = "Sending Data Stopped: "
+            msg2 = "%s" %(e)
+            self.statusMessage.set( msg1+msg2 )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            pass
+            
 
     def send_egv_data(self,data):
         if self.k40 != None:
@@ -1762,13 +1908,11 @@ class Application(Frame):
         else:
             k40 = K40_CLASS()
             self.master.update()
-            self.stop[0]=False
-
+            
         #self.statusMessage.set("Saving Data to File....")
         #self.write_egv_to_file(data)
         #self.statusMessage.set("Done Saving Data to File....")
         #self.set_gui("normal")
-        self.stop[0]=False
         self.menu_View_Refresh()
         
     ##########################################################################
@@ -1818,8 +1962,13 @@ class Application(Frame):
                 self.statusMessage.set("USB Reset Succeeded")
             except:
                 pass
-    def Stop(self):
-        self.stop[0]=True
+            
+    def Stop(self,event=None):
+        line1 = "The K40 Whisperer is currently Paused."
+        line2 = "Press \"OK\" to stop current action."
+        line3 = "Press \"Cancel\" to resume."
+        if message_ask_ok_cancel("Stop Laser Job.", "%s\n\n%s\n%s" %(line1,line2,line3)):
+            self.stop[0]=True
 
     def Release_USB(self):
         if self.k40 != None:
@@ -1853,7 +2002,11 @@ class Application(Frame):
             
     def Unlock(self):
         if self.k40 != None:
-            self.k40.unlock_rail()
+            try:
+                self.k40.unlock_rail()
+                self.statusMessage.set("Rail Unlock Succeeded")
+            except:
+                pass
    
     
     ##########################################################################
@@ -1906,20 +2059,11 @@ class Application(Frame):
     def menu_Help_Web(self):
         webbrowser.open_new(r"http://www.scorchworks.com/K40whisperer/k40whisperer.html")
 
-    def KEY_ESC(self, event):
-        pass
-
     def KEY_F1(self, event):
         self.menu_Help_About()
 
-    def KEY_F2(self, event):
-        self.GEN_Settings_Window()
-
     def KEY_F5(self, event):
         self.menu_View_Refresh()
-
-    def KEY_CTRL_G(self, event):
-        self.CopyClipboard_GCode()
 
     def bindConfigure(self, event):
         if not self.initComplete:
@@ -2038,10 +2182,6 @@ class Application(Frame):
 
     def Set_Input_States(self):
         pass
-##        if self.cuttop.get():
-##            self.Entry_Toptol.configure(state="disabled")
-##        else:
-##            self.Entry_Toptol.configure(state="normal")
             
     def Set_Input_States_Event(self,event):
         self.Set_Input_States()
@@ -2051,19 +2191,22 @@ class Application(Frame):
             self.Label_Halftone_DPI.configure(state="normal")
             self.Halftone_DPI_OptionMenu.configure(state="normal")
             self.Label_Halftone_u.configure(state="normal")
-            self.Label_Intensity_Min.configure(state="normal")
-            self.Intensity_Min_Slider.configure(state="normal")
-            self.Label_Intensity_Max.configure(state="normal")
-            self.Intensity_Max_Slider.configure(state="normal")
-        
+            self.Label_bezier_M1.configure(state="normal")
+            self.bezier_M1_Slider.configure(state="normal")
+            self.Label_bezier_M2.configure(state="normal")
+            self.bezier_M2_Slider.configure(state="normal")
+            self.Label_bezier_weight.configure(state="normal")
+            self.bezier_weight_Slider.configure(state="normal")
         else:
             self.Label_Halftone_DPI.configure(state="disabled")
             self.Halftone_DPI_OptionMenu.configure(state="disabled")
             self.Label_Halftone_u.configure(state="disabled")
-            self.Label_Intensity_Min.configure(state="disabled")
-            self.Intensity_Min_Slider.configure(state="disabled")
-            self.Label_Intensity_Max.configure(state="disabled")
-            self.Intensity_Max_Slider.configure(state="disabled")
+            self.Label_bezier_M1.configure(state="disabled")
+            self.bezier_M1_Slider.configure(state="disabled")
+            self.Label_bezier_M2.configure(state="disabled")
+            self.bezier_M2_Slider.configure(state="disabled")
+            self.Label_bezier_weight.configure(state="disabled")
+            self.bezier_weight_Slider.configure(state="disabled")
 
             
     def Set_Input_States_RASTER_Event(self,event):
@@ -2109,7 +2252,8 @@ class Application(Frame):
         ######################################
         if self.Reng_image != None:
             if self.include_Reng.get():     
-                try:
+                #try:
+                if 1==1:    
                     new_SCALE = (1.0/self.PlotScale)/1000
                     if new_SCALE != self.SCALE:
                         self.SCALE = new_SCALE
@@ -2117,12 +2261,13 @@ class Application(Frame):
                         nh=int(self.SCALE*self.him)
                         #PIL_im = PIL_im.convert("1") #"1"=1BBP, "L"=grey
                         if self.halftone.get() == False:
-                            plot_im = self.Reng_image.point(lambda x: 0 if x<128 else 255, '1')
+                            plot_im = self.Reng_image.convert("L")
+                            plot_im = plot_im.point(lambda x: 0 if x<128 else 255, '1')
                         else:
                             plot_im = self.Reng_image
                         self.ui_TKimage = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
-                except:
-                    self.SCALE = 1
+                #except:
+                #    self.SCALE = 1
                 self.Plot_Raster(self.laserX, self.laserY, x_lft,y_top,self.PlotScale,im=self.ui_TKimage)
         else:
             self.ui_TKimage = None
@@ -2222,7 +2367,8 @@ class Application(Frame):
                                             xplt2,
                                             yplt2,
                                             fill=col, capstyle="round", width = thick, tags='LaserTag') )
-
+        
+    
     ################################################################################
     #                         General Settings Window                              #
     ################################################################################
@@ -2233,18 +2379,8 @@ class Application(Frame):
         gen_settings.title('Settings')
         gen_settings.iconname("Settings")
 
-
-        try: #Attempt to create temporary icon bitmap file
-            f = open("K40_icon",'w')
-            f.write("#define K40_icon_width 16\n")
-            f.write("#define K40_icon_height 16\n")
-            f.write("static unsigned char K40_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            gen_settings.iconbitmap("@K40_icon")
-            os.remove("K40_icon")
+        try:
+            gen_settings.iconbitmap(bitmap="@emblem64")
         except:
             pass
 
@@ -2366,26 +2502,16 @@ class Application(Frame):
     #                          Raster Settings Window                              #
     ################################################################################
     def RASTER_Settings_Window(self):
-        Wset=425
-        Hset=260
+        Wset=425+280
+        Hset=330 #260
         raster_settings = Toplevel(width=Wset, height=Hset)
         raster_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
         raster_settings.resizable(0,0)
         raster_settings.title('Raster Settings')
         raster_settings.iconname("Raster Settings")
 
-
-        try: #Attempt to create temporary icon bitmap file
-            f = open("K40_icon",'w')
-            f.write("#define K40_icon_width 16\n")
-            f.write("#define K40_icon_height 16\n")
-            f.write("static unsigned char K40_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            raster_settings.iconbitmap("@K40_icon")
-            os.remove("K40_icon")
+        try:
+            raster_settings.iconbitmap(bitmap="@emblem64")
         except:
             pass
 
@@ -2393,7 +2519,7 @@ class Application(Frame):
         D_dY = 24
         xd_label_L = 12
 
-        w_label=125
+        w_label=155
         w_entry=60
         w_units=35
         xd_entry_L=xd_label_L+w_label+10
@@ -2404,16 +2530,16 @@ class Application(Frame):
         D_Yloc=D_Yloc+D_dY
         self.Label_Rstep   = Label(raster_settings,text="Scanline Step", anchor=CENTER )
         self.Label_Rstep.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
-        self.Label_Rstep_u = Label(raster_settings,textvariable=self.units, anchor=W)
+        self.Label_Rstep_u = Label(raster_settings,text="in", anchor=W)
         self.Label_Rstep_u.place(x=xd_units_L, y=D_Yloc, width=w_units, height=21)
         self.Entry_Rstep   = Entry(raster_settings,width="15")
         self.Entry_Rstep.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
-        self.Entry_Rstep.configure(textvariable=self.rstep)
-        self.rstep.trace_variable("w", self.Entry_Rstep_Callback)
+        self.Entry_Rstep.configure(textvariable=self.rast_step)
+        self.rast_step.trace_variable("w", self.Entry_Rstep_Callback)
         
         D_Yloc=D_Yloc+D_dY
         self.Label_Halftone = Label(raster_settings,text="Halftone")
-        self.Label_Halftone.place(x=xd_label_L, y=D_Yloc, width=113, height=21)
+        self.Label_Halftone.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Checkbutton_Halftone = Checkbutton(raster_settings,text=" ", anchor=W, command=self.Set_Input_States_RASTER)
         self.Checkbutton_Halftone.place(x=w_label+22, y=D_Yloc, width=75, height=23)
         self.Checkbutton_Halftone.configure(variable=self.halftone)
@@ -2438,30 +2564,66 @@ class Application(Frame):
         self.Label_Halftone_u = Label(raster_settings,text="dpi", anchor=W)
         self.Label_Halftone_u.place(x=xd_units_L+30, y=D_Yloc, width=w_units, height=21)
 
+        #D_Yloc=D_Yloc+D_dY+5
+        
+        #self.Label_bezier_weight.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        #self.Entry_bezier_weight   = Entry(raster_settings,width="15")
+        #self.Entry_bezier_weight.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        #self.Entry_bezier_weight.configure(textvariable=self.bezier_weight)
+        #self.bezier_weight.trace_variable("w", self.Entry_bezier_weight_Callback)
 
         ############
-        D_Yloc=D_Yloc+D_dY-4
-        self.Label_Intensity_Min  = Label(raster_settings,text="Min Darkness % (0)", anchor=CENTER )
-        self.Intensity_Min_Slider = Scale(raster_settings, from_=0, to=100, orient=HORIZONTAL, variable=self.intensity_min)
-        #self.Intensity_Min_Slider.set(255)
-        self.Intensity_Min_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25 ))
+        D_Yloc=D_Yloc+D_dY+5
+        self.Label_bezier_M1  = Label(raster_settings,
+                                text="Slope, Black (%.1f)"%(self.bezier_M1_default),
+                                anchor=CENTER )
+        self.bezier_M1_Slider = Scale(raster_settings, from_=1, to=50, resolution=0.1, \
+                                orient=HORIZONTAL, variable=self.bezier_M1)
+        self.bezier_M1_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25-280 ))
         D_Yloc=D_Yloc+21
-        self.Label_Intensity_Min.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
-        self.intensity_min.trace_variable("w", self.Intensity_Min_Callback)
+        self.Label_bezier_M1.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.bezier_M1.trace_variable("w", self.bezier_M1_Callback)
         
         D_Yloc=D_Yloc+D_dY-8
-        self.Label_Intensity_Max  = Label(raster_settings,text="Max Darkness % (100)", anchor=CENTER )
-        self.Intensity_Max_Slider = Scale(raster_settings, from_=0, to=100, orient=HORIZONTAL, variable=self.intensity_max)
-        #self.Intensity_Max_Slider.set(255)
-        self.Intensity_Max_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25 ))
+        self.Label_bezier_M2  = Label(raster_settings,
+                                text="Slope, White (%.2f)"%(self.bezier_M2_default),
+                                anchor=CENTER )
+        self.bezier_M2_Slider = Scale(raster_settings, from_=0.0, to=1, \
+                                orient=HORIZONTAL,resolution=0.01, variable=self.bezier_M2)
+        self.bezier_M2_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25-280 ))
         D_Yloc=D_Yloc+21
-        self.Label_Intensity_Max.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
-        self.intensity_max.trace_variable("w", self.Intensity_Max_Callback)
-        
-        
+        self.Label_bezier_M2.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.bezier_M2.trace_variable("w", self.bezier_M2_Callback)
 
-        
+        D_Yloc=D_Yloc+D_dY-8
+        self.Label_bezier_weight   = Label(raster_settings,
+                                     text="Transition (%.1f)"%(self.bezier_M1_default),
+                                     anchor=CENTER )
+        self.bezier_weight_Slider = Scale(raster_settings, from_=0, to=10, resolution=0.1, \
+                                    orient=HORIZONTAL, variable=self.bezier_weight)
+        self.bezier_weight_Slider.place(x=xd_entry_L, y=D_Yloc, width=(Wset-xd_entry_L-25-280 ))
+        D_Yloc=D_Yloc+21
+        self.Label_bezier_weight.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.bezier_weight.trace_variable("w", self.bezier_weight_Callback)
 
+
+        # Bezier Canvas
+        self.Bezier_frame = Frame(raster_settings, bd=1, relief=SUNKEN)
+        self.Bezier_frame.place(x=Wset-280, y=10, height=265, width=265)
+        self.BezierCanvas = Canvas(self.Bezier_frame, background="white")
+        self.BezierCanvas.pack(side=LEFT, fill=BOTH, expand=1)
+        self.BezierCanvas.create_line( 5,260-0,260,260-255,fill="grey", capstyle="round", width = 2, tags='perm')
+
+
+        M1 = self.bezier_M1_default
+        M2 = self.bezier_M2_default
+        w  = self.bezier_weight_default
+        num = 10
+        x,y = self.generate_bezier(M1,M2,w,n=num)
+        for i in range(0,num):
+            self.BezierCanvas.create_line( 5+x[i],260-y[i],5+x[i+1],260-y[i+1],fill="lightgrey", stipple='gray25',\
+                                           capstyle="round", width = 2, tags='perm')
+        
 
         ## Buttons ##
         raster_settings.update_idletasks()
@@ -2471,7 +2633,7 @@ class Application(Frame):
         self.RASTER_Close = Button(raster_settings,text="Close",command=self.Close_Current_Window_Click)
         self.RASTER_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
 
-        self.Intensity_Min_Callback()
+        self.bezier_M1_Callback()
         self.Set_Input_States_RASTER()
 
         
@@ -2516,6 +2678,43 @@ def message_ask_ok_cancel(title, mess):
 
 
 ################################################################################
+#                         Choose Units Dialog                                  #
+################################################################################
+import tkSimpleDialog
+class UnitsDialog(tkSimpleDialog.Dialog):
+    def body(self, master):
+        self.resizable(0,0)
+        self.title('Units')
+        self.iconname("Units")
+
+        try:
+            self.iconbitmap(bitmap="@emblem64")
+        except:
+            pass
+        
+        self.uom = StringVar()
+        self.uom.set("Millimeters")
+
+        Label(master, text="Select DXF Import Units:").grid(row=0)
+        Radio_Units_IN = Radiobutton(master,text="Inches",        value="Inches")
+        Radio_Units_MM = Radiobutton(master,text="Millimeters",   value="Millimeters")
+        Radio_Units_CM = Radiobutton(master,text="Centimeters",   value="Centimeters")
+        
+        Radio_Units_IN.grid(row=1, sticky=W)
+        Radio_Units_MM.grid(row=2, sticky=W)
+        Radio_Units_CM.grid(row=3, sticky=W)
+
+        Radio_Units_IN.configure(variable=self.uom)
+        Radio_Units_MM.configure(variable=self.uom)
+        Radio_Units_CM.configure(variable=self.uom)
+
+    def apply(self):
+        self.result = self.uom.get()
+        return 
+
+
+
+################################################################################
 #                          Startup Application                                 #
 ################################################################################
     
@@ -2525,24 +2724,15 @@ app.master.title("K40 Whisperer V"+version)
 app.master.iconname("K40")
 app.master.minsize(800,560) #800x600 min
 
-try: #Attempt to create temporary icon bitmap file
-    f = open("K40_icon",'w')
-    f.write("#define K40_icon_width 16\n")
-    f.write("#define K40_icon_height 16\n")
-    f.write("static unsigned char K40_icon_bits[] = {\n")
-    f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-    f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-    f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-    f.close()
-    app.master.iconbitmap("@K40_icon")
-    os.remove("K40_icon")
-except:
-    fmessage("Unable to create temporary icon file.")
-
 try:
-    os.chdir(os.path.expanduser("~"))
+    app.master.iconbitmap(bitmap="@emblem64")
 except:
     pass
+
+#try:
+#    os.chdir(os.path.expanduser("~"))
+#except:
+#    pass
 if LOAD_MSG != "":
     message_box("K40 Whisperer",LOAD_MSG)
 root.mainloop()

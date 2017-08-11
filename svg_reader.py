@@ -110,9 +110,9 @@ class SVG_READER(inkex.Effect):
         style   = node.get('style')
         self.Cut_Type[path_id]="raster" # Set default type to raster
         
-        color_props_fill = ('fill', 'stop-color', 'flood-color', 'lighting-color')
-        color_props_stroke = ('stroke',)
-        color_props = color_props_fill + color_props_stroke
+        #color_props_fill = ('fill', 'stop-color', 'flood-color', 'lighting-color')
+        #color_props_stroke = ('stroke',)
+        #color_props = color_props_fill + color_props_stroke
         
         #####################################################
         ## The following is ripped off from Coloreffect.py ##
@@ -141,6 +141,12 @@ class SVG_READER(inkex.Effect):
                             declarations[i] = prop + ':' + new_val
                             sw_flag = True
             if sw_flag == True:
+                if node.tag == inkex.addNS('text','svg'):
+                    line1 = "SVG File with Color Coded Text Outlines Found: (i.e. Blue: engrave/ Red: cut)"
+                    line2 = "Text for vector operations must be converted to paths in Inkscape."
+                    line3 = "In Inkscape select the text then select \"Path\"-\"Object to Path\" in the menu bar."
+                    raise StandardError("%s\n\n%s\n%s" %(line1,line2,line3))
+
                 if i_sw != -1:
                     declarations[i_sw] = sw_prop + ':' + "0.0"
                 else:
@@ -148,6 +154,7 @@ class SVG_READER(inkex.Effect):
             node.set('style', ';'.join(declarations))
 
         #####################################################
+            
         if node.tag == inkex.addNS('path','svg'):
             d = node.get('d')
             if not d:
@@ -284,34 +291,7 @@ class SVG_READER(inkex.Effect):
                 self.process_shape(node, self.groupmat[-1])
         if trans:
             self.groupmat.pop()
-            
-    def Make_PNG(self):
-        #create OS temp folder
-        tmp_dir = tempfile.mkdtemp()
-        
-        if self.inscape_exe != None:
-            try:
-                svg_temp_file = os.path.join(tmp_dir, "LYZimage.svg")
-                png_temp_file = os.path.join(tmp_dir, "LYZpngdata.png")
-                
-                dpi = "%d" %(self.image_dpi)           
-                self.document.write(svg_temp_file)
-                cmd = [ self.inscape_exe, self.png_area, "--export-dpi", dpi, \
-                        "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
-                        "255" ,"--export-png", png_temp_file, svg_temp_file ]
-                run_external(cmd, self.timout)
-            except:
-                raise StandardError("Inkscape Execution Failed.")
-            self.raster_PIL = Image.open(png_temp_file)
-            self.raster_PIL = self.raster_PIL.convert("L")
-        else:
-            raise StandardError("Inkscape Not found.")
-        try:
-            shutil.rmtree(tmp_dir) 
-        except:
-            raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
 
-        
     def unit2mm(self, string):
         # Returns mm given a string representation of units in another system
         # a dictionary of unit to user unit conversion factors
@@ -346,43 +326,65 @@ class SVG_READER(inkex.Effect):
         except KeyError:
             return retval
 
-    def convert_text2paths(self):
+    def Make_PNG(self):
         #create OS temp folder
         tmp_dir = tempfile.mkdtemp()
         
-        try:
-            if self.inscape_exe != None:
-                txt2path_file = os.path.join(tmp_dir, "txt2path.svg")
-
-                cmd = [ self.inscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, sys.argv[-1] ]
+        if self.inscape_exe != None:
+            try:
+                svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
+                png_temp_file = os.path.join(tmp_dir, "k40w_image.png")
+                
+                dpi = "%d" %(self.image_dpi)           
+                self.document.write(svg_temp_file)
+                cmd = [ self.inscape_exe, self.png_area, "--export-dpi", dpi, \
+                        "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
+                        "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
-                self.document.parse(txt2path_file)
-            else:
-                print "Inkscape Not found."
-        except:
-            print "Inkscape Execution Failed."
-        #Delete the temp folder and any files
+            except:
+                raise StandardError("Inkscape Execution Failed.")
+            self.raster_PIL = Image.open(png_temp_file)
+            self.raster_PIL = self.raster_PIL.convert("L")
+        else:
+            raise StandardError("Inkscape Not found.")
         try:
             shutil.rmtree(tmp_dir) 
         except:
-            print "temp dir not deleted: ",tmp_dir
-            pass
+            raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
+
+
+    def convert_text2paths(self):
+        #create OS temp folder
+        tmp_dir = tempfile.mkdtemp()
+        if self.inscape_exe != None:
+            try:
+                svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
+                txt2path_file = os.path.join(tmp_dir, "txt2path.svg")         
+                self.document.write(svg_temp_file)
+                cmd = [ self.inscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, svg_temp_file ]
+                run_external(cmd, self.timout)
+                self.document.parse(txt2path_file)
+            except:
+                raise StandardError("Inkscape Execution Failed.")
+        else:
+            raise StandardError("Inkscape Not found.")
+        try:
+            shutil.rmtree(tmp_dir) 
+        except:
+            raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
     
     def make_paths(self):
         msg               = ""
         #self.inkscape_dpi = 96.0 
         self.txt2paths    = False
  
-        if (self.txt2paths):
-            self.convert_text2paths()
-            
-        try:
-            h_uu = self.unittouu(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
-            w_uu = self.unittouu(self.document.getroot().xpath('@width' , namespaces=inkex.NSS)[0])
-        except:
-            h_uu = inkex.unittouu(self.document.getroot().xpath('@height',namespaces=inkex.NSS)[0])
-            w_uu = inkex.unittouu(self.document.getroot().xpath('@width',namespaces=inkex.NSS)[0])
-
+        #if (self.txt2paths):
+##        try:
+##            self.convert_text2paths()
+##        except:
+##            print "Convert Text to Path Failed"
+##            pass
+        
         try:
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
@@ -431,27 +433,27 @@ class SVG_READER(inkex.Effect):
         #msg = msg + "Width (mm)= %f\n" %(w_mm)
         #inkex.errormsg(_(msg))
         
-        if not self.raster: 
-            xmin= self.lines[0][0]+0.0
-            xmax= self.lines[0][0]+0.0
-            ymin= self.lines[0][1]+0.0
-            ymax= self.lines[0][1]+0.0
-            for line in self.lines:
-                x1= line[0]
-                y1= line[1]
-                x2= line[2]
-                y2= line[3]
-                xmin = min(min(xmin,x1),x2)
-                ymin = min(min(ymin,y1),y2)
-                xmax = max(max(xmax,x1),x2)
-                ymax = max(max(ymax,y1),y2)
-        else:
-            xmin= 0.0
-            xmax=  w_mm 
-            ymin= -h_mm 
-            ymax= 0.0
-            self.Make_PNG()
-            
+##        if not self.raster: 
+##            xmin= self.lines[0][0]+0.0
+##            xmax= self.lines[0][0]+0.0
+##            ymin= self.lines[0][1]+0.0
+##            ymax= self.lines[0][1]+0.0
+##            for line in self.lines:
+##                x1= line[0]
+##                y1= line[1]
+##                x2= line[2]
+##                y2= line[3]
+##                xmin = min(min(xmin,x1),x2)
+##                ymin = min(min(ymin,y1),y2)
+##                xmax = max(max(xmax,x1),x2)
+##                ymax = max(max(ymax,y1),y2)
+##        else:
+        xmin= 0.0
+        xmax=  w_mm 
+        ymin= -h_mm 
+        ymax= 0.0
+        self.Make_PNG()
+        
         self.Xsize=xmax-xmin
         self.Ysize=ymax-ymin
         Xcorner=xmin
