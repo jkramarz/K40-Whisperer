@@ -54,7 +54,7 @@ class K40_CLASS:
 
     def send_array(self,array):
         self.dev.write(self.write_addr,array,self.timeout)
-        print self.read_data()
+        self.read_data()
     
     def unlock_rail(self):
         self.dev.write(self.write_addr,self.unlock,self.timeout)
@@ -73,7 +73,7 @@ class K40_CLASS:
 
     def home_position(self):
         self.dev.write(self.write_addr,self.home,self.timeout)
-        print self.say_hello()
+        self.say_hello()
         return self.say_hello()
     
     #######################################################################
@@ -117,6 +117,8 @@ class K40_CLASS:
                 packet = blank[:]
                 cnt = 2
                 update_gui("Calculating CRC data and Generate Packets: %.1f%%" %(100.0*float(i)/float(len_data)))
+                if stop_calc[0]==True:
+                    raise StandardError("Action Stoped by User.")
             packet[cnt]=data[i]
             cnt=cnt+1
         packet[-1]=self.OneWireCRC(packet[1:len(packet)-2])
@@ -130,7 +132,7 @@ class K40_CLASS:
             while cnt < self.n_timeouts and True:
                 try:
                     self.dev.write(self.write_addr,line,self.timeout)
-                    packet_cnt = packet_cnt+1
+                    packet_cnt = packet_cnt+1.0
                     break #break and move on to next packet
                 except:
                     cnt=cnt+1
@@ -141,6 +143,7 @@ class K40_CLASS:
             if stop_calc[0]:
                 update_gui("User Commanded Stop")
                 return
+            update_gui( "Sending Data to Laser = %.1f%%" %( 100.0*packet_cnt/len(packets) ) )
         ##############################################################
         update_gui( "Packets sent = %d of %d" %( packet_cnt, len(packets) ) )
         

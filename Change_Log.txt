@@ -11,3 +11,16 @@ Version 0.03:
 - Added more descriptive test to "No Backend Error" to indicate libUSB is not installed
 - Removed debugging code that could have resulted in the head moving 1" away from raster image.
 - Updated Raster test pattern SVG
+
+Version 0.04:
+- Improvements to DXF import to prevent import failures
+- DXF import now detects blue lines and designates them as engraving lines.
+- DXF import looks for layers that have the text "engrave" in the name and designates items on the layer as engraving lines.
+- DXF import now detects the units in the file.  If no units are specified the user is prompted to select the correct units. 
+- Stop button now works during all phases of engraving preparation
+- Status updates more during engraving preparation and engraving process
+- Stop button now pauses job with the option to resume or terminate the job.
+- Added error on detection of color coded text in SVG files.
+- Deleted Min/Max darkness cutoff settings for halftone raster images.
+- Added Levels settings utilizing a Bezier curve to control the levels of gray-scale images
+- Changed scan-line step input to always be in inches. (Raster settings are in inches/dpi now)
