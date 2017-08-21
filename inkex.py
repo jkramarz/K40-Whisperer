@@ -98,11 +98,11 @@ def errormsg(msg):
          ...
          inkex.errormsg(_("This extension requires two selected paths."))
     """
-    if isinstance(msg, unicode):
-        sys.stderr.write(msg.encode("utf-8") + "\n")
-    else:
-        sys.stderr.write((unicode(msg, "utf-8", errors='replace') + "\n").encode("utf-8"))
-
+    #if isinstance(msg, unicode):
+    #    sys.stderr.write(msg.encode("utf-8") + "\n")
+    #else:
+    #    sys.stderr.write((unicode(msg, "utf-8", errors='replace') + "\n").encode("utf-8"))
+    print(msg)
 
 def are_near_relative(a, b, eps):
     return (a-b <= a*eps) and (a-b >= -a*eps)
@@ -119,7 +119,7 @@ except ImportError as e:
                "or install it through your package manager by a command like: sudo apt-get install "
                "python-lxml\n\nTechnical details:\n%s" % (e, )))
 
-    raw_input("_Press the <ENTER> key to continue...")
+    #raw_input("_Press the <ENTER> key to continue...")
     sys.exit()
 
 

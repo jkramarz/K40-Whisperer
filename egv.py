@@ -129,7 +129,6 @@ class egv:
     def make_distance(self,dist_mils):
         dist_mils=float(dist_mils)
         if abs(dist_mils-round(dist_mils,0)) > 0.000001:
-            #print "dist_mils = ",dist_mils
             raise StandardError('Distance values should be integer value (inches*1000)')
         DIST=0.0
         code = []
@@ -305,7 +304,8 @@ class egv:
                             speed_text="V1752241021000191",
                             Raster_step=0,
                             update_gui=None,
-                            stop_calc=None):
+                            stop_calc=None,
+                            FlipXoffset=0):
         ########################################################
         if stop_calc == None:
             stop_calc=[]
@@ -319,7 +319,10 @@ class egv:
             scale = 1000.0/25.4;
         ecoords=[]
         for i in range(len(ecoords_in)):
-            e0 = int(round(ecoords_in[i][0]*scale,0))
+            if FlipXoffset > 0:
+                e0 = int(round((FlipXoffset-ecoords_in[i][0])*scale,0)) #################################scorchscorch
+            else:
+                e0 = int(round(ecoords_in[i][0]*scale,0))
             e1 = int(round(ecoords_in[i][1]*scale,0))
             e2 = ecoords_in[i][2]
             ecoords.append([e0,e1,e2])
@@ -355,7 +358,7 @@ class egv:
             for i in range(1,len(ecoords)):
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords))))
                 if stop_calc[0]==True:
-                    raise StandardError("Action Stoped by User.")
+                    raise StandardError("Action Stopped by User.")
             
                 if (ecoords[i][2] == ecoords[i-1][2]) and (not laser):
                     laser = True
@@ -369,7 +372,6 @@ class egv:
                     if laser:
                         self.make_cut_line(dx,dy)
                     else:
-                        #print dx,dy,min_rapid
                         if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
                             self.rapid_move_slow(dx,dy)
                         else:
@@ -381,7 +383,14 @@ class egv:
             if laser:
                 laser = False
                 
-            self.make_dir_dist(startX-lastx,startY-lasty)
+            #self.make_dir_dist(startX-lastx,startY-lasty)
+            dx = startX-lastx
+            dy = startY-lasty
+            if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
+                self.rapid_move_slow(dx,dy)
+            else:
+                self.rapid_move_fast(dx,dy)
+
               ###########################################################
         else: # Raster
               ###########################################################
@@ -395,7 +404,10 @@ class egv:
                     scanline.append([ecoords[i]])
                     scanline_y = y
                 else:
-                    scanline[-1].append(ecoords[i])
+                    if FlipXoffset > 0:
+                        scanline[-1].insert(0,ecoords[i])
+                    else:
+                        scanline[-1].append(ecoords[i])
             ###################################################
                 
             lastx     = ecoords[0][0]
@@ -420,7 +432,7 @@ class egv:
             for scan in scanline:
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
                 if stop_calc[0]==True:
-                    raise StandardError("Action Stoped by User.")
+                    raise StandardError("Action Stopped by User.")
                 cnt = cnt+1
                 #self.write(ord(" "))
                 ######################################
@@ -577,10 +589,10 @@ class egv:
         for i in vals:
             #code_mm  = self.make_distance(i)
             code_in  = self.make_distance(round(i/25.4*1000.0,0))
-            print round(i/25.4*1000.0,0),":",
+            print(round(i/25.4*1000.0,0),":",)
             for j in range(len(code_in)): #,len(code_mm))):
-                print code_in[j],
-            print ""
+                print (code_in[j],)
+            print("")
     
     def open_egv_file_print_feed(self,filename):
         #print "Opening file: ",filename
@@ -602,14 +614,14 @@ class egv:
             last = c
             
         data.append(cur)
-        print data[6]
+        print(data[6])
 
     def open_egv_file_print_data(self,filename):
         #print "Opening file: ",filename
         try:
             fin = open(filename,'r')
         except:
-            print "Unable to open file: %s" %(filename)
+            print("Unable to open file: %s" %(filename))
             return
 
         header=""
@@ -668,15 +680,15 @@ class egv:
         #print cur,
 
         #print feed_rate[1:4],feed_rate[4:7],feed_rate[7],feed_rate[8:11],feed_rate[11:14], feed_rate[14:17],
-        print "%4d,%4d,%4d,%4d,%4d,%4d ])" %(
+        print("%4d,%4d,%4d,%4d,%4d,%4d ])" %(
                 int(feed_rate[1:4]),
                 int(feed_rate[4:7]),
                 int(feed_rate[7]),
                 int(feed_rate[8:11]),
                 int(feed_rate[11:14]),
-                int(feed_rate[14:17])),
-        print "  ",feed_rate,
-        print ""
+                int(feed_rate[14:17])),)
+        print("  ",feed_rate,)
+        print("")
 
     
     def test_make_feed(self):
@@ -731,16 +743,16 @@ class egv:
         data.append([500.00,  172, 224,   1,  20,   0, 211 ]) 
 
         for line in data:
-            print "%8.3f " %(line[0]),
-            print "%03d "   %(line[1]),
-            print "%03d "   %(line[2]),
-            print "%d "   %(line[3]),
-            print "%03d "   %(line[4]),
-            print "%03d "   %(line[5]),
-            print "%03d"    %(line[6]),
-            print " :: ",
+            print( "%8.3f " %(line[0]),)
+            print( "%03d "   %(line[1]),)
+            print( "%03d "   %(line[2]),)
+            print( "%d "   %(line[3]),)
+            print( "%03d "   %(line[4]),)
+            print( "%03d "   %(line[5]),)
+            print( "%03d"    %(line[6]),)
+            print( " :: ",)
             feed = self.make_speed(line[0])
-            print feed
+            print(feed)
             #print "%5.2f %5.2f" %(feed[0], line[1]-feed)
 
             
@@ -767,7 +779,7 @@ if __name__ == "__main__":
                 egv_files.append(name)
                 #print FORMAT %(name)+":",
                 rate = name.split('.')[0].replace('_','.')
-                print "data.append([%3.2f," %float(rate),
+                print("data.append([%3.2f," %float(rate),)
                 #print FORMAT %name.split('.')[0]+":",
                 EGV.open_egv_file_print_data(folder+name)
 
@@ -775,12 +787,12 @@ if __name__ == "__main__":
     #EGV.test_move_calc()
 
     for i in range(1,258,1):
-        print i,":",
+        print(i,":",)
         for n in EGV.make_distance(i):
-            print chr(n),
-        print ""
+            print(chr(n),)
+        print("")
 
     
     #EGV.test_make_feed()
-    print "DONE"
-    print EGV.make_distance(round(131,0))
+    print("DONE")
+    print(EGV.make_distance(round(131,0)))

@@ -22,7 +22,7 @@ try:
     import usb.core
     import usb.util
 except:
-    print "Unable to load USB library (Sending data to Laser will not work.)"
+    print("Unable to load USB library (Sending data to Laser will not work.)")
 import sys
 import time
 
@@ -174,8 +174,8 @@ class K40_CLASS:
             #return "Laser USB Device not found."
 
         if verbose:
-            print "-------------- dev --------------"
-            print self.dev
+            print("-------------- dev --------------")
+            print(self.dev)
         # set the active configuration. With no arguments, the first
         # configuration will be the active one
         try:
@@ -187,12 +187,12 @@ class K40_CLASS:
         # get an endpoint instance
         cfg = self.dev.get_active_configuration()
         if verbose:
-            print "-------------- cfg --------------"
-            print cfg
+            print ("-------------- cfg --------------")
+            print (cfg)
         intf = cfg[(0,0)]
         if verbose:
-            print "-------------- intf --------------"
-            print intf
+            print ("-------------- intf --------------")
+            print (intf)
         ep = usb.util.find_descriptor(
             intf,
             # match the first OUT endpoint
@@ -203,15 +203,15 @@ class K40_CLASS:
         if ep == None:
             raise StandardError("Unable to match the USB 'OUT' endpoint.")
         if verbose:
-            print "-------------- ep --------------"
-            print ep
+            print ("-------------- ep --------------")
+            print (ep)
         #self.dev.clear_halt(ep)
         #print self.dev.get_active_configuration()
         #               dev.ctrl_transfer(bmRequestType, bRequest, wValue=0, wIndex=0, data_or_wLength = None, 2000)
         ctrlxfer = self.dev.ctrl_transfer(         0x40,      177,   0x0102,        0,                      0, 2000)
         if verbose:
-            print "---------- ctrlxfer ------------"
-            print ctrlxfer
+            print ("---------- ctrlxfer ------------")
+            print (ctrlxfer)
 
         #return True
         
@@ -226,7 +226,7 @@ class K40_CLASS:
         try:
             fin = open(filename,'r')
         except:
-            print "Unable to open file: %s" %(filename)
+            print ("Unable to open file: %s" %(filename))
             return
 
         cur = ""
@@ -241,14 +241,14 @@ class K40_CLASS:
             last = c
             
         data.append(cur)
-        print data[6]
+        print(data[6])
 
 
     def open_egv_file_print_data(self,filename):
         try:
             fin = open(filename,'r')
         except:
-            print "Unable to open file: %s" %(filename)
+            print("Unable to open file: %s" %(filename))
             return
 
         header=""
@@ -287,7 +287,7 @@ class K40_CLASS:
             c = fin.read(1)
             
 
-        print "%-20s  " %(header_pct),feed_rate,cur
+        print ("%-20s  " %(header_pct),feed_rate,cur)
 if __name__ == "__main__":
 
     k40=K40_CLASS()
@@ -296,17 +296,17 @@ if __name__ == "__main__":
     try:
         k40.initialize_device(verbose=True)
     # the following does not work for python 2.5
-    except StandardError as e: #(RuntimeError, TypeError, NameError, StandardError):
-        print e    
-        print "Exiting..."
+    except RuntimeError as e: #(RuntimeError, TypeError, NameError, StandardError):
+        print(e)    
+        print("Exiting...")
         os._exit(0) 
 
     #k40.initialize_device()
-    print k40.read_data()
-    print k40.say_hello()
+    print (k40.read_data())
+    print (k40.say_hello())
     #print k40.reset_position()
     #print k40.unlock_rail()
-    print "DONE"
+    print ("DONE")
 
     
 

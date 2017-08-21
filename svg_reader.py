@@ -35,7 +35,7 @@ from PIL import Image
 try:
     inkex.localize()
 except:
-    print "localize failed"
+    print("localize failed")
     pass
 
 ## Subprocess timout stuff ######
@@ -61,6 +61,7 @@ class SVG_READER(inkex.Effect):
         self.inscape_exe_list.append("C:\\Program Files\\Inkscape\\inkscape.exe")
         self.inscape_exe_list.append("C:\\Program Files (x86)\\Inkscape\\inkscape.exe")
         self.inscape_exe_list.append("/usr/bin/inkscape")
+        self.inscape_exe_list.append("/usr/local/bin/inkscape")
         self.inscape_exe = None
         self.lines =[]
         self.Cut_Type = {}

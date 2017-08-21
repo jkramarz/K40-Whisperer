@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.04'
+version = '0.05'
 
 import sys
 from math import *
@@ -68,32 +68,15 @@ import binascii
 import getopt
 import operator
 import webbrowser
-
-
-PIL = True
 from PIL import Image
-from PIL import ImageTk
-#from PIL import ImageEnhance
+
 try:
-    import _imaging
+    from PIL import ImageTk
+    from PIL import _imaging
 except:
-    PIL = False
+    pass #Don't worry everything will still work
 
-if PIL == False:
-    LOAD_MSG = LOAD_MSG+"\nPIL '_imaging' Failed to Load.\nRaster image with not display."
-       
-#raw_input("Press the <ENTER> key to continue...")
-
-#Setting QUIET to True will stop almost all console messages
 QUIET = False
-
-
-
-
-
-
-        
-
 
 ################################################################################
 class Application(Frame):
@@ -128,6 +111,7 @@ class Application(Frame):
         self.include_Veng = BooleanVar()
         self.include_Vcut = BooleanVar()
         self.halftone     = BooleanVar()
+        self.HomeUR       = BooleanVar()
 
         self.ht_size    = StringVar()
         self.Reng_feed  = StringVar()
@@ -165,6 +149,8 @@ class Application(Frame):
         self.include_Veng.set(1)
         self.include_Vcut.set(1)
         self.halftone.set(0)
+        self.HomeUR.set(0)
+        
         self.ht_size.set(500)
 
         self.Reng_feed.set("100")
@@ -208,7 +194,7 @@ class Application(Frame):
         
         self.segID   = []
 
-        self.ui_TKimage = None
+        self.UI_image = None
         
         self.Reng_image = None
         self.SCALE = 1
@@ -321,20 +307,22 @@ class Application(Frame):
         self.Stop_Button       = Button(self.master,text="Stop",             command=self.Stop)
 
         try:
-            self.left_image  = ImageTk.PhotoImage(file="left.png")
-            self.right_image = ImageTk.PhotoImage(file="right.png")
-            self.up_image    = ImageTk.PhotoImage(file="up.png")
-            self.down_image  = ImageTk.PhotoImage(file="down.png")
+            self.left_image  = self.Imaging_Free(Image.open("left.png"),bg=None)
+            self.right_image = self.Imaging_Free(Image.open("right.png"),bg=None)
+            self.up_image    = self.Imaging_Free(Image.open("up.png"),bg=None)
+            self.down_image  = self.Imaging_Free(Image.open("down.png"),bg=None)
+            
             self.Right_Button   = Button(self.master,image=self.right_image, command=self.Move_Right)
             self.Left_Button    = Button(self.master,image=self.left_image,  command=self.Move_Left)
             self.Up_Button      = Button(self.master,image=self.up_image,    command=self.Move_Up)
             self.Down_Button    = Button(self.master,image=self.down_image,  command=self.Move_Down)
 
-            self.UL_image  = ImageTk.PhotoImage(file="UL.png")
-            self.UR_image  = ImageTk.PhotoImage(file="UR.png")
-            self.LR_image  = ImageTk.PhotoImage(file="LR.png")
-            self.LL_image  = ImageTk.PhotoImage(file="LL.png")
-            self.CC_image  = ImageTk.PhotoImage(file="CC.png")
+            self.UL_image  = self.Imaging_Free(Image.open("UL.png"),bg=None)
+            self.UR_image  = self.Imaging_Free(Image.open("UR.png"),bg=None)
+            self.LR_image  = self.Imaging_Free(Image.open("LR.png"),bg=None)
+            self.LL_image  = self.Imaging_Free(Image.open("LL.png"),bg=None)
+            self.CC_image  = self.Imaging_Free(Image.open("CC.png"),bg=None)
+            
             self.UL_Button = Button(self.master,image=self.UL_image, command=self.Move_UL)
             self.UR_Button = Button(self.master,image=self.UR_image, command=self.Move_UR)
             self.LR_Button = Button(self.master,image=self.LR_image, command=self.Move_LR)
@@ -352,7 +340,6 @@ class Application(Frame):
             self.LR_Button = Button(self.master,text=" ", command=self.Move_LR)
             self.LL_Button = Button(self.master,text=" ", command=self.Move_LL)
             self.CC_Button = Button(self.master,text=" ", command=self.Move_CC)
-        
 
         self.Label_Step   = Label(self.master,text="Jog Step", anchor=CENTER )
         self.Label_Step_u = Label(self.master,textvariable=self.units, anchor=W)
@@ -555,6 +542,7 @@ class Application(Frame):
         header.append('(k40_whisperer_set include_Veng  %s )'  %( int(self.include_Veng.get())  ))
         header.append('(k40_whisperer_set include_Vcut  %s )'  %( int(self.include_Vcut.get())  ))
         header.append('(k40_whisperer_set halftone      %s )'  %( int(self.halftone.get())      ))
+        header.append('(k40_whisperer_set HomeUR        %s )'  %( int(self.HomeUR.get())        ))
         
         # STRING.get()
         header.append('(k40_whisperer_set board_name    %s )'  %( self.board_name.get()     ))
@@ -623,10 +611,12 @@ class Application(Frame):
         
         dx = can_dx*self.PlotScale
         dy = can_dy*self.PlotScale
-        
+        if self.HomeUR.get():
+            dx = -dx
         self.laserX,self.laserY = self.XY_in_bounds(dx,dy)
 
         DXmils = round((self.laserX - Xold)*1000.0,0)
+
         DYmils = round((self.laserY - Yold)*1000.0,0)
         if self.k40 != None:
             self.k40.rapid_move(DXmils,DYmils)
@@ -735,8 +725,11 @@ class Application(Frame):
     def Entry_GoToX_Check(self):
         try:
             value = float(self.gotoX.get())
-            if  value < 0.0:
+            if  (value < 0.0) and (not self.HomeUR.get()):
                 self.statusMessage.set(" Value should be greater than 0.0 ")
+                return 2 # Value is invalid number
+            elif (value > 0.0) and self.HomeUR.get():
+                self.statusMessage.set(" Value should be less than 0.0 ")
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
@@ -1369,7 +1362,8 @@ class Application(Frame):
                     self.include_Vcut.set(line[line.find("include_Vcut"):].split()[1])
                 elif "halftone"  in line:
                     self.halftone.set(line[line.find("halftone"):].split()[1])
-
+                elif "HomeUR"  in line:
+                    self.HomeUR.set(line[line.find("HomeUR"):].split()[1])
 
                 # STRING.set()
                 elif "board_name" in line:
@@ -1482,16 +1476,38 @@ class Application(Frame):
         
 
     def Move_UL(self,dummy=None):
-        if self.k40 != None:
-            message_box("Upper Left Corner","Press OK to return.")
+        #if self.k40 != None:
+        #    message_box("Upper Left Corner","Press OK to return.")
 
-    def Move_UR(self,dummy=None):
         xmin,xmax,ymin,ymax = self.Reng_bounds
-        Xnew = self.laserX + (xmax-xmin)
+        if self.HomeUR.get():
+            Xnew = self.laserX + (xmax-xmin)
+            DX = round((xmax-xmin)*1000.0)
+        else:
+            Xnew = self.laserX
+            DX = 0
+            
         (Xsize,Ysize)=self.LASER_Size()
         if Xnew <= Xsize+.001:
             if self.k40 != None:
-                DX = round((xmax-xmin)*1000.0)
+                self.k40.rapid_move( DX, 0 )
+                message_box("Upper Left Corner","Press OK to return.")
+                self.k40.rapid_move(-DX, 0 )
+        else:
+            pass
+
+    def Move_UR(self,dummy=None):
+        xmin,xmax,ymin,ymax = self.Reng_bounds
+        if self.HomeUR.get():
+            Xnew = self.laserX
+            DX = 0
+        else:
+            Xnew = self.laserX + (xmax-xmin) 
+            DX = round((xmax-xmin)*1000.0)
+
+        (Xsize,Ysize)=self.LASER_Size()
+        if Xnew <= Xsize+.001:
+            if self.k40 != None:
                 self.k40.rapid_move( DX, 0 )
                 message_box("Upper Right Corner","Press OK to return.")
                 self.k40.rapid_move(-DX, 0 )
@@ -1500,12 +1516,17 @@ class Application(Frame):
     
     def Move_LR(self,dummy=None):
         xmin,xmax,ymin,ymax = self.Reng_bounds
-        Xnew = self.laserX + (xmax-xmin)
+        if self.HomeUR.get():
+            Xnew = self.laserX
+            DX = 0
+        else:
+            Xnew = self.laserX + (xmax-xmin) 
+            DX = round((xmax-xmin)*1000.0)
+            
         Ynew = self.laserY - (ymax-ymin)
         (Xsize,Ysize)=self.LASER_Size()
         if Xnew <= Xsize+.001 and Ynew >= -Ysize-.001:
             if self.k40 != None:
-                DX = round((xmax-xmin)*1000.0)
                 DY = round((ymax-ymin)*1000.0)
                 self.k40.rapid_move( DX,-DY )
                 message_box("Lower Right Corner","Press OK to return.")
@@ -1515,25 +1536,40 @@ class Application(Frame):
     
     def Move_LL(self,dummy=None):
         xmin,xmax,ymin,ymax = self.Reng_bounds
+        if self.HomeUR.get():
+            Xnew = self.laserX + (xmax-xmin)
+            DX = round((xmax-xmin)*1000.0)
+        else:
+            Xnew = self.laserX
+            DX = 0
+            
         Ynew = self.laserY - (ymax-ymin)
         (Xsize,Ysize)=self.LASER_Size()
-        if Ynew >= -Ysize-.001:
+        if Xnew <= Xsize+.001 and Ynew >= -Ysize-.001:
             if self.k40 != None:
                 DY = round((ymax-ymin)*1000.0)
-                self.k40.rapid_move( 0,-DY )
+                self.k40.rapid_move( DX,-DY )
                 message_box("Lower Left Corner","Press OK to return.")
-                self.k40.rapid_move( 0, DY )
+                self.k40.rapid_move(-DX, DY )
         else:
             pass
 
     def Move_CC(self,dummy=None):
         xmin,xmax,ymin,ymax = self.Reng_bounds
-        Xnew = self.laserX + (xmax-xmin)/2.0
+        #Xnew = self.laserX + (xmax-xmin)/2.0
+        if self.HomeUR.get():
+            Xnew = self.laserX + (xmax-xmin)/2.0 
+            DX = round((xmax-xmin)/2.0*1000.0)
+        else:
+            Xnew = self.laserX + (xmax-xmin)/2.0 
+            DX = round((xmax-xmin)/2.0*1000.0)
+
+            
         Ynew = self.laserY - (ymax-ymin)/2.0
         (Xsize,Ysize)=self.LASER_Size()
         if Xnew <= Xsize+.001 and Ynew >= -Ysize-.001:
             if self.k40 != None:
-                DX = round((xmax-xmin)/2.0*1000.0)
+                
                 DY = round((ymax-ymin)/2.0*1000.0)
                 self.k40.rapid_move( DX,-DY )
                 message_box("Center","Press OK to return.")
@@ -1565,6 +1601,9 @@ class Application(Frame):
         else:
             dx_inches = round(dx/25.4,3)
             dy_inches = round(dy/25.4,3)
+
+        if (self.HomeUR.get()):
+            dx_inches = -dx_inches
 
         Xnew,Ynew = self.XY_in_bounds(dx_inches,dy_inches)
         dxmils = (Xnew - self.laserX)*1000.0
@@ -1606,7 +1645,6 @@ class Application(Frame):
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Vector Cut: Processing Vector Data.")
         self.master.update()
-        self.Vcut
         if self.Vcut!=[]:
             self.send_data("Vector_Cut")
         else:
@@ -1834,8 +1872,14 @@ class Application(Frame):
                 feed_factor = 25.4/60.0
             else:
                 feed_factor = 1.0
-            
+                
             xmin,xmax,ymin,ymax = self.Reng_bounds
+            if self.HomeUR.get():
+                xmin,xmax,ymin,ymax = self.Reng_bounds
+                FlipXoffset = xmax-xmin
+            else:
+                FlipXoffset = 0
+            
             data=[]
             egv_inst = egv(target=lambda s:data.append(s))
             
@@ -1846,6 +1890,7 @@ class Application(Frame):
                 self.Vcut = self.optimize_paths(self.Vcut)
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
+                
                 egv_inst.make_egv_data(
                                                 self.Vcut,                        \
                                                 startX=xmin,                      \
@@ -1853,7 +1898,8 @@ class Application(Frame):
                                                 Feed = Feed_Rate,                 \
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
-                                                stop_calc=self.stop
+                                                stop_calc=self.stop,              \
+                                                FlipXoffset=FlipXoffset
                                                 )
 
             if (operation_type=="Vector_Eng") and  (self.Veng!=[]):
@@ -1870,7 +1916,8 @@ class Application(Frame):
                                                 Feed = Feed_Rate,                 \
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
-                                                stop_calc=self.stop
+                                                stop_calc=self.stop,              \
+                                                FlipXoffset=FlipXoffset
                                                 )
 
             if (operation_type=="Raster_Eng") and  (self.Reng!=[]):
@@ -1884,7 +1931,8 @@ class Application(Frame):
                                                 Feed = Feed_Rate,                 \
                                                 Raster_step = Raster_step,        \
                                                 update_gui=self.update_gui,       \
-                                                stop_calc=self.stop
+                                                stop_calc=self.stop,              \
+                                                FlipXoffset=FlipXoffset
                                                 )
                 
             self.master.update()
@@ -2007,7 +2055,6 @@ class Application(Frame):
                 self.statusMessage.set("Rail Unlock Succeeded")
             except:
                 pass
-   
     
     ##########################################################################
     ##########################################################################
@@ -2027,15 +2074,30 @@ class Application(Frame):
         xmin,xmax,ymin,ymax = self.Reng_bounds
         W = xmax-xmin
         H = ymax-ymin
+
         if self.units.get()=="in":
-            self.statusMessage.set(" Current Position: X=%.3f Y=%.3f    ( W X H )=( %.3fin X %.3fin ) "
-                                   %(self.laserX,self.laserY,W,H))
+            X_display = self.laserX
+            Y_display = self.laserY
+            W_display = W
+            H_display = H
+            U_display = self.units.get()
         else:
-            self.statusMessage.set(" Current Position: X=%.3f Y=%.3f    ( W X H )=( %.3fmm X %.3fmm ) "
-                                   %(self.laserX*self.units_scale,
-                                     self.laserY*self.units_scale,
-                                     W*self.units_scale,
-                                     H*self.units_scale))
+            X_display = self.laserX*self.units_scale
+            Y_display = self.laserY*self.units_scale
+            W_display = W*self.units_scale
+            H_display = H*self.units_scale
+            U_display = self.units.get()
+        if self.HomeUR.get():
+            X_display = -X_display
+
+        self.statusMessage.set(" Current Position: X=%.3f Y=%.3f    ( W X H )=( %.3f%s X %.3f%s ) "
+                                %(X_display,
+                                  Y_display,
+                                  W_display,
+                                  U_display,
+                                  H_display,
+                                  U_display))
+
         self.statusbar.configure( bg = 'white' )
         
     def menu_Mode_Change_Callback(self, varName, index, mode):
@@ -2212,6 +2274,20 @@ class Application(Frame):
     def Set_Input_States_RASTER_Event(self,event):
         self.Set_Input_States_RASTER()
 
+    def Imaging_Free(self,image_in,bg="#ffffff"):
+        image_in = image_in.convert('L')
+        wim,him = image_in.size
+        image_out=PhotoImage(width=wim,height=him)
+        pixel=image_in.load()
+        if bg!=None:
+            image_out.put(bg, to=(0,0,wim,him))
+        for y in range(0,him):
+            for x in range(0,wim):
+                val=pixel[x,y]
+                if val!=255:
+                    image_out.put("#%02x%02x%02x" %(val,val,val),(x,y))
+        return image_out
+
     ##########################################
     #        CANVAS PLOTTING STUFF           #
     ##########################################
@@ -2247,13 +2323,20 @@ class Application(Frame):
                     x_lft, y_bot, x_rgt, y_top, fill="gray80", outline="gray80", width = 0) )
 
         xmin,xmax,ymin,ymax = self.Reng_bounds
+
+
+        if (self.HomeUR.get()):
+            XlineShift = maxx - self.laserX - (xmax-xmin)
+        else:
+            XlineShift = self.laserX
+        YlineShift = self.laserY    
+
         ######################################
         ###       Plot Raster Image        ###
         ######################################
         if self.Reng_image != None:
             if self.include_Reng.get():     
-                #try:
-                if 1==1:    
+                try:
                     new_SCALE = (1.0/self.PlotScale)/1000
                     if new_SCALE != self.SCALE:
                         self.SCALE = new_SCALE
@@ -2265,12 +2348,16 @@ class Application(Frame):
                             plot_im = plot_im.point(lambda x: 0 if x<128 else 255, '1')
                         else:
                             plot_im = self.Reng_image
-                        self.ui_TKimage = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
-                #except:
-                #    self.SCALE = 1
-                self.Plot_Raster(self.laserX, self.laserY, x_lft,y_top,self.PlotScale,im=self.ui_TKimage)
+                        try:
+                            self.UI_image = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
+                        except:
+                            #message_box("Imaging_Free Used")
+                            self.UI_image = self.Imaging_Free(plot_im.resize((nw,nh), Image.ANTIALIAS))
+                except:
+                    self.SCALE = 1
+                self.Plot_Raster(self.laserX, self.laserY, x_lft,y_top,self.PlotScale,im=self.UI_image)
         else:
-            self.ui_TKimage = None
+            self.UI_image = None
         ######################################
         ###       Plot Veng Coords         ###
         ######################################
@@ -2285,7 +2372,7 @@ class Application(Frame):
                 color = "red"
                 # check and see if we need to move to a new discontinuous start point
                 if (loop == loop_old):
-                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, self.PlotScale, "blue")
+                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, "blue")
                 loop_old = loop
                 xold=x1
                 yold=y1
@@ -2305,7 +2392,7 @@ class Application(Frame):
                 color = "red"
                 # check and see if we need to move to a new discontinuous start point
                 if (loop == loop_old):
-                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, self.PlotScale, "red")
+                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, "red")
                 loop_old = loop
                 xold=x1
                 yold=y1
@@ -2328,7 +2415,7 @@ class Application(Frame):
 ##                color = "gray20"
 ##                # check and see if we need to move to a new discontinuous start point
 ##                if (loop == loop_old):
-##                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, self.PlotScale, color)
+##                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, color)
 ##                loop_old = loop
 ##                xold=x1
 ##                yold=y1
@@ -2339,14 +2426,24 @@ class Application(Frame):
 
         
     def Plot_Raster(self, XX, YY, Xleft, Ytop, PlotScale, im):
-        xplt = Xleft + XX/PlotScale
+        if (self.HomeUR.get()):
+            maxx = float(self.LaserXsize.get()) / self.units_scale
+            xmin,xmax,ymin,ymax = self.Reng_bounds
+            xplt = Xleft + ( maxx-XX-(xmax-xmin) )/PlotScale
+        else:
+            xplt = Xleft +  XX/PlotScale
+            
         yplt = Ytop  - YY/PlotScale
         self.segID.append(
-            self.PreviewCanvas.create_image(xplt, yplt, anchor=NW, image=self.ui_TKimage,tags='LaserTag')
+            self.PreviewCanvas.create_image(xplt, yplt, anchor=NW, image=self.UI_image,tags='LaserTag')
             )
         
     def Plot_circle(self, XX, YY, Xleft, Ytop, PlotScale, col, radius=0):
-        xplt = Xleft + XX/PlotScale
+        if (self.HomeUR.get()):
+            maxx = float(self.LaserXsize.get()) / self.units_scale
+            xplt = Xleft + maxx/PlotScale - XX/PlotScale
+        else:
+            xplt = Xleft + XX/PlotScale
         yplt = Ytop  - YY/PlotScale
         self.segID.append(
             self.PreviewCanvas.create_oval(
@@ -2356,11 +2453,12 @@ class Application(Frame):
                                             yplt+radius,
                                             fill=col, outline=col, width = 0,tags='LaserTag') )
 
-    def Plot_Line(self, XX1, YY1, XX2, YY2, Xleft, Ytop, PlotScale, col, thick=0):
-        xplt1 = Xleft + (XX1+self.laserX)/PlotScale
-        yplt1 = Ytop  - (YY1+self.laserY)/PlotScale
-        xplt2 = Xleft + (XX2+self.laserX)/PlotScale
-        yplt2 = Ytop  - (YY2+self.laserY)/PlotScale
+    def Plot_Line(self, XX1, YY1, XX2, YY2, Xleft, Ytop, XlineShift, YlineShift, PlotScale, col, thick=0):
+        xplt1 = Xleft + (XX1 + XlineShift )/PlotScale 
+        xplt2 = Xleft + (XX2 + XlineShift )/PlotScale
+        yplt1 = Ytop  - (YY1 + YlineShift )/PlotScale
+        yplt2 = Ytop  - (YY2 + YlineShift )/PlotScale
+        
         self.segID.append(
             self.PreviewCanvas.create_line( xplt1,
                                             yplt1,
@@ -2438,6 +2536,14 @@ class Application(Frame):
         self.Inkscape_Path = Button(gen_settings,text="Find Inkscape")
         self.Inkscape_Path.place(x=xd_entry_L+font_entry_width+10, y=D_Yloc, width=110, height=23)
         self.Inkscape_Path.bind("<ButtonRelease-1>", self.Inkscape_Path_Click)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_no_com = Label(gen_settings,text="Home in Upper Right")
+        self.Label_no_com.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_no_com = Checkbutton(gen_settings,text="", anchor=W)
+        self.Checkbutton_no_com.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_no_com.configure(variable=self.HomeUR)
+        self.HomeUR.trace_variable("w",self.menu_View_Refresh_Callback)
 
         D_Yloc=D_Yloc+D_dY 
         self.Label_Board_Name      = Label(gen_settings,text="Board Name", anchor=CENTER )
