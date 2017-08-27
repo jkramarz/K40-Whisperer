@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.05'
+version = '0.06'
 
 import sys
 from math import *
@@ -32,7 +32,7 @@ import simplestyle
 import simpletransform
 import cubicsuperpath
 import cspsubdiv
-
+import traceback
 
 VERSION = sys.version_info[0]
 LOAD_MSG = ""
@@ -69,7 +69,10 @@ import getopt
 import operator
 import webbrowser
 from PIL import Image
-
+try:
+    Image.warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+except:
+    pass
 try:
     from PIL import ImageTk
     from PIL import _imaging
@@ -1234,29 +1237,35 @@ class Application(Frame):
                 self.master.update()
                 for x in range(1, x_lim):
                     pixel[x, y] = val_map[ pixel[x, y] ]
-                    
-        #image.save("adjusted.png","PNG")
-                    
-        for y in range(1, y_lim):
-            self.statusMessage.set("Raster Engraving: Creating Halftone Image: %.1f %%" %( (100.0*y)/y_lim ) )
-            self.master.update()
-            if self.stop[0]==True:
-                raise StandardError("Action stopped by User.")
-                    
-            for x in range(1, x_lim):
-                oldpixel = pixel[x, y]
-                newpixel = 255*floor(oldpixel/128)
-                pixel[x, y] = newpixel
-                perror = oldpixel - newpixel
 
-                if x < x_lim - 1:
-                    pixel[x+1, y  ] = pixel[x+1, y  ] + round(perror * 7/16)
-                if x > 1 and y < y_lim - 1:
-                    pixel[x-1, y+1] = pixel[x-1, y+1] + round(perror * 3/16)
-                if y < y_lim - 1:
-                    pixel[x  , y+1] = pixel[x  , y+1] + round(perror * 5/16)
-                if x < x_lim - 1 and y < y_lim - 1:
-                    pixel[x+1, y+1] = pixel[x+1, y+1] + round(perror * 1/16)
+        self.statusMessage.set("Raster Engraving: Creating Halftone Image." )
+        self.master.update()
+        image = image.convert('1')
+          
+##        image.save("Z:\\000.png","PNG")
+##        junk = image.convert("1")
+##        junk.save("Z:\\001.png","PNG")   
+##        for y in range(1, y_lim):
+##            self.statusMessage.set("Raster Engraving: Creating Halftone Image: %.1f %%" %( (100.0*y)/y_lim ) )
+##            self.master.update()
+##            if self.stop[0]==True:
+##                raise StandardError("Action stopped by User.")
+##                    
+##            for x in range(1, x_lim):
+##                oldpixel = pixel[x, y]
+##                newpixel = 255*floor(oldpixel/128)
+##                pixel[x,y] = newpixel
+##                perror = oldpixel - newpixel
+##
+##                if x < x_lim - 1:
+##                    pixel[x+1, y  ] = pixel[x+1, y  ] + round(perror * 7/16)
+##                if x > 1 and y < y_lim - 1:
+##                    pixel[x-1, y+1] = pixel[x-1, y+1] + round(perror * 3/16)
+##                if y < y_lim - 1:
+##                    pixel[x  , y+1] = pixel[x  , y+1] + round(perror * 5/16)
+##                if x < x_lim - 1 and y < y_lim - 1:
+##                    pixel[x+1, y+1] = pixel[x+1, y+1] + round(perror * 1/16)
+##        image.save("Z:\\002.png","PNG") 
         return image
 
     #######################################################################
@@ -1685,6 +1694,7 @@ class Application(Frame):
             self.statusMessage.set( msg1+msg2 )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
+            #traceback.print_exc(file=sys.stdout)
             pass
         self.set_gui("normal")
 
@@ -1938,14 +1948,22 @@ class Application(Frame):
             self.master.update()
             self.send_egv_data(data)
             self.menu_View_Refresh()
-            
+        except MemoryError as e:
+            raise StandardError("Memory Error:  Out of Memory.")
+        
         except StandardError as e:
             msg1 = "Sending Data Stopped: "
             msg2 = "%s" %(e)
+            if msg2 == "":
+                formatted_lines = traceback.format_exc().splitlines()
             self.statusMessage.set( msg1+msg2 )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
-            pass
+
+            #print msg1
+            #print '-'*60
+            #traceback.print_exc(file=sys.stdout)
+            #print '-'*60
             
 
     def send_egv_data(self,data):
