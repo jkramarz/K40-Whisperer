@@ -318,17 +318,28 @@ class egv:
         if units == 'mm':
             scale = 1000.0/25.4;
         ecoords=[]
+
+        #ecoords = ecoords_in             #-------------------------------------------------------------------------------------
+        #import psutil                    #-------------------------------------------------------------------------------------
+        #print psutil.virtual_memory()    #-------------------------------------------------------------------------------------
+            
         for i in range(len(ecoords_in)):
             if FlipXoffset > 0:
-                e0 = int(round((FlipXoffset-ecoords_in[i][0])*scale,0)) #################################scorchscorch
+                e0 = int(round((FlipXoffset-ecoords_in[i][0])*scale,0))
             else:
                 e0 = int(round(ecoords_in[i][0]*scale,0))
             e1 = int(round(ecoords_in[i][1]*scale,0))
             e2 = ecoords_in[i][2]
             ecoords.append([e0,e1,e2])
+            if i%1000 == 0:
+                update_gui("Preprocessing Raster Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
         startX = int(round(startX*scale,0))
         startY = int(round(startY*scale,0))
 
+        #print psutil.virtual_memory()    #-------------------------------------------------------------------------------------
+        #mem_full=[]                      #-------------------------------------------------------------------------------------
+        #while True:                      #-------------------------------------------------------------------------------------
+        #    mem_full.append(mem_full)    #-------------------------------------------------------------------------------------
         ########################################################
         if Feed==None:
             speed = self.make_speed(Feed,speed_text=speed_text)

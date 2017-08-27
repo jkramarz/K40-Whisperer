@@ -32,3 +32,9 @@ Version 0.05:
 - Added code to eliminate the requirement for the PIL/Pillow _imaging C module.
 - Started updating for compatibility with Python 3 (this is a low priority work in progress)
 
+Version 0.06:
+- Added code to DXF class to fix bad knot data in splines.
+- Added better status messages during image processing
+- Changed half toning to PIL/PILLOW half toning (faster)
+- Added better error message for Memory Error which previously resulted in a blank message box.
+- Added a 64bit executable to the list of downloads to address memory issued with 32bi application

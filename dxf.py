@@ -708,6 +708,11 @@ class DXF_CLASS:
                     self.Weights.append(1)
                 pass
 
+            kmin = min(self.Knots)
+            kmax = max(self.Knots)
+            for i in range(len(self.Knots)):
+                self.Knots[i] = (self.Knots[i]-kmin)/(kmax-kmin)
+
             for x,y in zip(e.data["10"], e.data["20"]):
                 self.CPoints.append(PointClass(float(x), float(y)))
 
