@@ -108,7 +108,6 @@ class K40_CLASS:
         packets = []
         packet  = blank[:]
         cnt=2
-        #for d in data:
         len_data = len(data)
         for i in range(len_data):
             if cnt > 31:

@@ -295,6 +295,16 @@ class egv:
     def none_function(self,dummy=None):
         #Don't delete this function (used in make_egv_data)
         pass
+
+    def ecoord_adj(self,ecoords_adj_in,scale,FlipXoffset):
+        if FlipXoffset > 0:
+            e0 = int(round((FlipXoffset-ecoords_adj_in[0])*scale,0))
+        else:
+            e0 = int(round(ecoords_adj_in[0]*scale,0))
+        e1 = int(round(ecoords_adj_in[1]*scale,0))
+        e2 = ecoords_adj_in[2]
+        return e0,e1,e2
+
     
     def make_egv_data(self, ecoords_in,
                             startX=0,
@@ -317,29 +327,10 @@ class egv:
             scale = 1000.0
         if units == 'mm':
             scale = 1000.0/25.4;
-        ecoords=[]
-
-        #ecoords = ecoords_in             #-------------------------------------------------------------------------------------
-        #import psutil                    #-------------------------------------------------------------------------------------
-        #print psutil.virtual_memory()    #-------------------------------------------------------------------------------------
-            
-        for i in range(len(ecoords_in)):
-            if FlipXoffset > 0:
-                e0 = int(round((FlipXoffset-ecoords_in[i][0])*scale,0))
-            else:
-                e0 = int(round(ecoords_in[i][0]*scale,0))
-            e1 = int(round(ecoords_in[i][1]*scale,0))
-            e2 = ecoords_in[i][2]
-            ecoords.append([e0,e1,e2])
-            if i%1000 == 0:
-                update_gui("Preprocessing Raster Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
+                
         startX = int(round(startX*scale,0))
         startY = int(round(startY*scale,0))
 
-        #print psutil.virtual_memory()    #-------------------------------------------------------------------------------------
-        #mem_full=[]                      #-------------------------------------------------------------------------------------
-        #while True:                      #-------------------------------------------------------------------------------------
-        #    mem_full.append(mem_full)    #-------------------------------------------------------------------------------------
         ########################################################
         if Feed==None:
             speed = self.make_speed(Feed,speed_text=speed_text)
@@ -350,11 +341,8 @@ class egv:
         for code in speed:
             self.write(code)
         
-        lastx     = ecoords[0][0]
-        lasty     = ecoords[0][1]
-        loop_last = ecoords[0][2]
-                
         if Raster_step==0:
+            lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)  
             self.make_dir_dist(lastx-startX,lasty-startY)
             self.flush(laser_on=False)
             self.write(ord("N"))
@@ -366,17 +354,19 @@ class egv:
             self.write(ord("E"))
             ###########################################################
             laser   = False
-            for i in range(1,len(ecoords)):
-                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords))))
+        
+            for i in range(1,len(ecoords_in)):
+                e0,e1,e2                = self.ecoord_adj(ecoords_in[i]  ,scale,FlipXoffset)
+                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
                 if stop_calc[0]==True:
                     raise StandardError("Action Stopped by User.")
             
-                if (ecoords[i][2] == ecoords[i-1][2]) and (not laser):
+                if ( e2  == last_loop)     and (not laser):
                     laser = True
-                elif (ecoords[i][2] != ecoords[i-1][2]) and (laser):
+                elif ( e2  != last_loop)    and (laser):
                     laser = False
-                dx = ecoords[i][0] - lastx
-                dy = ecoords[i][1] - lasty
+                dx = e0 - lastx
+                dy = e1 - lasty
 
                 min_rapid = 5
                 if (abs(dx)+abs(dy))>0:
@@ -388,13 +378,13 @@ class egv:
                         else:
                             self.rapid_move_fast(dx,dy)
                         
-                lastx   = ecoords[i][0]
-                lasty   = ecoords[i][1]
+                lastx     = e0
+                lasty     = e1
+                last_loop = e2
  
             if laser:
                 laser = False
                 
-            #self.make_dir_dist(startX-lastx,startY-lasty)
             dx = startX-lastx
             dy = startY-lasty
             if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
@@ -408,22 +398,23 @@ class egv:
             Rapid_flag=True
             ###################################################
             scanline = []
-            scanline_y = None
-            for i in range(len(ecoords)):
-                y    = ecoords[i][1]
+            scanline_y = None          
+            for i in range(len(ecoords_in)):
+                if i%1000 == 0:
+                    update_gui("Preprocessing Raster Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
+                y    = ecoords_in[i][1]
                 if y != scanline_y:
-                    scanline.append([ecoords[i]])
+                    scanline.append([ecoords_in[i]])
                     scanline_y = y
                 else:
                     if FlipXoffset > 0:
-                        scanline[-1].insert(0,ecoords[i])
+                        scanline[-1].insert(0,ecoords_in[i])
                     else:
-                        scanline[-1].append(ecoords[i])
-            ###################################################
-                
-            lastx     = ecoords[0][0]
-            lasty     = ecoords[0][1]
-        
+                        scanline[-1].append(ecoords_in[i])
+            ###################################################                      
+                        
+            lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)
+            
             DXstart = lastx-startX
             DYstart = lasty-startY
             self.make_dir_dist(DXstart,DYstart)
@@ -440,7 +431,13 @@ class egv:
 
             sign = -1
             cnt = 1
-            for scan in scanline:
+            #print scanline
+            for scan_raw in scanline:
+                scan = []
+                for point in scan_raw:
+                    #print point
+                    e0,e1,e2 = self.ecoord_adj(point,scale,FlipXoffset)
+                    scan.append([e0,e1,e2])
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
                 if stop_calc[0]==True:
                     raise StandardError("Action Stopped by User.")
@@ -450,7 +447,7 @@ class egv:
                 ## Flip direction and reset loop    ##
                 ######################################
                 sign      = -sign
-                loop_last =  None
+                last_loop =  None
                 y         =  scan[0][1]
                 dy        =  y-lasty
                 ###
@@ -478,23 +475,19 @@ class egv:
                         Rapid_flag=True
                     else:
                         adj_steps = -dy/Raster_step
-                        #print "Raster_step = ",Raster_step
-                        #print "dy = "         ,dy
-                        #print "adj_steps = "  ,adj_steps
                         
                         for stp in range(1,adj_steps):
-                            #print "stp= ",stp
                             adj_dist=5
                             self.make_dir_dist(sign*adj_dist,0)
                             lastx = lastx + sign*adj_dist
-                            ##
+
                             sign  = -sign
                             if sign == 1:
                                 xr = scan[0][0]
                             else:
                                 xr = scan[-1][0]
                             dxr = xr - lastx
-                            ##
+
                     lasty = y
                 ######################################
                 if sign == 1:
@@ -521,13 +514,13 @@ class egv:
                     dx = x - lastx
                     ##################################
                     loop = scan[j][2]
-                    if loop==loop_last:
+                    if loop==last_loop:
                         self.make_cut_line(dx,0)
                     else:
                         if dx*sign > 0.0:
                             self.make_dir_dist(dx,0)
-                    lastx = x
-                    loop_last=loop
+                    lastx     = x
+                    last_loop = loop
                 lasty = y
             
             # Make final move to ensure last move is to the right 

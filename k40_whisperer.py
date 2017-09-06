@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.06'
+version = '0.07'
 
 import sys
 from math import *
@@ -33,6 +33,7 @@ import simpletransform
 import cubicsuperpath
 import cspsubdiv
 import traceback
+DEBUG = False
 
 VERSION = sys.version_info[0]
 LOAD_MSG = ""
@@ -443,7 +444,7 @@ class Application(Frame):
         try:
             opts, args = getopt.getopt(sys.argv[1:], "ho:",["help", "other_option"])
         except:
-##            fmessage('Unable interpret command line options')
+            debug_message('Unable interpret command line options')
             sys.exit()
 ##        for option, value in opts:
 ##            if option in ('-h','--help'):
@@ -966,8 +967,9 @@ class Application(Frame):
         fileselect = askopenfilename(filetypes=[("Design Files", ("*.svg","*.dxf")),
                                             ("DXF Files","*.dxf"),\
                                             ("SVG Files","*.svg"),\
-                                            ("All Files","*")],\
-                                             initialdir=init_dir)
+                                            ("All Files","*"),\
+                                            ("Design Files ", ("*.svg","*.dxf"))],\
+                                            initialdir=init_dir)
         
         if ( not os.path.isfile(fileselect) ):
             return
@@ -1034,12 +1036,14 @@ class Application(Frame):
         except StandardError as e:
             msg1 = "SVG file load failed: "
             msg2 = "%s" %(e)
-            self.statusMessage.set( msg1+msg2 )
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
             return
         except:
             self.statusMessage.set("Unable To open SVG File: %s" %(filemname))
+            debug_message(traceback.format_exc())
             return
         xmax = svg_reader.Xsize/25.4
         ymax = svg_reader.Ysize/25.4
@@ -1294,11 +1298,13 @@ class Application(Frame):
         except StandardError as e:
             msg1 = "DXF Load Failed:"
             msg2 = "%s" %(e)
-            self.statusMessage.set( msg1+msg2 )
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
         except:
             fmessage("Unable To open Drawing Exchange File (DXF) file.")
+            debug_message(traceback.format_exc())
             return
         
         new_origin=False
@@ -1473,12 +1479,12 @@ class Application(Frame):
                 self.statusbar.configure( bg = 'red' )
                 return
 
-
             for line in settings_data:
                 try:
                     fout.write(line+'\n')
                 except:
                     fout.write('(skipping line)\n')
+                    debug_message(traceback.format_exc())
             fout.close
             self.statusMessage.set("File Saved: %s" %(filename))
             self.statusbar.configure( bg = 'white' )
@@ -1691,11 +1697,10 @@ class Application(Frame):
         except StandardError as e:
             msg1 = "Making Raster Data Stopped: "
             msg2 = "%s" %(e)
-            self.statusMessage.set( msg1+msg2 )
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
-            #traceback.print_exc(file=sys.stdout)
-            pass
+            debug_message(traceback.format_exc())
         self.set_gui("normal")
 
     ################################################################################
@@ -1850,6 +1855,11 @@ class Application(Frame):
                         if inside > 0:
                             self.LoopTree[iloop].append(jloop)
         #####################################################
+        for i in range(Nloops):
+            lns=[]
+            lns.append(i)
+            self.remove_self_references(lns,self.LoopTree[i])
+
         self.order=[]
         self.loops = range(Nloops)
         for i in range(Nloops):
@@ -1866,6 +1876,15 @@ class Application(Frame):
                 ecoords_out.append([coord[0],coord[1],i])
         return ecoords_out
             
+    def remove_self_references(self,loop_numbers,loops):
+        for i in range(0,len(loops)):
+            for j in range(0,len(loop_numbers)):
+                if loops[i]==loop_numbers[j]:
+                    loops.pop(i)
+                    return
+            if self.LoopTree[loops[i]]!=[]:
+                loop_numbers.append(loops[i])
+                self.remove_self_references(loop_numbers,self.LoopTree[loops[i]])
 
     def addlist(self,list):
         for i in list:
@@ -1945,26 +1964,24 @@ class Application(Frame):
                                                 FlipXoffset=FlipXoffset
                                                 )
                 
+                self.Reng=[]
+                
             self.master.update()
             self.send_egv_data(data)
             self.menu_View_Refresh()
         except MemoryError as e:
             raise StandardError("Memory Error:  Out of Memory.")
+            debug_message(traceback.format_exc())
         
         except StandardError as e:
             msg1 = "Sending Data Stopped: "
             msg2 = "%s" %(e)
             if msg2 == "":
                 formatted_lines = traceback.format_exc().splitlines()
-            self.statusMessage.set( msg1+msg2 )
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
-
-            #print msg1
-            #print '-'*60
-            #traceback.print_exc(file=sys.stdout)
-            #print '-'*60
-            
+            debug_message(traceback.format_exc())
 
     def send_egv_data(self,data):
         if self.k40 != None:
@@ -1972,7 +1989,11 @@ class Application(Frame):
             self.k40.n_timeouts    = int(self.n_timeouts.get())
             self.k40.send_data(data,self.update_gui,self.stop)
         else:
-            k40 = K40_CLASS()
+            self.k40 = K40_CLASS()
+            self.k40.timeout       = int(self.t_timeout.get())   
+            self.k40.n_timeouts    = int(self.n_timeouts.get())
+            self.k40.send_data(data,self.update_gui,self.stop)
+            self.k40 = None
             self.master.update()
             
         #self.statusMessage.set("Saving Data to File....")
@@ -2027,6 +2048,7 @@ class Application(Frame):
                 self.k40.reset_usb()
                 self.statusMessage.set("USB Reset Succeeded")
             except:
+                debug_message(traceback.format_exc())
                 pass
             
     def Stop(self,event=None):
@@ -2042,6 +2064,7 @@ class Application(Frame):
                 self.k40.release_usb()
                 self.statusMessage.set("USB Release Succeeded")
             except:
+                debug_message(traceback.format_exc())
                 pass
             self.k40=None
         
@@ -2061,10 +2084,13 @@ class Application(Frame):
             self.statusMessage.set("USB Error: %s" %(error_text))
             self.statusbar.configure( bg = 'red' )
             self.k40=None
+            debug_message(traceback.format_exc())
+
         except:
             self.statusMessage.set("Unknown USB Error")
             self.statusbar.configure( bg = 'red' )
             self.k40=None
+            debug_message(traceback.format_exc())
             
     def Unlock(self):
         if self.k40 != None:
@@ -2072,6 +2098,7 @@ class Application(Frame):
                 self.k40.unlock_rail()
                 self.statusMessage.set("Rail Unlock Succeeded")
             except:
+                debug_message(traceback.format_exc())
                 pass
     
     ##########################################################################
@@ -2369,10 +2396,12 @@ class Application(Frame):
                         try:
                             self.UI_image = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
                         except:
-                            #message_box("Imaging_Free Used")
+                            debug_message("Imaging_Free Used.")
                             self.UI_image = self.Imaging_Free(plot_im.resize((nw,nh), Image.ANTIALIAS))
                 except:
                     self.SCALE = 1
+                    debug_message(traceback.format_exc())
+                    
                 self.Plot_Raster(self.laserX, self.laserY, x_lft,y_top,self.PlotScale,im=self.UI_image)
         else:
             self.UI_image = None
@@ -2498,6 +2527,7 @@ class Application(Frame):
         try:
             gen_settings.iconbitmap(bitmap="@emblem64")
         except:
+            debug_message(traceback.format_exc())
             pass
 
         D_Yloc  = 6
@@ -2637,6 +2667,7 @@ class Application(Frame):
         try:
             raster_settings.iconbitmap(bitmap="@emblem64")
         except:
+            debug_message(traceback.format_exc())
             pass
 
         D_Yloc  = 6
@@ -2772,12 +2803,16 @@ def fmessage(text,newline=True):
             try:
                 sys.stdout.write(text)
                 sys.stdout.write("\n")
+                debug_message(traceback.format_exc())
             except:
+                debug_message(traceback.format_exc())
                 pass
         else:
             try:
                 sys.stdout.write(text)
+                debug_message(traceback.format_exc())
             except:
+                debug_message(traceback.format_exc())
                 pass
 
 ################################################################################
@@ -2800,6 +2835,18 @@ def message_ask_ok_cancel(title, mess):
         result=tkMessageBox.askokcancel(title, mess)
     return result
 
+################################################################################
+#                               Message Box                                    #
+################################################################################
+def debug_message(message):
+    global DEBUG
+    title = "Debug Message"
+    if DEBUG:
+        if VERSION == 3:
+            tkinter.messagebox.showinfo(title,message)
+        else:
+            tkMessageBox.showinfo(title,message)
+            pass
 
 ################################################################################
 #                         Choose Units Dialog                                  #
@@ -2859,4 +2906,6 @@ except:
 #    pass
 if LOAD_MSG != "":
     message_box("K40 Whisperer",LOAD_MSG)
+debug_message("Debuging is turned on.")
+
 root.mainloop()
