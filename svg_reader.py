@@ -376,22 +376,36 @@ class SVG_READER(inkex.Effect):
     
     def make_paths(self):
         msg               = ""
-        #self.inkscape_dpi = 96.0 
-        self.txt2paths    = False
- 
-        #if (self.txt2paths):
+        
+##        self.inkscape_dpi = None
+##        try:
+##            Inkscape_Version = self.document.getroot().xpath('@inkscape:version', namespaces=inkex.NSS)[0].split(" ")[0]
+##        except:
+##            Inkscape_Version = None
+##
+##        if Inkscape_Version <= .91:
+##            self.inkscape_dpi = 90.0
+##        else:
+##            self.inkscape_dpi = 96.0
+
+##      self.txt2paths    = False
+##      if (self.txt2paths):
 ##        try:
 ##            self.convert_text2paths()
 ##        except:
 ##            print "Convert Text to Path Failed"
 ##            pass
+
+
         
         try:
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
         except:
-            raise StandardError("Units not set in SVG File.\n\nIn Inkscape: 'File'-'Document Properties'-'Units'\n(set to 'mm' or 'in' in the 'Custom Size' region on the 'Page' tab)")
-        
+            line1 = "Units not set in SVG File.\n"
+            line2 = "In Inkscape select 'File'-'Document Properties'."
+            line3 = "In the 'Custom Size' region on the 'Page' tab set the 'Units' to 'mm' or 'in')"
+            raise StandardError("%s\n%s\n%s" %(line1,line2,line3))
         
         try:
             view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
@@ -400,15 +414,28 @@ class SVG_READER(inkex.Effect):
             Hpix = float(view_box_list[3])
             scale_h = h_mm/Hpix
             scale_w = w_mm/Wpix
+            Dx = float(view_box_list[0]) * scale_w
+            Dy = float(view_box_list[1]) * scale_h
         except:
-            raise StandardError("Cannot determine SVG scale.\n\nIn Inkscape: 'File'-'Document Properties'-'Units'\n(set to 'mm' or 'in' in the 'Custom Size' region on the 'Page' tab)")
+            line1 = "Cannot determine SVG scale (SVG Viewox Missing).\n"
+            line2 = "In Inkscape (v0.92) select 'File'-'Document Properties'."
+            line3 = "In the 'Scale' region on the 'Page' tab change the 'Scale x:' value"
+            line4 = "and press enter. Changing the value will add the Viewbox attribute."
+            line5 = "The 'Scale x:' can then be changed back to the original value."
+            ##if self.inkscape_dpi==None:
+            raise StandardError("%s\n%s\n%s\n%s\n%s" %(line1,line2,line3,line4,line5))
+
+##            print "Using guessed dpi value of: ",self.inkscape_dpi
+##            scale_h = 25.4/self.inkscape_dpi
+##            scale_w = 25.4/self.inkscape_dpi
+##            Dx = 0
+##            Dy = 0
         
         if abs(1.0-scale_h/scale_w) > .01:
-            raise StandardError("SVG Files with different scales in X and Y are not supported.\n\nIn Inkscape v0.92): 'File'-'Document Properties'-'Scale'(on the 'Page' tab adjust the scale)")
-
-        Dx = float(view_box_list[0]) * scale_w
-        Dy = float(view_box_list[1]) * scale_h
-        
+            line1 ="SVG Files with different scales in X and Y are not supported.\n"
+            line2 ="In Inkscape (v0.92): 'File'-'Document Properties'"
+            line3 ="on the 'Page' tab adjust 'Scale x:' in the 'Scale' section"
+            raise StandardError("%s\n%s\n%s" %(line1,line2,line3))
         
         for node in self.document.getroot().xpath('//svg:g', namespaces=inkex.NSS):
             if node.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
