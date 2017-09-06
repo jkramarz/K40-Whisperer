@@ -37,15 +37,15 @@ from math import *
 
 # a dictionary of all of the xmlns prefixes in a standard inkscape doc
 NSS = {
-u'sodipodi' :u'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd',
-u'cc'       :u'http://creativecommons.org/ns#',
-u'ccOLD'    :u'http://web.resource.org/cc/',
-u'svg'      :u'http://www.w3.org/2000/svg',
-u'dc'       :u'http://purl.org/dc/elements/1.1/',
-u'rdf'      :u'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-u'inkscape' :u'http://www.inkscape.org/namespaces/inkscape',
-u'xlink'    :u'http://www.w3.org/1999/xlink',
-u'xml'      :u'http://www.w3.org/XML/1998/namespace'
+    u'sodipodi': u'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd',
+    u'cc': u'http://creativecommons.org/ns#',
+    u'ccOLD': u'http://web.resource.org/cc/',
+    u'svg': u'http://www.w3.org/2000/svg',
+    u'dc': u'http://purl.org/dc/elements/1.1/',
+    u'rdf': u'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+    u'inkscape': u'http://www.inkscape.org/namespaces/inkscape',
+    u'xlink': u'http://www.w3.org/1999/xlink',
+    u'xml': u'http://www.w3.org/XML/1998/namespace'
 }
 
 
@@ -57,7 +57,8 @@ def localize():
         os.environ['LANG'] = current_locale
         try:
             localdir = os.environ['INKSCAPE_LOCALEDIR']
-            trans = gettext.translation(domain, localdir, [current_locale], fallback=True)
+            trans = gettext.translation(
+                domain, localdir, [current_locale], fallback=True)
         except KeyError:
             trans = gettext.translation(domain, fallback=True)
     elif sys.platform.startswith('darwin'):
@@ -87,25 +88,26 @@ def debug(what):
 
 def errormsg(msg):
     """Intended for end-user-visible error messages.
-    
+
        (Currently just writes to stderr with an appended newline, but could do
        something better in future: e.g. could add markup to distinguish error
        messages from status messages or debugging output.)
-      
+
        Note that this should always be combined with translation:
 
          import inkex
          ...
          inkex.errormsg(_("This extension requires two selected paths."))
     """
-    #if isinstance(msg, unicode):
+    # if isinstance(msg, unicode):
     #    sys.stderr.write(msg.encode("utf-8") + "\n")
-    #else:
+    # else:
     #    sys.stderr.write((unicode(msg, "utf-8", errors='replace') + "\n").encode("utf-8"))
     print(msg)
 
+
 def are_near_relative(a, b, eps):
-    return (a-b <= a*eps) and (a-b >= -a*eps)
+    return (a - b <= a * eps) and (a - b >= -a * eps)
 
 
 # third party library
@@ -129,7 +131,8 @@ def check_inkbool(option, opt, value):
     elif str(value).capitalize() == 'False':
         return False
     else:
-        raise optparse.OptionValueError("option %s: invalid inkbool value: %s" % (opt, value))
+        raise optparse.OptionValueError(
+            "option %s: invalid inkbool value: %s" % (opt, value))
 
 
 def addNS(tag, ns=None):
@@ -159,11 +162,11 @@ class Effect:
         self.OptionParser = optparse.OptionParser(usage="usage: %prog [options] SVGfile",
                                                   option_class=InkOption)
         self.OptionParser.add_option("--id",
-                        action="append", type="string", dest="ids", default=[], 
-                        help="id attribute of object to manipulate")
+                                     action="append", type="string", dest="ids", default=[],
+                                     help="id attribute of object to manipulate")
         self.OptionParser.add_option("--selected-nodes",
-                        action="append", type="string", dest="selected_nodes", default=[], 
-                        help="id:subpath:position of selected nodes, if any")
+                                     action="append", type="string", dest="selected_nodes", default=[],
+                                     help="id:subpath:position of selected nodes, if any")
         # TODO write a parser for this
 
     def effect(self):
@@ -172,7 +175,7 @@ class Effect:
         in it."""
         pass
 
-    def getoptions(self,args=sys.argv[1:]):
+    def getoptions(self, args=sys.argv[1:]):
         """Collect command line arguments"""
         self.options, self.args = self.OptionParser.parse_args(args)
 
@@ -193,7 +196,8 @@ class Effect:
             try:
                 stream = open(self.svg_file, 'r')
             except IOError:
-                errormsg(_("Unable to open object member file: %s") % self.svg_file)
+                errormsg(_("Unable to open object member file: %s") %
+                         self.svg_file)
                 sys.exit()
 
         # Finally, if the filename was not specified anywhere, use
@@ -208,26 +212,31 @@ class Effect:
 
     # defines view_center in terms of document units
     def getposinlayer(self):
-        #defaults
+        # defaults
         self.current_layer = self.document.getroot()
         self.view_center = (0.0, 0.0)
 
-        layerattr = self.document.xpath('//sodipodi:namedview/@inkscape:current-layer', namespaces=NSS)
+        layerattr = self.document.xpath(
+            '//sodipodi:namedview/@inkscape:current-layer', namespaces=NSS)
         if layerattr:
             layername = layerattr[0]
-            layer = self.document.xpath('//svg:g[@id="%s"]' % layername, namespaces=NSS)
+            layer = self.document.xpath(
+                '//svg:g[@id="%s"]' % layername, namespaces=NSS)
             if layer:
                 self.current_layer = layer[0]
 
-        xattr = self.document.xpath('//sodipodi:namedview/@inkscape:cx', namespaces=NSS)
-        yattr = self.document.xpath('//sodipodi:namedview/@inkscape:cy', namespaces=NSS)
+        xattr = self.document.xpath(
+            '//sodipodi:namedview/@inkscape:cx', namespaces=NSS)
+        yattr = self.document.xpath(
+            '//sodipodi:namedview/@inkscape:cy', namespaces=NSS)
         if xattr and yattr:
             x = self.unittouu(xattr[0] + 'px')
             y = self.unittouu(yattr[0] + 'px')
             doc_height = self.unittouu(self.getDocumentHeight())
             if x and y:
                 self.view_center = (float(x), doc_height - float(y))
-                # FIXME: y-coordinate flip, eliminate it when it's gone in Inkscape
+                # FIXME: y-coordinate flip, eliminate it when it's gone in
+                # Inkscape
 
     def getselected(self):
         """Collect selected nodes"""
@@ -259,18 +268,18 @@ class Effect:
 
     def createGuide(self, posX, posY, angle):
         atts = {
-          'position': str(posX)+','+str(posY),
-          'orientation': str(sin(radians(angle)))+','+str(-cos(radians(angle)))
-          }
+            'position': str(posX) + ',' + str(posY),
+            'orientation': str(sin(radians(angle))) + ',' + str(-cos(radians(angle)))
+        }
         guide = etree.SubElement(
-                  self.getNamedView(),
-                  addNS('guide','sodipodi'), atts)
+            self.getNamedView(),
+            addNS('guide', 'sodipodi'), atts)
         return guide
 
     def output(self):
         """Serialize document into XML on stdout"""
-        original = etree.tostring(self.original_document)        
-        result = etree.tostring(self.document)        
+        original = etree.tostring(self.original_document)
+        result = etree.tostring(self.document)
         if original != result:
             self.document.write(sys.stdout)
 
@@ -291,7 +300,8 @@ class Effect:
         new_id = old_id
         if make_new_id:
             while new_id in self.doc_ids:
-                new_id += random.choice('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+                new_id += random.choice(
+                    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
             self.doc_ids[new_id] = 1
         return new_id
 
@@ -347,7 +357,8 @@ class Effect:
         viewboxstr = self.document.getroot().get('viewBox')
         if viewboxstr:
             unitmatch = re.compile('(%s)$' % '|'.join(self.__uuconv.keys()))
-            param = re.compile(r'(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)')
+            param = re.compile(
+                r'(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)')
 
             p = param.match(svgwidth)
             u = unitmatch.search(svgwidth)
@@ -373,7 +384,8 @@ class Effect:
 
             svgunitfactor = self.__uuconv[svgwidthunit] * width / viewboxwidth
 
-            # try to find the svgunitfactor in the list of units known. If we don't find something, ...
+            # try to find the svgunitfactor in the list of units known. If we
+            # don't find something, ...
             eps = 0.01  # allow 1% error in factor
             for key in self.__uuconv:
                 if are_near_relative(self.__uuconv[key], svgunitfactor, eps):
@@ -385,10 +397,11 @@ class Effect:
     def unittouu(self, string):
         """Returns userunits given a string representation of units in another system"""
         unit = re.compile('(%s)$' % '|'.join(self.__uuconv.keys()))
-        param = re.compile(r'(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)')
+        param = re.compile(
+            r'(([-+]?[0-9]+(\.[0-9]*)?|[-+]?\.[0-9]+)([eE][-+]?[0-9]+)?)')
 
         p = param.match(string)
-        u = unit.search(string)    
+        u = unit.search(string)
         if p:
             retval = float(p.string[p.start():p.end()])
         else:
@@ -414,4 +427,5 @@ class Effect:
         except ValueError:
             return value
 
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99
+# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8
+# textwidth=99
