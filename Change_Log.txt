@@ -42,3 +42,8 @@ Version 0.06:
 Version 0.07:
 - Fixed "maximum recursion depth exceeded in cmp" error when engraving/cutting.
 - Adjusted code for better memory management when generating data for the laser cutter.
+
+Version 0.08:
+- Fixed X-axis rapid motion bug that resulted in a engraving/cutting offset after some .003 inch rapid motions.
+- Instructions added in the src zip file for getting setup on Linux (README_Linux.txt).
+- Added setting for B1 boards Not enabled yet still need to be tested 
