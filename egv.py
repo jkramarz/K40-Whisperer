@@ -256,10 +256,10 @@ class egv:
         #return cdata
 
         
-    def make_speed(self,Feed=None,speed_text=None,Raster_step=0):
-        #speed_text = "CV1752241021000191"
+    def make_speed(self,Feed=None,board_name="LASER-M2",Raster_step=0):
         speed=[]
-        if speed_text==None:
+        #################################################################
+        if board_name=="LASER-M2":
             if Feed < 7:
                 B = 255.97
                 M = 100.21
@@ -271,12 +271,29 @@ class egv:
             C2 = floor((V-C1)*255)
             if Raster_step==0:
                 speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
-                #speed_text = "CV1752241021000191"
             else:
                 speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
             if Feed < 7:
                 speed_text = speed_text + "C"
-            
+        #################################################################
+        elif board_name=="LASER-B1":
+            if Feed < .8:
+                Feed = .8
+            else:
+                B = 252.94
+                M = 198.436
+            V  = B-M/float(Feed)
+            C1 = floor(V)
+            C2 = floor((V-C1)*255.0)
+            if Raster_step==0:
+                speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
+            else:
+                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
+            #print board_name,Feed,speed_text
+        #################################################################
+        else:
+            raise StandardError("Unknown Board Designation: %s" %(board_name))
+        
         for c in speed_text:
             speed.append(ord(c))
         return speed
@@ -311,7 +328,7 @@ class egv:
                             startY=0,
                             units = 'in',
                             Feed = None,
-                            speed_text="V1752241021000191",
+                            board_name="LASER-M2",
                             Raster_step=0,
                             update_gui=None,
                             stop_calc=None,
@@ -333,9 +350,9 @@ class egv:
 
         ########################################################
         if Feed==None:
-            speed = self.make_speed(Feed,speed_text=speed_text)
+            speed = self.make_speed(Feed,board_name=board_name)
         else:
-            speed = self.make_speed(Feed,Raster_step=Raster_step)
+            speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
             
         self.write(ord("I"))
         for code in speed:
@@ -556,6 +573,8 @@ class egv:
 
     def rapid_move_fast(self,dx,dy):
         pad = 3
+        if pad == -dx:
+            pad = pad+3
         #self.flush(laser_on=False)
         self.make_dir_dist(-pad, 0  ) #add "T" move
         self.make_dir_dist(   0, pad) #add "L" move

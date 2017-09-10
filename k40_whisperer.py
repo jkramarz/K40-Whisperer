@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.07'
+version = '0.08'
 
 import sys
 from math import *
@@ -1925,6 +1925,7 @@ class Application(Frame):
                                                 startX=xmin,                      \
                                                 startY=ymax,                      \
                                                 Feed = Feed_Rate,                 \
+                                                board_name=self.board_name.get(), \
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
@@ -1943,6 +1944,7 @@ class Application(Frame):
                                                 startX=xmin,                      \
                                                 startY=ymax,                      \
                                                 Feed = Feed_Rate,                 \
+                                                board_name=self.board_name.get(), \
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
@@ -1958,6 +1960,7 @@ class Application(Frame):
                                                 startX=xmin,                      \
                                                 startY=ymax,                      \
                                                 Feed = Feed_Rate,                 \
+                                                board_name=self.board_name.get(), \
                                                 Raster_step = Raster_step,        \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
