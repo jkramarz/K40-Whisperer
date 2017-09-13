@@ -87,13 +87,13 @@ class NURBSClass:
             DX = Pt2.x-Pt1.x
             DY = Pt2.y-Pt1.y
             cord = sqrt(DX*DX + DY*DY)
-            DXtest = Pt_test.x-(Pt1.x+Pt2.x)/2
-            DYtest = Pt_test.y-(Pt1.y+Pt2.y)/2
+            DXtest = Pt_test.x-(Pt1.x+Pt2.x)/2.0
+            DYtest = Pt_test.y-(Pt1.y+Pt2.y)/2.0
             t = sqrt(DXtest*DXtest + DYtest*DYtest)
             if (abs(t) > Zero):
-                R = (cord*cord/4 + t*t)/(2*t)
+                R = (cord*cord/4.0 + t*t)/(2.0*t)
             else:
-                R = 0
+                R = 0.0
 
             dx1 = (Pt_test.x - Pt1.x)
             dy1 = (Pt_test.y - Pt1.y)
@@ -104,7 +104,10 @@ class NURBSClass:
             L2 = sqrt(dx2*dx2 + dy2*dy2)
 
             if L1 > Zero and L2 > Zero and R > Zero:
-                angle = 2 * asin((cord/2)/R)
+                sin_ratio = (cord/2)/R
+                if abs(sin_ratio) > 1.0:
+                    sin_ratio = round(sin_ratio,0)
+                angle = 2 * asin(sin_ratio)
             else:
                 angle=0.0
 
