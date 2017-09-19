@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.09'
+version = '0.10'
 
 import sys
 from math import *
@@ -25,6 +25,8 @@ from egv import egv
 from nano_library import K40_CLASS
 from dxf import DXF_CLASS
 from svg_reader import SVG_READER
+from svg_reader import SVG_TEXT_EXCEPTION
+
 from interpolate import interpolate
 
 import inkex
@@ -1029,10 +1031,16 @@ class Application(Frame):
         self.SVG_FILE = filemname
         svg_reader =  SVG_READER()
         svg_reader.set_inkscape_path(self.inkscape_path.get())
-        
         try:
-            svg_reader.parse(self.SVG_FILE)
-            svg_reader.make_paths()
+            try:
+                svg_reader.parse(self.SVG_FILE)
+                svg_reader.make_paths()
+            except SVG_TEXT_EXCEPTION as e:
+                self.statusMessage.set("Converting TEXT to PATHS.")
+                self.master.update()
+                svg_reader.parse(self.SVG_FILE)
+                svg_reader.make_paths(txt2paths=True)
+                
         except StandardError as e:
             msg1 = "SVG file load failed: "
             msg2 = "%s" %(e)

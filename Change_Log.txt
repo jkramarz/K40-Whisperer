@@ -50,3 +50,8 @@ Version 0.08:
 
 Version 0.09:
 - Adjusted DXF import to avoid DXF loading fail due to rounding error during calculations.
+
+Version 0.10:
+- Added support for SVG "polyline" and "polygon" objects 
+- Added code to automatically convert text to paths when red/blue vector text outlines are found.
+- Hidden layers now remain hidden.
