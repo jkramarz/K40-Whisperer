@@ -50,7 +50,13 @@ def run_external(cmd, timeout_sec):
   finally:
     timer.cancel()
 ##################################
-    
+
+class SVG_TEXT_EXCEPTION(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 class SVG_READER(inkex.Effect):
 #class SVG_READER:
     def __init__(self):
@@ -79,6 +85,7 @@ class SVG_READER(inkex.Effect):
         self.layers = ['0']
         self.layer = '0'
         self.layernames = []
+        self.txt2paths = False
 
         
     def set_inkscape_path(self,PATH):
@@ -143,10 +150,14 @@ class SVG_READER(inkex.Effect):
                             sw_flag = True
             if sw_flag == True:
                 if node.tag == inkex.addNS('text','svg'):
-                    line1 = "SVG File with Color Coded Text Outlines Found: (i.e. Blue: engrave/ Red: cut)"
-                    line2 = "Text for vector operations must be converted to paths in Inkscape."
-                    line3 = "In Inkscape select the text then select \"Path\"-\"Object to Path\" in the menu bar."
-                    raise StandardError("%s\n\n%s\n%s" %(line1,line2,line3))
+                    if (self.txt2paths==False):
+                        raise SVG_TEXT_EXCEPTION("SVG File with Color Coded Text Outlines Found: (i.e. Blue: engrave/ Red: cut)")
+                    else:
+                        line1 = "SVG File with color coded text outlines found (i.e. Blue: engrave/ Red: cut)."
+                        line2 = "Automatic conversion to paths failed: Try upgrading to Inkscape .90 or later"
+                        line3 = "To convert manually in Inkscape: select the text then select \"Path\"-\"Object to Path\" in the menu bar."
+                        
+                        raise StandardError("%s\n\n%s\n\n%s" %(line1,line2,line3))
 
                 if i_sw != -1:
                     declarations[i_sw] = sw_prop + ':' + "0.0"
@@ -205,9 +216,28 @@ class SVG_READER(inkex.Effect):
             rx = float(node.get('rx'))
             ry = float(node.get('ry'))
             d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+rx,cy, rx,ry,cx,cy+ry,  rx,ry,cx-rx,cy,  rx,ry,cx,cy-ry, rx,ry,cx+rx,cy)
-            p = cubicsuperpath.parsePath(d) 
+            p = cubicsuperpath.parsePath(d)
+            
+        elif (node.tag == inkex.addNS('polygon','svg')) or (node.tag == inkex.addNS('polyline','svg')):
+            points = node.get('points')
+            if not points:
+                return  
+            points = points.strip().split(" ")
+            points = map(lambda x: x.split(","), points)
+            d = "M "
+            for point in points:
+                x = float(point[0])
+                y = float(point[1])
+                d = d + "%f,%f " %(x,y)
+
+            #Close the loop if it is a ploygon
+            if node.tag == inkex.addNS('polygon','svg'):
+                d = d + "Z"
+            p = cubicsuperpath.parsePath(d)
+            
         else:
             return
+
         trans = node.get('transform')
         if trans:
             mat = simpletransform.composeTransform(mat, simpletransform.parseTransform(trans))
@@ -273,7 +303,7 @@ class SVG_READER(inkex.Effect):
             if style:
                 style = simplestyle.parseStyle(style)
                 if style.has_key('display'):
-                    if style['display'] == 'none' and self.options.layer_option and self.options.layer_option=='visible':
+                    if style['display'] == 'none':
                         return
             layer = group.get(inkex.addNS('label', 'inkscape'))
               
@@ -374,7 +404,8 @@ class SVG_READER(inkex.Effect):
         except:
             raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
     
-    def make_paths(self):
+    def make_paths(self, txt2paths=False ):
+        self.txt2paths = txt2paths
         msg               = ""
         
 ##        self.inkscape_dpi = None
@@ -388,16 +419,13 @@ class SVG_READER(inkex.Effect):
 ##        else:
 ##            self.inkscape_dpi = 96.0
 
-##      self.txt2paths    = False
-##      if (self.txt2paths):
-##        try:
-##            self.convert_text2paths()
-##        except:
-##            print "Convert Text to Path Failed"
-##            pass
-
-
-        
+      
+        if (self.txt2paths):
+            try:
+                self.convert_text2paths()
+            except:
+                raise StandardError("Convert Text to Path Failed")
+ 
         try:
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
@@ -441,11 +469,6 @@ class SVG_READER(inkex.Effect):
             if node.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
                 layer = node.get(inkex.addNS('label', 'inkscape'))
                 self.layernames.append(layer.lower())
-                # if self.options.layer_name   and \
-                #    self.options.layer_option and \
-                #    self.options.layer_option=='name' and \
-                #    not layer.lower() in self.options.layer_name:
-                #   continue
                 layer = layer.replace(' ', '_')
                 if layer and not layer in self.layers:
                     self.layers.append(layer)
