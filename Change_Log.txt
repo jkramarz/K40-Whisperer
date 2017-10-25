@@ -55,3 +55,9 @@ Version 0.10:
 - Added support for SVG "polyline" and "polygon" objects 
 - Added code to automatically convert text to paths when red/blue vector text outlines are found.
 - Hidden layers now remain hidden.
+
+Version 0.11:
+- Added support for reading g-code.
+- Enabled option for controller board version B1
+- Fixed a bug that resulted in bad design scaling if one of the feed rates were not entered correctly when changing units.
+- Added support for SVG "Line" objects
