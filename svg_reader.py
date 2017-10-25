@@ -234,6 +234,15 @@ class SVG_READER(inkex.Effect):
             if node.tag == inkex.addNS('polygon','svg'):
                 d = d + "Z"
             p = cubicsuperpath.parsePath(d)
+
+        elif node.tag == inkex.addNS('line','svg'):
+            x1 = float(node.get('x1')) 
+            y1 = float(node.get('y1'))
+            x2 = float(node.get('x2'))
+            y2 = float(node.get('y2'))
+            d = "M "
+            d = "M %f,%f %f,%f" %(x1,y1,x2,y2)
+            p = cubicsuperpath.parsePath(d)
             
         else:
             return

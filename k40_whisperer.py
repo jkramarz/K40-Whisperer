@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.10'
+version = '0.11'
 
 import sys
 from math import *
@@ -26,7 +26,7 @@ from nano_library import K40_CLASS
 from dxf import DXF_CLASS
 from svg_reader import SVG_READER
 from svg_reader import SVG_TEXT_EXCEPTION
-
+from g_code_library import G_Code_Rip
 from interpolate import interpolate
 
 import inkex
@@ -116,6 +116,8 @@ class Application(Frame):
         self.include_Reng = BooleanVar()
         self.include_Veng = BooleanVar()
         self.include_Vcut = BooleanVar()
+        self.include_Gcde = BooleanVar()
+        
         self.halftone     = BooleanVar()
         self.HomeUR       = BooleanVar()
 
@@ -154,6 +156,8 @@ class Application(Frame):
         self.include_Reng.set(1)
         self.include_Veng.set(1)
         self.include_Vcut.set(1)
+        self.include_Gcde.set(1)
+        
         self.halftone.set(0)
         self.HomeUR.set(0)
         
@@ -205,15 +209,12 @@ class Application(Frame):
         self.Reng_image = None
         self.SCALE = 1
         
-        self.Reng = []
-        self.Veng = []
-        self.Vcut = []
-
+        self.Reng  = []
+        self.Veng  = []
+        self.Vcut  = []
+        self.Gcode = []
         
-        self.Reng_bounds = (0,0,0,0)
-        self.Veng_bounds = (0,0,0,0)
-        self.Vcut_bounds = (0,0,0,0)
-
+        self.Design_bounds = (0,0,0,0)
 
         self.LaserXsize.set("325")
         self.LaserYsize.set("220")
@@ -300,7 +301,8 @@ class Application(Frame):
         self.Reng_Button  = Button(self.master,text="Raster Engrave", command=self.Raster_Eng)
         self.Veng_Button  = Button(self.master,text="Vector Engrave", command=self.Vector_Eng)
         self.Vcut_Button  = Button(self.master,text="Vector Cut"    , command=self.Vector_Cut)
-
+        self.Grun_Button  = Button(self.master,text="Run G-Code"    , command=self.Gcode_Cut)
+        
         self.Label_Position_Control = Label(self.master,text="Position Controls:", anchor=W)
         
         self.Initialize_Button = Button(self.master,text="Initialize Laser Cutter", command=self.Initialize_Laser)
@@ -383,7 +385,7 @@ class Application(Frame):
         top_File.add("command", label = "Read Settings File", command = self.menu_File_Open_Settings_File)
 
         top_File.add_separator()
-        top_File.add("command", label = "Open Design (SVG/DXF)"  , command = self.menu_File_Open_Design)
+        top_File.add("command", label = "Open Design (SVG/DXF/G-Code)"  , command = self.menu_File_Open_Design)
         top_File.add("command", label = "Reload Design"          , command = self.menu_Reload_Design)
 
         #top_File.add_separator()
@@ -404,6 +406,7 @@ class Application(Frame):
         top_View.add_checkbutton(label = "Show Raster Image"  ,  variable=self.include_Reng ,command= self.menu_View_Refresh)
         top_View.add_checkbutton(label = "Show Vector Engrave",  variable=self.include_Veng ,command= self.menu_View_Refresh)
         top_View.add_checkbutton(label = "Show Vector Cut"    ,  variable=self.include_Vcut ,command= self.menu_View_Refresh)
+        top_View.add_checkbutton(label = "Show G-Code Paths"  ,  variable=self.include_Gcde ,command= self.menu_View_Refresh)
 
 
         self.menuBar.add("cascade", label="View", menu=top_View)
@@ -547,6 +550,7 @@ class Application(Frame):
         header.append('(k40_whisperer_set include_Reng  %s )'  %( int(self.include_Reng.get())  ))
         header.append('(k40_whisperer_set include_Veng  %s )'  %( int(self.include_Veng.get())  ))
         header.append('(k40_whisperer_set include_Vcut  %s )'  %( int(self.include_Vcut.get())  ))
+        header.append('(k40_whisperer_set include_Gcde  %s )'  %( int(self.include_Gcde.get())  ))
         header.append('(k40_whisperer_set halftone      %s )'  %( int(self.halftone.get())      ))
         header.append('(k40_whisperer_set HomeUR        %s )'  %( int(self.HomeUR.get())        ))
         
@@ -651,7 +655,7 @@ class Application(Frame):
             MAXX =  float(self.LaserXsize.get())/25.4
             MINY = -float(self.LaserYsize.get())/25.4
         
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         
         X = self.laserX + dx_inches
         X = min(MAXX-(xmax-xmin),X)
@@ -899,12 +903,12 @@ class Application(Frame):
 
     def Entry_units_var_Callback(self):
         if (self.units.get() == 'in') and (self.funits.get()=='mm/s'):
-            self.Scale_Linear_Inputs('in')
             self.funits.set('in/min')
+            self.Scale_Linear_Inputs('in')
         elif (self.units.get() == 'mm') and (self.funits.get()=='in/min'):
-            self.Scale_Linear_Inputs('mm')
             self.funits.set('mm/s')
-
+            self.Scale_Linear_Inputs('mm')
+            
     def Scale_Linear_Inputs(self, new_units=None):
         if new_units=='in':
             self.units_scale = 1.0
@@ -921,10 +925,18 @@ class Application(Frame):
         self.jog_step.set  (  '%.3g' %(float(self.jog_step.get()   )*factor ))
         self.gotoX.set     (  '%.3f' %(float(self.gotoX.get()      )*factor ))
         self.gotoY.set     (  '%.3f' %(float(self.gotoY.get()      )*factor ))
-        
         self.Reng_feed.set (  '%.3g' %(float(self.Reng_feed.get()  )*vfactor))
         self.Veng_feed.set (  '%.3g' %(float(self.Veng_feed.get()  )*vfactor))
         self.Vcut_feed.set (  '%.3g' %(float(self.Vcut_feed.get()  )*vfactor))
+
+
+        self.LaserXsize.set( self.Scale_Text_Value('%.3f',self.LaserXsize.get(),factor) )
+            
+    def Scale_Text_Value(self,format_txt,Text_Value,factor):
+        try:
+            format_txt %(float(Text_Value)*factor )
+        except:
+            return ''
 
     def menu_File_Open_Settings_File(self):
         init_dir = os.path.dirname(self.DESIGN_FILE)
@@ -956,8 +968,10 @@ class Application(Frame):
         TYPE=fileExtension.upper()
         if TYPE=='.DXF':
             self.Open_DXF(filname)
-        else:
+        elif TYPE=='.SVG':
             self.Open_SVG(filname)
+        else:
+            self.Open_G_Code(filname)
         self.menu_View_Refresh()
         
 
@@ -967,6 +981,7 @@ class Application(Frame):
             init_dir = self.HOME_DIR
 
         fileselect = askopenfilename(filetypes=[("Design Files", ("*.svg","*.dxf")),
+                                            ("G-Code Files", ("*.ngc","*.gcode","*.g","*.tap")),\
                                             ("DXF Files","*.dxf"),\
                                             ("SVG Files","*.svg"),\
                                             ("All Files","*"),\
@@ -980,10 +995,15 @@ class Application(Frame):
         TYPE=fileExtension.upper()
         if TYPE=='.DXF':
             self.Open_DXF(fileselect)
-        else:
+        elif TYPE=='.SVG':
             self.Open_SVG(fileselect)
+        else:
+            self.Open_G_Code(fileselect)
+
+            
         self.DESIGN_FILE = fileselect
         self.menu_View_Refresh()
+        
 
     def menu_File_Open_EGV(self):
         init_dir = os.path.dirname(self.DESIGN_FILE)
@@ -1023,10 +1043,9 @@ class Application(Frame):
         self.Reng = []
         self.Veng = []
         self.Vcut = []
+        self.Gcode = []
         
-        self.Reng_bounds = (0,0,0,0)
-        self.Veng_bounds = (0,0,0,0)
-        self.Vcut_bounds = (0,0,0,0)
+        self.Design_bounds = (0,0,0,0)
         
         self.SVG_FILE = filemname
         svg_reader =  SVG_READER()
@@ -1058,15 +1077,13 @@ class Application(Frame):
         xmin = 0
         ymin = 0
 
-        self.Reng_bounds = (xmin,xmax,ymin,ymax)
+        self.Design_bounds = (xmin,xmax,ymin,ymax)
         
         ##########################
         ###   Create ECOORDS   ###
         ##########################
-        self.Vcut,self.Vcut_bounds = self.make_ecoords(svg_reader.cut_lines,scale=1/25.4)
-        self.Veng,self.Veng_bounds = self.make_ecoords(svg_reader.eng_lines,scale=1/25.4)
-        self.Veng_bounds = None
-        self.Vcut_bounds = None
+        self.Vcut,Vcut_bounds = self.make_ecoords(svg_reader.cut_lines,scale=1/25.4)
+        self.Veng,Veng_bounds = self.make_ecoords(svg_reader.eng_lines,scale=1/25.4)
         ##########################
         ###   Load Image       ###
         ##########################
@@ -1282,7 +1299,53 @@ class Application(Frame):
 
     #######################################################################
 
+    def Open_G_Code(self,filename):
+        self.Reng_image = None
+        self.SCALE = 1
+        
+        self.Reng = []
+        self.Veng = []
+        self.Vcut = []
+        self.Gcode = []
+        
+        self.Design_bounds = (0,0,0,0)
 
+        g_rip = G_Code_Rip()
+        try:
+            MSG = g_rip.Read_G_Code(filename, XYarc2line = True, arc_angle=2, units="in", Accuracy="")
+            Error_Text = ""
+            if MSG!=[]:
+                for line in MSG:
+                    Error_Text = Error_Text + line + "\n"
+                    message_box("G-Code Messages", Error_Text)
+        except StandardError as e:
+            msg1 = "G-Code Load Failed:  "
+            msg2 = "Filename: %s" %(filename)
+            msg3 = "%s" %(e)
+            self.statusMessage.set((msg1+msg3).split("\n")[0] )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, "%s\n%s" %(msg2,msg3))
+            debug_message(traceback.format_exc())
+
+            
+        ecoords= g_rip.generate_laser_paths(g_rip.g_code_data)
+        self.Gcode=ecoords
+        ################################
+        xmax, ymax = -1e10, -1e10
+        xmin, ymin =  1e10,  1e10
+        for line in self.Gcode:
+            XY = line
+            x1 = XY[0]
+            y1 = XY[1]
+            xmax=max(xmax,x1)
+            ymax=max(ymax,y1)
+            xmin=min(xmin,x1)
+            ymin=min(ymin,y1)
+
+        #self.Gcode_bounds = (xmin,xmax,ymin,ymax)
+        self.Design_bounds = (xmin,xmax,ymin,ymax)
+
+        
     def Open_DXF(self,filemname):
         self.Reng_image = None
         self.SCALE = 1
@@ -1290,15 +1353,13 @@ class Application(Frame):
         self.Reng = []
         self.Veng = []
         self.Vcut = []
-        
-        self.Reng_bounds = (0,0,0,0)
-        self.Veng_bounds = (0,0,0,0)
-        self.Vcut_bounds = (0,0,0,0)
+        self.Gcode = []
 
+        self.Design_bounds = (0,0,0,0)
         
         self.DXF_FILE = filemname
         dxf_import=DXF_CLASS()
-        segarc = 5
+        segarc = 2
         try:
             fd = open(self.DXF_FILE)
             dxf_import.GET_DXF_DATA(fd,tol_deg=segarc)
@@ -1352,17 +1413,14 @@ class Application(Frame):
         ##########################
         ###   Create ECOORDS   ###
         ##########################
-        #self.Vcut,self.Vcut_bounds = self.make_ecoords(dxfcoords,scale=1.0/25.4)
-        #self.Reng_bounds = self.Vcut_bounds
+        self.Vcut,Vcut_bounds = self.make_ecoords(dxf_cut_coords    , scale=dxf_scale)
+        self.Veng,Veng_bounds = self.make_ecoords(dxf_engrave_coords, scale=dxf_scale)
 
-        self.Vcut,self.Vcut_bounds = self.make_ecoords(dxf_cut_coords    , scale=dxf_scale)
-        self.Veng,self.Veng_bounds = self.make_ecoords(dxf_engrave_coords, scale=dxf_scale)
-
-        xmin = min(self.Vcut_bounds[0],self.Veng_bounds[0])
-        xmax = max(self.Vcut_bounds[1],self.Veng_bounds[1])
-        ymin = min(self.Vcut_bounds[2],self.Veng_bounds[2])
-        ymax = max(self.Vcut_bounds[3],self.Veng_bounds[3])
-        self.Reng_bounds = (xmin,xmax,ymin,ymax)
+        xmin = min(Vcut_bounds[0],Veng_bounds[0])
+        xmax = max(Vcut_bounds[1],Veng_bounds[1])
+        ymin = min(Vcut_bounds[2],Veng_bounds[2])
+        ymax = max(Vcut_bounds[3],Veng_bounds[3])
+        self.Design_bounds = (xmin,xmax,ymin,ymax)
 
 
     def Open_Settings_File(self,filename):
@@ -1383,6 +1441,8 @@ class Application(Frame):
                     self.include_Veng.set(line[line.find("include_Veng"):].split()[1])
                 elif "include_Vcut"  in line:
                     self.include_Vcut.set(line[line.find("include_Vcut"):].split()[1])
+                elif "include_Gcde"  in line:
+                    self.include_Gcde.set(line[line.find("include_Gcde"):].split()[1])
                 elif "halftone"  in line:
                     self.halftone.set(line[line.find("halftone"):].split()[1])
                 elif "HomeUR"  in line:
@@ -1502,7 +1562,7 @@ class Application(Frame):
         #if self.k40 != None:
         #    message_box("Upper Left Corner","Press OK to return.")
 
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)
             DX = round((xmax-xmin)*1000.0)
@@ -1520,7 +1580,7 @@ class Application(Frame):
             pass
 
     def Move_UR(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         if self.HomeUR.get():
             Xnew = self.laserX
             DX = 0
@@ -1538,7 +1598,7 @@ class Application(Frame):
             pass
     
     def Move_LR(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         if self.HomeUR.get():
             Xnew = self.laserX
             DX = 0
@@ -1558,7 +1618,7 @@ class Application(Frame):
             pass
     
     def Move_LL(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)
             DX = round((xmax-xmin)*1000.0)
@@ -1578,8 +1638,7 @@ class Application(Frame):
             pass
 
     def Move_CC(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Reng_bounds
-        #Xnew = self.laserX + (xmax-xmin)/2.0
+        xmin,xmax,ymin,ymax = self.Design_bounds
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)/2.0 
             DX = round((xmax-xmin)/2.0*1000.0)
@@ -1710,6 +1769,21 @@ class Application(Frame):
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
         self.set_gui("normal")
+
+
+    def Gcode_Cut(self):
+        self.stop[0]=False
+        self.set_gui("disabled")
+        self.statusbar.configure( bg = 'green' )
+        self.statusMessage.set("G Code Cutting.")
+        self.master.update()
+        if self.Gcode!=[]:
+            self.send_data("Gcode_Cut")
+        else:
+            self.statusbar.configure( bg = 'yellow' )
+            self.statusMessage.set("No g-code data to cut")
+        self.set_gui("normal")
+
 
     ################################################################################
     def Sort_Paths(self,ecoords,i_loop=2):
@@ -1909,10 +1983,9 @@ class Application(Frame):
                 feed_factor = 25.4/60.0
             else:
                 feed_factor = 1.0
-                
-            xmin,xmax,ymin,ymax = self.Reng_bounds
+            
+            xmin,xmax,ymin,ymax = self.Design_bounds
             if self.HomeUR.get():
-                xmin,xmax,ymin,ymax = self.Reng_bounds
                 FlipXoffset = xmax-xmin
             else:
                 FlipXoffset = 0
@@ -1939,6 +2012,7 @@ class Application(Frame):
                                                 stop_calc=self.stop,              \
                                                 FlipXoffset=FlipXoffset
                                                 )
+
 
             if (operation_type=="Vector_Eng") and  (self.Veng!=[]):
                 Feed_Rate = float(self.Veng_feed.get())*feed_factor
@@ -1976,7 +2050,23 @@ class Application(Frame):
                                                 )
                 
                 self.Reng=[]
+
+            if (operation_type=="Gcode_Cut") and  (self.Gcode!=[]):
+                self.statusMessage.set("Generating EGV data...")
+                self.master.update()
+                egv_inst.make_egv_data(
+                                                self.Gcode,                       \
+                                                startX=xmin,                      \
+                                                startY=ymax,                      \
+                                                Feed = None,                      \
+                                                board_name=self.board_name.get(), \
+                                                Raster_step = 0,                  \
+                                                update_gui=self.update_gui,       \
+                                                stop_calc=self.stop,              \
+                                                FlipXoffset=FlipXoffset
+                                                )
                 
+
             self.master.update()
             self.send_egv_data(data)
             self.menu_View_Refresh()
@@ -1995,6 +2085,7 @@ class Application(Frame):
             debug_message(traceback.format_exc())
 
     def send_egv_data(self,data):
+        
         if self.k40 != None:
             self.k40.timeout       = int(self.t_timeout.get())   
             self.k40.n_timeouts    = int(self.n_timeouts.get())
@@ -2006,10 +2097,9 @@ class Application(Frame):
             self.k40.send_data(data,self.update_gui,self.stop)
             self.k40 = None
             self.master.update()
-            
-        #self.statusMessage.set("Saving Data to File....")
+        
+        #print "Saving Data to File...."
         #self.write_egv_to_file(data)
-        #self.statusMessage.set("Done Saving Data to File....")
         #self.set_gui("normal")
         self.menu_View_Refresh()
         
@@ -2022,7 +2112,6 @@ class Application(Frame):
         except:
             self.statusMessage.set("Unable to open file for writing: %s" %(fname))
             return
-        #ctog="B"
         for char_val in data:
             char = chr(char_val)
             if char == "N":
@@ -2127,7 +2216,7 @@ class Application(Frame):
         dummy_event.widget=self.master
         self.Master_Configure(dummy_event,1)
         self.Plot_Data()
-        xmin,xmax,ymin,ymax = self.Reng_bounds
+        xmin,xmax,ymin,ymax = self.Design_bounds
         W = xmax-xmin
         H = ymax-ymin
 
@@ -2269,20 +2358,38 @@ class Application(Frame):
                 self.Stop_Button.configure(bg='light coral')
                 Yloc=Yloc-10
 
-                Yloc=Yloc-30
-                self.Vcut_Button.place  (x=12, y=Yloc, width=100, height=23)
-                self.Entry_Vcut_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
-                self.Label_Vcut_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
-                
-                Yloc=Yloc-30
-                self.Veng_Button.place  (x=12, y=Yloc, width=100, height=23)
-                self.Entry_Veng_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
-                self.Label_Veng_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
 
-                Yloc=Yloc-30
-                self.Reng_Button.place  (x=12, y=Yloc, width=100, height=23)
-                self.Entry_Reng_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
-                self.Label_Reng_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
+
+                if self.Gcode == []:
+                    self.Grun_Button.place_forget()
+                    
+                    Yloc=Yloc-30
+                    self.Vcut_Button.place  (x=12, y=Yloc, width=100, height=23)
+                    self.Entry_Vcut_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
+                    self.Label_Vcut_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
+                    
+                    Yloc=Yloc-30
+                    self.Veng_Button.place  (x=12, y=Yloc, width=100, height=23)
+                    self.Entry_Veng_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
+                    self.Label_Veng_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
+
+                    Yloc=Yloc-30
+                    self.Reng_Button.place  (x=12, y=Yloc, width=100, height=23)
+                    self.Entry_Reng_feed.place(  x=x_entry_L, y=Yloc, width=w_entry, height=23)
+                    self.Label_Reng_feed_u.place(x=x_units_L, y=Yloc, width=w_units, height=23)
+                else:
+                    self.Vcut_Button.place_forget()
+                    self.Entry_Vcut_feed.place_forget()
+                    self.Label_Vcut_feed_u.place_forget()
+                    self.Veng_Button.place_forget()
+                    self.Entry_Veng_feed.place_forget()
+                    self.Label_Veng_feed_u.place_forget()
+                    self.Reng_Button.place_forget()
+                    self.Entry_Reng_feed.place_forget()
+                    self.Label_Reng_feed_u.place_forget()
+                    
+                    Yloc=Yloc-30
+                    self.Grun_Button.place  (x=12, y=Yloc, width=100*2, height=23)
                 
                 Yloc=Yloc-15
                 self.separator2.place(x=x_label_L, y=Yloc,width=w_label+75+40, height=2)
@@ -2378,8 +2485,7 @@ class Application(Frame):
         self.segID.append( self.PreviewCanvas.create_rectangle(
                     x_lft, y_bot, x_rgt, y_top, fill="gray80", outline="gray80", width = 0) )
 
-        xmin,xmax,ymin,ymax = self.Reng_bounds
-
+        xmin,xmax,ymin,ymax = self.Design_bounds
 
         if (self.HomeUR.get()):
             XlineShift = maxx - self.laserX - (xmax-xmin)
@@ -2391,7 +2497,7 @@ class Application(Frame):
         ###       Plot Raster Image        ###
         ######################################
         if self.Reng_image != None:
-            if self.include_Reng.get():     
+            if self.include_Reng.get():   
                 try:
                     new_SCALE = (1.0/self.PlotScale)/1000
                     if new_SCALE != self.SCALE:
@@ -2427,7 +2533,6 @@ class Application(Frame):
                 x1    = (XY[0]-xmin)*scale
                 y1    = (XY[1]-ymax)*scale
                 loop  = XY[2]
-                color = "red"
                 # check and see if we need to move to a new discontinuous start point
                 if (loop == loop_old):
                     self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, "blue")
@@ -2447,7 +2552,6 @@ class Application(Frame):
                 y1    = (XY[1]-ymax)*scale
 
                 loop  = XY[2]
-                color = "red"
                 # check and see if we need to move to a new discontinuous start point
                 if (loop == loop_old):
                     self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, "red")
@@ -2455,7 +2559,25 @@ class Application(Frame):
                 xold=x1
                 yold=y1
 
+        ######################################
+        ###       Plot Gcode Coords        ###
+        ######################################
+        if self.include_Gcde.get():  
+            loop_old = -1
+            scale=1
+            for line in self.Gcode:
+                XY    = line
+                x1    = (XY[0]-xmin)*scale
+                y1    = (XY[1]-ymax)*scale
 
+                loop  = XY[2]
+                # check and see if we need to move to a new discontinuous start point
+                if (loop == loop_old):
+                    self.Plot_Line(xold, yold, x1, y1, x_lft, y_top, XlineShift, YlineShift, self.PlotScale, "white")
+                loop_old = loop
+                xold=x1
+                yold=y1
+                
 ##        ######################################
 ##        ###       Plot Reng Coords         ###
 ##        ######################################
@@ -2463,7 +2585,6 @@ class Application(Frame):
 ##        if Plot_Reng and self.Reng!=[]:
 ##            loop_old = -1
 ##            scale = 1
-##            #xmin,xmax,ymin,ymax = self.Vcut_bounds
 ##            for line in self.Reng:
 ##                XY    = line
 ##                x1    = (XY[0]-xmin)*scale
@@ -2486,7 +2607,7 @@ class Application(Frame):
     def Plot_Raster(self, XX, YY, Xleft, Ytop, PlotScale, im):
         if (self.HomeUR.get()):
             maxx = float(self.LaserXsize.get()) / self.units_scale
-            xmin,xmax,ymin,ymax = self.Reng_bounds
+            xmin,xmax,ymin,ymax = self.Design_bounds
             xplt = Xleft + ( maxx-XX-(xmax-xmin) )/PlotScale
         else:
             xplt = Xleft +  XX/PlotScale
@@ -2620,7 +2741,6 @@ class Application(Frame):
         self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M1", state="disabled")
         self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M" , state="disabled")
         self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B2", state="disabled")
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B1", state="disabled")
         self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B" , state="disabled")
         self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-A" , state="disabled")
 

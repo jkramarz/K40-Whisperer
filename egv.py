@@ -341,19 +341,21 @@ class egv:
             update_gui = self.none_function
         ########################################################
         if units == 'in':
-            scale = 1000.0
+            scale      = 1000.0
         if units == 'mm':
             scale = 1000.0/25.4;
-                
+
         startX = int(round(startX*scale,0))
         startY = int(round(startY*scale,0))
 
         ########################################################
+        variable_feed_scale=None
         if Feed==None:
-            speed = self.make_speed(Feed,board_name=board_name)
-        else:
-            speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
+            variable_feed_scale = 25.4/60.0
+            Feed = round(ecoords_in[0][3]*variable_feed_scale,1)
             
+        speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
+        
         self.write(ord("I"))
         for code in speed:
             self.write(code)
@@ -388,6 +390,12 @@ class egv:
                 min_rapid = 5
                 if (abs(dx)+abs(dy))>0:
                     if laser:
+                        if variable_feed_scale!=None:
+                            Feed_current = round(ecoords_in[i][3]*variable_feed_scale,1)
+                            if Feed != Feed_current:
+                                Feed = Feed_current
+                                self.flush()
+                                self.change_speed(Feed,board_name,laser_on=True)
                         self.make_cut_line(dx,dy)
                     else:
                         if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
@@ -568,14 +576,12 @@ class egv:
         return
 
     def rapid_move_slow(self,dx,dy):
-        #self.make_cut_line(dx,dy)
         self.make_dir_dist(dx,dy)
 
     def rapid_move_fast(self,dx,dy):
         pad = 3
         if pad == -dx:
             pad = pad+3
-        #self.flush(laser_on=False)
         self.make_dir_dist(-pad, 0  ) #add "T" move
         self.make_dir_dist(   0, pad) #add "L" move
         self.flush(laser_on=False)
@@ -590,23 +596,29 @@ class egv:
         self.write(ord("S"))
         self.write(ord("E"))
 
-    def rapid_move_fast_old(self,dx,dy):
-        self.flush(laser_on=False)
+
+    def change_speed(self,Feed,board_name,laser_on=False):
+        if laser_on:
+            self.write(self.OFF)    
+        self.write(ord("@"))
         self.write(ord("N"))
-        self.make_dir_dist(dx,dy)
-        #self.make_dir_dist(dx-copysign(131,dx),dy-copysign(131,dx))
-        self.flush(laser_on=False)
         self.write(ord("S"))
         self.write(ord("E"))
-        if dy>0:
-            self.write(self.UP)
-        else:
-            self.write(self.DOWN)
-        if dx<0:
-            self.write(self.LEFT)
-        else:
-            self.write(self.RIGHT)
-                            
+        speed = self.make_speed(Feed,board_name)
+        #print Feed,speed
+        for code in speed:
+            self.write(code)
+        self.write(ord("N"))
+        self.write(ord("R"))
+        self.write(ord("B"))
+        ## Insert "SIE"
+        self.write(ord("S"))
+        self.write(ord("1"))
+        self.write(ord("E"))
+        if laser_on:    
+            self.write(self.ON)
+        
+     
     def test_move_calc(self):
         vals = [0.0033,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1,6.48,6.5,6.6,6.7,6.8,6.9,7,7.1,7.2,7.3,7.4,7.5,7.6,7.7,7.71,7.72,7.73,7.74,7.75,7.76,7.77,7.775,7.775,7.776,7.777,7.778,7.779,7.779,7.78,7.79,7.8,7.825,7.85,7.875,7.9,8,8.1,8.2,8.3,8.4,8.5,8.6,8.7,8.8,8.9,9,10,10.1,10.2,10.3,10.4,10.5,10.6,10.7,10.8,10.9,11,11.1,11.2,11.3,11.4,11.5,11.6,11.7,11.8,11.9,12,12.1,12.2,12.3,12.4,12.5,12.6,12.7,12.8,12.9,13,14,15,16,17,18,19,20,30,40,50,60,70,80,90,100]
         for i in vals:
@@ -769,7 +781,7 @@ class egv:
             print( "%8.3f " %(line[0]),)
             print( "%03d "   %(line[1]),)
             print( "%03d "   %(line[2]),)
-            print( "%d "   %(line[3]),)
+            print( "%d   "   %(line[3]),)
             print( "%03d "   %(line[4]),)
             print( "%03d "   %(line[5]),)
             print( "%03d"    %(line[6]),)
