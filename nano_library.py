@@ -24,13 +24,12 @@ try:
 except:
     print("Unable to load USB library (Sending data to Laser will not work.)")
 import sys
-import time
-
 import struct
 import os
-#from time import time
 from shutil import copyfile
 from egv import egv
+import time
+import traceback
 
 ##############################################################################
 
@@ -42,27 +41,80 @@ class K40_CLASS:
         self.write_addr = 0x2   # Write address
         self.read_addr  = 0x82  # Read address
         self.read_length= 168
-        
+
+        #### RESPONSE CODES ####
+        self.OK          = 206
+        self.BUFFER_FULL = 238
+        self.CRC_ERROR   = 207
+        self.UNKNOWN_1   = 236
+        self.UNKNOWN_2   = 239 #after failed initialization followed by succesful initialization
+        #######################
         self.hello   = [160]
         self.unlock  = [166,0,73,83,50,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,15]
         self.home    = [166,0,73,80,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,228]
         self.estop  =  [166,0,73,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,130]
-        
-    def say_hello(self):
-        self.dev.write(self.write_addr,self.hello,self.timeout)
-        return self.read_data()
 
-    def send_array(self,array):
-        self.dev.write(self.write_addr,array,self.timeout)
-        self.read_data()
+
+    def say_hello(self):
+        #255, 206, 111, 8, 19, 0
+        cnt=0
+        while cnt<self.n_timeouts:
+            cnt=cnt+1
+            try:
+                self.send_packet(self.hello)
+                break
+            except:
+                pass
+        if cnt == self.n_timeouts:
+            msg = "Too Many Transmission Errors (%d Status Timeouts)" %(cnt)
+            update_gui(msg)
+            raise StandardError(msg)
+                
+        response = None
+        while response==None:
+            try:
+                response = self.dev.read(self.read_addr,self.read_length,self.timeout)
+            except:
+                response = None
+        
+        DEBUG = False
+        if response != None:
+            if DEBUG:
+                if int(response[0]) != 255:
+                    print "0: ", response[0]
+                elif int(response[1]) != 206: 
+                    print "1: ", response[1]
+                elif int(response[2]) != 111:
+                    print "2: ", response[2]
+                elif int(response[3]) != 8:
+                    print "3: ", response[3]
+                elif int(response[4]) != 19: #Get a 3 if you try to initialize when already initialized
+                    print "4: ", response[4]
+                elif int(response[5]) != 0:
+                    print "5: ", response[5]
+                else:
+                    print ".",
+            
+            if response[1]==self.OK          or \
+               response[1]==self.BUFFER_FULL or \
+               response[1]==self.CRC_ERROR   or \
+               response[1]==self.UNKNOWN_1   or \
+               response[1]==self.UNKNOWN_2:
+                return response[1]
+            else:
+                return None
+        else:
+            return None
+
     
     def unlock_rail(self):
-        self.dev.write(self.write_addr,self.unlock,self.timeout)
-        return self.say_hello()
+        self.send_packet(self.unlock)
 
     def e_stop(self):
-        self.dev.write(self.write_addr,self.estop,self.timeout)
-        return self.say_hello()
+        self.send_packet(self.estop)
+
+    def home_position(self):
+        self.send_packet(self.home)
 
     def reset_usb(self):
         self.dev.reset()
@@ -70,11 +122,6 @@ class K40_CLASS:
     def release_usb(self):
         usb.util.dispose_resources(self.dev)
         self.dev = None
-
-    def home_position(self):
-        self.dev.write(self.write_addr,self.home,self.timeout)
-        self.say_hello()
-        return self.say_hello()
     
     #######################################################################
     #  The one wire CRC algorithm is derived from the OneWire.cpp Library
@@ -97,7 +144,7 @@ class K40_CLASS:
         #Don't delete this function (used in send_data)
         pass
     
-    def send_data(self,data,update_gui=None,stop_calc=None):
+    def send_data(self,data,update_gui=None,stop_calc=None,passes=1,preprocess_crc=True):
         if stop_calc == None:
             stop_calc=[]
             stop_calc.append(0)
@@ -109,57 +156,103 @@ class K40_CLASS:
         packet  = blank[:]
         cnt=2
         len_data = len(data)
-        for i in range(len_data):
-            if cnt > 31:
-                packet[-1] = self.OneWireCRC(packet[1:len(packet)-2])
-                packets.append(packet)
-                packet = blank[:]
-                cnt = 2
-                update_gui("Calculating CRC data and Generate Packets: %.1f%%" %(100.0*float(i)/float(len_data)))
-                if stop_calc[0]==True:
-                    raise StandardError("Action Stoped by User.")
-            packet[cnt]=data[i]
-            cnt=cnt+1
+        for j in range(passes):
+            if j == 0:
+                istart = 0
+            else:
+                istart = 1
+                data[-4]
+            if passes > 1:
+                if j == passes-1:
+                    data[-4]=ord("F")
+                else:
+                    data[-4]=ord("@")
+                
+            for i in range(istart,len_data):
+                if cnt > 31:
+                    packet[-1] = self.OneWireCRC(packet[1:len(packet)-2])
+                    if not preprocess_crc:
+                        self.send_packet_w_error_checking(packet,update_gui,stop_calc)
+                        update_gui("Sending Data to Laser = %.1f%%" %(100.0*float(i)/float(len_data)))
+                    else:
+                        packets.append(packet)
+                        update_gui("Calculating CRC data and Generate Packets: %.1f%%" %(100.0*float(i)/float(len_data)))
+                    packet = blank[:]
+                    cnt = 2
+                    
+                    if stop_calc[0]==True:
+                        raise StandardError("Action Stopped by User.")
+                packet[cnt]=data[i]
+                cnt=cnt+1
         packet[-1]=self.OneWireCRC(packet[1:len(packet)-2])
-        packets.append(packet)
+        if not preprocess_crc:
+            self.send_packet_w_error_checking(packet,update_gui,stop_calc)
+        else:
+            packets.append(packet)
         packet_cnt = 0
 
-        update_gui("Sending Data to Laser...")
         for line in packets:
             update_gui()
-            cnt=1
-            while cnt < self.n_timeouts and True:
-                try:
-                    self.dev.write(self.write_addr,line,self.timeout)
-                    packet_cnt = packet_cnt+1.0
-                    break #break and move on to next packet
-                except:
-                    cnt=cnt+1
-                    update_gui("Timeout #%d, packet number %d of %d" %(cnt,packet_cnt,len(packets)))
-            if cnt == self.n_timeouts:
-                update_gui("Too Many Timeouts(%d) Quiting..." %(cnt))
-                break
-            if stop_calc[0]:
-                update_gui("User Commanded Stop")
-                return
+            self.send_packet_w_error_checking(line,update_gui,stop_calc)
+            packet_cnt = packet_cnt+1.0
             update_gui( "Sending Data to Laser = %.1f%%" %( 100.0*packet_cnt/len(packets) ) )
         ##############################################################
-        update_gui( "Packets sent = %d of %d" %( packet_cnt, len(packets) ) )
+
+
+    def send_packet_w_error_checking(self,line,update_gui=None,stop_calc=None):
+        cnt=1
+        while cnt < self.n_timeouts and True:
+            try:
+                self.send_packet(line)
+            except:
+                msg = "USB Timeout #%d" %(cnt)
+                update_gui(msg)
+                cnt=cnt+1
+                continue
+                
+            ######################################
+            response = self.say_hello()
+            
+            if response == self.BUFFER_FULL:
+                while response == self.BUFFER_FULL:
+                    response = self.say_hello()
+                break #break and move on to next packet
+            elif response == self.CRC_ERROR:
+                msg = "Data transmission (CRC) error #%d" %(cnt)               
+                update_gui(msg)
+                cnt=cnt+1
+                continue
+            else: #response == self.OK:
+                break #break and move on to next packet
+
+            #elif response == self.UNKNOWN_1:
+            #    msg = "Something UNKNOWN_1 happened: response=%s" %(response)
+            #    break #break and move on to next packet
+            #elif response == self.UNKNOWN_2:
+            #    msg = "Something UNKNOWN_2 happened: response=%s" %(response)
+            #    break #break and move on to next packet
+            #else:
+            #    msg = "Something Undefined happened: response=%s" %(response)
+            #    break #break and move on to next packet
+            
+        if cnt == self.n_timeouts:
+            msg = "Too Many Transmission Errors (%d)" %(cnt)
+            update_gui(msg)
+            raise StandardError(msg)
+        if stop_calc[0]:
+            msg="Action Stopped by User."
+            update_gui(msg)
+            raise StandardError(msg)
         
+
+    def send_packet(self,line):
+        self.dev.write(self.write_addr,line,self.timeout)
+
     def rapid_move(self,dxmils,dymils):
         data=[]
         egv_inst = egv(target=lambda s:data.append(s))
         egv_inst.make_move_data(dxmils,dymils)
         self.send_data(data)
-
-    def read_data(self):
-        data = []
-        while True:
-            try:
-                data.append(self.dev.read(self.read_addr,self.read_length,self.timeout))
-            except:
-                break
-            return data
     
     def initialize_device(self,verbose=False):
         try:
@@ -221,74 +314,8 @@ class K40_CLASS:
             dec_out.append(int(a,16))
         return dec_out
     
-    def open_egv_file_print_feed(self,filename):
-        try:
-            fin = open(filename,'r')
-        except:
-            print ("Unable to open file: %s" %(filename))
-            return
 
-        cur = ""
-        data = []
-        c = True
-        while c:
-            c = fin.read(1)
-            if c=="%" or c=="G":
-                data.append(cur)
-                cur=""
-            cur = cur+c
-            last = c
-            
-        data.append(cur)
-        print(data[6])
-
-
-    def open_egv_file_print_data(self,filename):
-        try:
-            fin = open(filename,'r')
-        except:
-            print("Unable to open file: %s" %(filename))
-            return
-
-        header=""
-        c = fin.read(1)
-        while c!="%":
-            header = header+c
-            c = fin.read(1)
-
-
-        # %Ystart_pos %Xstart_pos %Yend_pos %Xend_pos  (start pos is the location of the head before the coade is run)
-        # value = 39.4 * position in mm (at least for 10mm)
-        
-        header_pct = ""
-        while c!="V":
-            header_pct=header_pct+c
-            c = fin.read(1)
-
-        feed_rate = ""
-        for i in range(0,8):
-            feed_rate=feed_rate+c
-            c = fin.read(1)
-
-        cur = ""
-        while c:
-            if c=="F":
-                Fpos =  fin.tell()
-                NSE = fin.read(3)
-                if NSE=="NSE":
-                    cur=cur+" FNSE"
-                    c=" "
-                    
-            if c=="R" or c=="B" or c=="N":
-                cur=cur+" "+c+" "
-            else:
-                cur=cur+c
-            c = fin.read(1)
-            
-
-        print ("%-20s  " %(header_pct),feed_rate,cur)
 if __name__ == "__main__":
-
     k40=K40_CLASS()
     run_laser = False
 
@@ -301,7 +328,6 @@ if __name__ == "__main__":
         os._exit(0) 
 
     #k40.initialize_device()
-    print (k40.read_data())
     print (k40.say_hello())
     #print k40.reset_position()
     #print k40.unlock_rail()

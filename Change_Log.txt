@@ -61,3 +61,14 @@ Version 0.11:
 - Enabled option for controller board version B1
 - Fixed a bug that resulted in bad design scaling if one of the feed rates were not entered correctly when changing units.
 - Added support for SVG "Line" objects
+
+Version 0.12:
+- Added advanced options pane
+- Added multi-pass engraving and cutting
+- Added Mirror option
+- Added "Use Input CSYS" option to force K40 Whisperer to use the coordinate system from the input design (the default is to use the upper left corner of the design).
+- Added option to disable homing the laser cutter upon initialization.
+- Added option to disable preprocessing of CRC data.  Un-selecting the "Preprocess CRC Data" option results in the CRC data being generated on the fly while data is being sent to the laser.
+- Added option in Rester Settings to force engraving from the bottom of the raster image to the top.  Sometimes this is useful to prevent smoke from spoiling the engraved image.
+- Changed the communication with the laser cutter to include error detection/correction during transmission of data.
+- Fixed bug that resulted in the laser area value being removed during a change in units

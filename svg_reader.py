@@ -29,6 +29,7 @@ import simplestyle
 import simpletransform
 import cubicsuperpath
 import cspsubdiv
+import traceback
 
 from PIL import Image
 
@@ -166,7 +167,6 @@ class SVG_READER(inkex.Effect):
             node.set('style', ';'.join(declarations))
 
         #####################################################
-            
         if node.tag == inkex.addNS('path','svg'):
             d = node.get('d')
             if not d:
@@ -374,7 +374,6 @@ class SVG_READER(inkex.Effect):
             try:
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 png_temp_file = os.path.join(tmp_dir, "k40w_image.png")
-                
                 dpi = "%d" %(self.image_dpi)           
                 self.document.write(svg_temp_file)
                 cmd = [ self.inscape_exe, self.png_area, "--export-dpi", dpi, \
@@ -382,7 +381,8 @@ class SVG_READER(inkex.Effect):
                         "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
             except:
-                raise StandardError("Inkscape Execution Failed.")
+                formatted_lines = traceback.format_exc().splitlines()
+                raise StandardError("Inkscape Execution Failed.\n%s\n%s" %(formatted_lines[0],formatted_lines[-1]))
             self.raster_PIL = Image.open(png_temp_file)
             self.raster_PIL = self.raster_PIL.convert("L")
         else:
@@ -434,15 +434,16 @@ class SVG_READER(inkex.Effect):
                 self.convert_text2paths()
             except:
                 raise StandardError("Convert Text to Path Failed")
- 
+
         try:
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
         except:
             line1 = "Units not set in SVG File.\n"
-            line2 = "In Inkscape select 'File'-'Document Properties'."
-            line3 = "In the 'Custom Size' region on the 'Page' tab set the 'Units' to 'mm' or 'in')"
-            raise StandardError("%s\n%s\n%s" %(line1,line2,line3))
+            line2 = "Inkscape v0.90 or higher makes SVG files with units data.\n"
+            line3 = "1.) In Inkscape (v0.90 or higher) select 'File'-'Document Properties'."
+            line4 = "2.) In the 'Custom Size' region on the 'Page' tab set the 'Units' to 'mm' or 'in'."
+            raise StandardError("%s\n%s\n%s\n%s" %(line1,line2,line3,line4))
         
         try:
             view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
@@ -537,5 +538,5 @@ class SVG_READER(inkex.Effect):
                 
 if __name__ == '__main__':
     svg_reader =  SVG_READER()
-    #svg_reader.parse("test.svg")
-    #svg_reader.make_paths()
+    svg_reader.parse("test.svg")
+    svg_reader.make_paths()

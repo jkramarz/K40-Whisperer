@@ -272,7 +272,7 @@ class egv:
             if Raster_step==0:
                 speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
             else:
-                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
+                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,abs(Raster_step))
             if Feed < 7:
                 speed_text = speed_text + "C"
         #################################################################
@@ -288,7 +288,7 @@ class egv:
             if Raster_step==0:
                 speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
             else:
-                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,Raster_step)
+                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,abs(Raster_step))
             #print board_name,Feed,speed_text
         #################################################################
         else:
@@ -423,8 +423,13 @@ class egv:
             Rapid_flag=True
             ###################################################
             scanline = []
-            scanline_y = None          
-            for i in range(len(ecoords_in)):
+            scanline_y = None
+            if Raster_step < 0.0:
+                irange = range(len(ecoords_in))
+            else:
+                irange = range(len(ecoords_in)-1,-1,-1)
+                
+            for i in irange:
                 if i%1000 == 0:
                     update_gui("Preprocessing Raster Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
                 y    = ecoords_in[i][1]
@@ -432,13 +437,12 @@ class egv:
                     scanline.append([ecoords_in[i]])
                     scanline_y = y
                 else:
-                    if FlipXoffset > 0:
+                    if bool(FlipXoffset) ^ bool(Raster_step > 0.0): # ^ is bitwise XOR
                         scanline[-1].insert(0,ecoords_in[i])
                     else:
                         scanline[-1].append(ecoords_in[i])
-            ###################################################                      
-                        
-            lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)
+            ###################################################
+            lastx,lasty,last_loop = self.ecoord_adj(scanline[0][0],scale,FlipXoffset)
             
             DXstart = lastx-startX
             DYstart = lasty-startY
@@ -446,7 +450,10 @@ class egv:
             #insert "NRB"
             self.flush(laser_on=False)
             self.write(ord("N"))
-            self.write(ord("R"))
+            if (Raster_step < 0.0):
+                self.write(ord("R"))
+            else:
+                self.write(ord("L"))
             self.write(ord("B"))
             # Insert "S1E"
             self.write(ord("S"))
@@ -456,18 +463,15 @@ class egv:
 
             sign = -1
             cnt = 1
-            #print scanline
             for scan_raw in scanline:
                 scan = []
                 for point in scan_raw:
-                    #print point
                     e0,e1,e2 = self.ecoord_adj(point,scale,FlipXoffset)
                     scan.append([e0,e1,e2])
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
                 if stop_calc[0]==True:
                     raise StandardError("Action Stopped by User.")
                 cnt = cnt+1
-                #self.write(ord(" "))
                 ######################################
                 ## Flip direction and reset loop    ##
                 ######################################
@@ -475,7 +479,6 @@ class egv:
                 last_loop =  None
                 y         =  scan[0][1]
                 dy        =  y-lasty
-                ###
                 if sign == 1:
                     xr = scan[0][0]
                 else:
@@ -484,11 +487,11 @@ class egv:
                 ######################################
                 ## Make Rapid move if needed        ##
                 ######################################
-                if dy < -Raster_step:
+                if abs(dy-Raster_step) != 0 and not Rapid_flag:
                     if dxr*sign < 0:
-                        yoffset = Raster_step*3
+                        yoffset = -Raster_step*3
                     else:
-                        yoffset = Raster_step
+                        yoffset = -Raster_step
                     
                     if (dy+yoffset) < 0:
                         self.flush(laser_on=False)
@@ -499,7 +502,7 @@ class egv:
                         self.write(ord("E"))
                         Rapid_flag=True
                     else:
-                        adj_steps = -dy/Raster_step
+                        adj_steps = dy/Raster_step
                         
                         for stp in range(1,adj_steps):
                             adj_dist=5
@@ -554,13 +557,16 @@ class egv:
             # If sign is negative the final move will have incremented the
             # "y" position so adjust the lasty to acoomodate
             if sign < 0:
-                lasty = lasty - Raster_step
+                lasty = lasty + Raster_step
 
             self.flush(laser_on=False)
             
             self.write(ord("N"))
             dx_final = (startX - lastx)
-            dy_final = (startY - lasty) - Raster_step
+            if Raster_step < 0:
+                dy_final = (startY - lasty) + Raster_step
+            else:
+                dy_final = (startY - lasty) - Raster_step
             self.make_dir_dist(dx_final,dy_final)
             self.flush(laser_on=False)
             self.write(ord("S"))
@@ -617,217 +623,13 @@ class egv:
         self.write(ord("E"))
         if laser_on:    
             self.write(self.ON)
-        
-     
-    def test_move_calc(self):
-        vals = [0.0033,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1,6.48,6.5,6.6,6.7,6.8,6.9,7,7.1,7.2,7.3,7.4,7.5,7.6,7.7,7.71,7.72,7.73,7.74,7.75,7.76,7.77,7.775,7.775,7.776,7.777,7.778,7.779,7.779,7.78,7.79,7.8,7.825,7.85,7.875,7.9,8,8.1,8.2,8.3,8.4,8.5,8.6,8.7,8.8,8.9,9,10,10.1,10.2,10.3,10.4,10.5,10.6,10.7,10.8,10.9,11,11.1,11.2,11.3,11.4,11.5,11.6,11.7,11.8,11.9,12,12.1,12.2,12.3,12.4,12.5,12.6,12.7,12.8,12.9,13,14,15,16,17,18,19,20,30,40,50,60,70,80,90,100]
-        for i in vals:
-            #code_mm  = self.make_distance(i)
-            code_in  = self.make_distance(round(i/25.4*1000.0,0))
-            print(round(i/25.4*1000.0,0),":",)
-            for j in range(len(code_in)): #,len(code_mm))):
-                print (code_in[j],)
-            print("")
-    
-    def open_egv_file_print_feed(self,filename):
-        #print "Opening file: ",filename
-        try:
-            fin = open(filename,'r')
-        except:
-            print("Unable to open file: %s" %(filename))
-            return
-
-        cur = ""
-        data = []
-        c = True
-        while c:
-            c = fin.read(1)
-            if c=="%" or c=="G":
-                data.append(cur)
-                cur=""
-            cur = cur+c
-            last = c
-            
-        data.append(cur)
-        print(data[6])
-
-    def open_egv_file_print_data(self,filename):
-        #print "Opening file: ",filename
-        try:
-            fin = open(filename,'r')
-        except:
-            print("Unable to open file: %s" %(filename))
-            return
-
-        header=""
-        c = fin.read(1)
-        while c!="%":
-            header = header+c
-            c = fin.read(1)
-
-        header_pct = ""
-        while c!="I":
-            header_pct=header_pct+c
-            c = fin.read(1)
-
-        cut_code1 = ""
-        while c!="V":
-            cut_code1 = cut_code1+c
-            c = fin.read(1)
-
-
-        #feed_rate = ""
-        #for i in range(0,8):
-        #    feed_rate=feed_rate+c
-        #    c = fin.read(1)
-
-        feed_rate = ""
-        while c!="R" and c!="B" and c!="N" :
-            feed_rate=feed_rate+c
-            c = fin.read(1)
-
-        cur = ""
-        while c:
-            if c=="F":
-                Fpos =  fin.tell()
-                NSE = fin.read(3)
-                if NSE=="NSE":
-                    cur=cur+" FNSE"
-                    c=" "
-                    
-            if c=="R" or c=="B" or c=="N":
-                cur=cur+" "+c+" "
-            else:
-                cur=cur+c
-            c = fin.read(1)
-            
-
-        #print "%-20s  " %(header_pct),"%-3s" %(cut_code1),feed_rate, "%-10s" %(cut_code2), cur
-        
-        #print "%-20s  " %(header_pct),
-        #print "%-3s"    %(cut_code1),
-        #print "%-10s"   %(feed_rate),
-        #print feed_rate[0],feed_rate[1:4],feed_rate[4:7],feed_rate[7],feed_rate[8:11],feed_rate[11:14], feed_rate[14:17],
-        #if len(feed_rate) > 17:
-        #    print feed_rate[-1],
-        #else:
-        #    print " ",
-        #print cur,
-
-        #print feed_rate[1:4],feed_rate[4:7],feed_rate[7],feed_rate[8:11],feed_rate[11:14], feed_rate[14:17],
-        print("%4d,%4d,%4d,%4d,%4d,%4d ])" %(
-                int(feed_rate[1:4]),
-                int(feed_rate[4:7]),
-                int(feed_rate[7]),
-                int(feed_rate[8:11]),
-                int(feed_rate[11:14]),
-                int(feed_rate[14:17])),)
-        print("  ",feed_rate,)
-        print("")
-
-    
-    def test_make_feed(self):
-        data = []
-        data.append([5.00,  235, 238,   1,   6,   0, 223 ]) 
-        data.append([6.00,  239,  69,   1,   7,   0, 159 ]) 
-        data.append([6.40,  240,  80,   1,   7,   0, 149 ]) 
-        data.append([6.50,  240, 142,   1,   7,   0, 147 ]) 
-        data.append([6.60,  240, 202,   1,   7,   0, 145 ]) 
-        data.append([6.70,  241,   4,   1,   7,   0, 143 ]) 
-        data.append([6.80,  241,  60,   1,   7,   0, 140 ]) 
-        data.append([6.90,  241, 115,   1,   7,   0, 138 ]) 
-        data.append([6.95,  241, 141,   1,   7,   0, 137 ]) 
-        data.append([6.99,  241, 162,   1,   7,   0, 136 ]) 
-        data.append([7.00,   64,  54,   1,   8,   5, 155 ]) 
-        data.append([7.01,   64, 117,   1,   8,   5, 153 ]) 
-        data.append([7.02,   64, 180,   1,   8,   5, 151 ]) 
-        data.append([7.03,   64, 242,   1,   8,   5, 149 ]) 
-        data.append([7.04,   65,  48,   1,   8,   5, 147 ]) 
-        data.append([7.05,   65, 110,   1,   8,   5, 145 ]) 
-        data.append([7.10,   66, 162,   1,   8,   5, 135 ]) 
-        data.append([8.00,   85, 175,   1,   9,   4,  92 ]) 
-        data.append([9.00,  102,  99,   1,  10,   3, 125 ]) 
-        data.append([10.00,  115, 192,   1,  11,   2, 219 ]) 
-        data.append([15.00,  155, 213,   1,  16,   1,  79 ]) 
-        data.append([20.00,  175, 224,   1,  21,   0, 191 ]) 
-        data.append([21.00,  178, 189,   1,  22,   0, 174 ]) 
-        data.append([22.00,  181,  87,   1,  23,   0, 158 ]) 
-        data.append([25.40,  188, 168,   1,  26,   0, 121 ]) 
-        data.append([30.00,  195, 235,   2,  31,   0,  86 ]) 
-        data.append([40.00,  205, 240,   2,  41,   0,  49 ]) 
-        data.append([40.05,  205, 250,   2,  41,   0,  48 ]) 
-        data.append([40.06,  205, 252,   2,  41,   0,  48 ]) 
-        data.append([40.07,  205, 254,   2,  41,   0,  48 ]) 
-        data.append([40.08,  206,   0,   2,  41,   0,  48 ]) 
-        data.append([40.10,  206,   3,   2,  41,   0,  48 ]) 
-        data.append([40.33,  206,  47,   2,  41,   0,  48 ]) 
-        data.append([41.00,  206, 172,   2,  42,   0,  46 ]) 
-        data.append([42.00,  207,  95,   2,  43,   0,  44 ]) 
-        data.append([55.50,  214,  86,   2,  56,   0,  25 ]) 
-        data.append([70.00,  216, 211,   3,  71,   0,  16 ]) 
-        data.append([100.00,  221, 250,   3, 101,   0,   7 ]) 
-        data.append([105.00,  222, 141,   3, 106,   0,   7 ]) 
-        data.append([110.00,  223,  18,   3, 111,   0,   6 ]) 
-        data.append([195.00,  225, 214,   4, 128,   0,   3 ]) 
-        data.append([200.00,  225, 253,   4, 128,   0,   3 ]) 
-        data.append([254.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([255.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([300.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([350.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([400.00,  172, 224,   1,  20,   0, 211 ]) 
-        data.append([500.00,  172, 224,   1,  20,   0, 211 ]) 
-
-        for line in data:
-            print( "%8.3f " %(line[0]),)
-            print( "%03d "   %(line[1]),)
-            print( "%03d "   %(line[2]),)
-            print( "%d   "   %(line[3]),)
-            print( "%03d "   %(line[4]),)
-            print( "%03d "   %(line[5]),)
-            print( "%03d"    %(line[6]),)
-            print( " :: ",)
-            feed = self.make_speed(line[0])
-            print(feed)
-            #print "%5.2f %5.2f" %(feed[0], line[1]-feed)
 
             
 if __name__ == "__main__":
-
     EGV=egv()
-    folder = "../"
-    egv_files = []
-    #files=os.listdir("../EGV_FILES/")
-    files=os.listdir(folder)
-    files.sort()
-    name_len = 0
-    for name in files:
-        name_len = max(name_len,len(name))
-    FORMAT = '%%%ds' %(-name_len)
-    #self.gcode.append(FORMAT %(SafeZ))
-    #except:
-    #    egv_files=" "
-
-    test_files = False
-    if test_files:
-        for name in files:
-            if str.find(name.upper(),'.EGV') != -1:
-                egv_files.append(name)
-                #print FORMAT %(name)+":",
-                rate = name.split('.')[0].replace('_','.')
-                print("data.append([%3.2f," %float(rate),)
-                #print FORMAT %name.split('.')[0]+":",
-                EGV.open_egv_file_print_data(folder+name)
-
-
-    #EGV.test_move_calc()
-
     for i in range(1,258,1):
-        print(i,":",)
+        print i,":",
         for n in EGV.make_distance(i):
-            print(chr(n),)
-        print("")
-
-    
-    #EGV.test_make_feed()
+            print "%c" %(chr(n)),
+        print ""
     print("DONE")
-    print(EGV.make_distance(round(131,0)))
