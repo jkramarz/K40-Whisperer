@@ -67,7 +67,6 @@ class K40_CLASS:
                 pass
         if cnt == self.n_timeouts:
             msg = "Too Many Transmission Errors (%d Status Timeouts)" %(cnt)
-            update_gui(msg)
             raise StandardError(msg)
                 
         response = None

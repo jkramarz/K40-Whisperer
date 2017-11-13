@@ -172,7 +172,7 @@ class egv:
                     self.move(self.LEFT ,adx,laser_on)
             
     
-    def make_cut_line(self,dxmils,dymils):
+    def make_cut_line(self,dxmils,dymils,Spindle):
         XCODE = self.RIGHT
         if dxmils < 0.0:
             XCODE = self.LEFT
@@ -187,11 +187,11 @@ class egv:
         ady = abs(dymils/1000.0)
 
         if dxmils == 0:
-            self.move(YCODE,abs(dymils),laser_on=True)
+            self.move(YCODE,abs(dymils),laser_on=Spindle)
         elif dymils == 0:
-            self.move(XCODE,abs(dxmils),laser_on=True)      
+            self.move(XCODE,abs(dxmils),laser_on=Spindle)      
         elif dxmils==dymils:
-            self.move(self.ANGLE,abs(dxmils),laser_on=True,angle_dirs=[XCODE,YCODE])
+            self.move(self.ANGLE,abs(dxmils),laser_on=Spindle,angle_dirs=[XCODE,YCODE])
         else:
             h=[]
             if adx > ady:
@@ -217,23 +217,23 @@ class egv:
                 if h[i]==Lh:
                     d1=d1+1
                     if d2>0.0:
-                        self.move(self.ANGLE,d2,laser_on=True,angle_dirs=[XCODE,YCODE])
+                        self.move(self.ANGLE,d2,laser_on=Spindle,angle_dirs=[XCODE,YCODE])
                         d2cnt=d2cnt+d2
                         d2=0.0
                 else:
                     d2=d2+1
                     if d1>0.0:
-                        self.move(CODE,d1,laser_on=True)
+                        self.move(CODE,d1,laser_on=Spindle)
                         d1cnt=d1cnt+d1
                         d1=0.0
                 Lh=h[i]
 
             if d1>0.0:
-                self.move(CODE,d1,laser_on=True)
+                self.move(CODE,d1,laser_on=Spindle)
                 d1cnt=d1cnt+d1
                 d1=0.0
             if d2>0.0:
-                self.move(self.ANGLE,d2,laser_on=True,angle_dirs=[XCODE,YCODE])
+                self.move(self.ANGLE,d2,laser_on=Spindle,angle_dirs=[XCODE,YCODE])
                 d2cnt=d2cnt+d2
                 d2=0.0
 
@@ -350,9 +350,11 @@ class egv:
 
         ########################################################
         variable_feed_scale=None
+        Spindle = True
         if Feed==None:
             variable_feed_scale = 25.4/60.0
             Feed = round(ecoords_in[0][3]*variable_feed_scale,1)
+            Spindle = False
             
         speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
         
@@ -380,9 +382,9 @@ class egv:
                 if stop_calc[0]==True:
                     raise StandardError("Action Stopped by User.")
             
-                if ( e2  == last_loop)     and (not laser):
+                if ( e2  == last_loop) and (not laser):
                     laser = True
-                elif ( e2  != last_loop)    and (laser):
+                elif ( e2  != last_loop) and (laser):
                     laser = False
                 dx = e0 - lastx
                 dy = e1 - lasty
@@ -391,12 +393,13 @@ class egv:
                 if (abs(dx)+abs(dy))>0:
                     if laser:
                         if variable_feed_scale!=None:
-                            Feed_current = round(ecoords_in[i][3]*variable_feed_scale,1)
+                            Feed_current    = round(ecoords_in[i][3]*variable_feed_scale,1)
+                            Spindle = ecoords_in[i][4] > 0
                             if Feed != Feed_current:
                                 Feed = Feed_current
                                 self.flush()
-                                self.change_speed(Feed,board_name,laser_on=True)
-                        self.make_cut_line(dx,dy)
+                                self.change_speed(Feed,board_name,laser_on=Spindle)
+                        self.make_cut_line(dx,dy,Spindle)
                     else:
                         if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
                             self.rapid_move_slow(dx,dy)
@@ -543,7 +546,7 @@ class egv:
                     ##################################
                     loop = scan[j][2]
                     if loop==last_loop:
-                        self.make_cut_line(dx,0)
+                        self.make_cut_line(dx,0,True)
                     else:
                         if dx*sign > 0.0:
                             self.make_dir_dist(dx,0)
@@ -604,8 +607,13 @@ class egv:
 
 
     def change_speed(self,Feed,board_name,laser_on=False):
+        cspad = 5
         if laser_on:
-            self.write(self.OFF)    
+            self.write(self.OFF)
+
+        self.make_dir_dist(-cspad,-cspad)
+        self.flush(laser_on=False)
+        
         self.write(ord("@"))
         self.write(ord("N"))
         self.write(ord("S"))
@@ -621,10 +629,13 @@ class egv:
         self.write(ord("S"))
         self.write(ord("1"))
         self.write(ord("E"))
+
+        self.make_dir_dist(cspad,cspad)
+        self.flush(laser_on=False)
+        
         if laser_on:    
             self.write(self.ON)
-
-            
+        
 if __name__ == "__main__":
     EGV=egv()
     for i in range(1,258,1):

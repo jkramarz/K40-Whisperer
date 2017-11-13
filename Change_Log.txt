@@ -72,3 +72,7 @@ Version 0.12:
 - Added option in Rester Settings to force engraving from the bottom of the raster image to the top.  Sometimes this is useful to prevent smoke from spoiling the engraved image.
 - Changed the communication with the laser cutter to include error detection/correction during transmission of data.
 - Fixed bug that resulted in the laser area value being removed during a change in units
+
+Version 0.13:
+- Fixed g-code processing so that it does not ignore spindle inputs. Now works with raster input from LaserWeb4
+- Fixed bug that could result in "'update_gui' is not defined" error.

@@ -100,7 +100,8 @@ class G_Code_Rip:
         pos     =['','','']
         pos_last=['','','']
         POS     =[complex(0,1),complex(0,1),complex(0,1)]
-        feed = 0        
+        feed = 0
+        spindle = 0
         
         #########################
         for line in fin:
@@ -391,6 +392,9 @@ class G_Code_Rip:
                 ###################
                 elif com[0] == "F":
                     feed = float(com[1]) * scale
+                    
+                elif com[0] == "S":
+                    spindle = float(com[1])
 
                 elif com[0] == ";":
                     passthru = passthru + "%s " %(com[1])
@@ -431,29 +435,29 @@ class G_Code_Rip:
                 if mvtype == 0:
                     self.g_code_data.append([mvtype,pos_last[:],pos[:]])
                 if mvtype == 1:
-                    self.g_code_data.append([mvtype,pos_last[:],pos[:],feed])
+                    self.g_code_data.append([mvtype,pos_last[:],pos[:],feed,spindle])
                 if mvtype == 2 or mvtype == 3:
                     if plane == "17":
                         if XYarc2line == False:
-                            self.g_code_data.append([mvtype,pos_last[:],pos[:],center[:],feed])
+                            self.g_code_data.append([mvtype,pos_last[:],pos[:],center[:],feed,spindle])
                         else:
                             data = self.arc2lines(pos_last[:],pos[:],center[:], mvtype, plane)
                             
                             for line in data:
                                 XY=line
-                                self.g_code_data.append([1,XY[:3],XY[3:],feed])
+                                self.g_code_data.append([1,XY[:3],XY[3:],feed,spindle])
                                 
                     elif plane == "18":
                         data = self.arc2lines(pos_last[:],pos[:],center[:], mvtype, plane)
                         for line in data:
                             XY=line
-                            self.g_code_data.append([1,XY[:3],XY[3:],feed])
+                            self.g_code_data.append([1,XY[:3],XY[3:],feed,spindle])
                             
                     elif plane == "19":
                         data = self.arc2lines(pos_last[:],pos[:],center[:], mvtype, plane)
                         for line in data:
                             XY=line
-                            self.g_code_data.append([1,XY[:3],XY[3:],feed])
+                            self.g_code_data.append([1,XY[:3],XY[3:],feed,spindle])
             ###############################################################################
             #################################
         fin.close()
@@ -562,6 +566,7 @@ class G_Code_Rip:
         passthru = ""
         POS     =[0,0,0]
         feed = 0
+        spindle = 0
         self.right_side = []
         self.left_side  = []
 
@@ -574,6 +579,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = ['','','']
                 feed     = line[3]
+                spindle  = line[4] 
 
             elif line[0] == 3 or line[0] == 2:
                 mvtype   = line[0]
@@ -581,6 +587,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = line[3][:]
                 feed     = line[4]
+                spindle  = line[5]
 
             else:
                 mvtype  = -1
@@ -655,10 +662,10 @@ class G_Code_Rip:
 
                     if len(cross) > 0: ### Line crosses boundary ###
                         B  = self.coordunop(cross[0]   ,shift,angle)
-                        app[this] ( [mvtype,A,B,feed] )
-                        app[other]( [mvtype,B,C,feed] )
+                        app[this] ( [mvtype,A,B,feed,spindle] )
+                        app[other]( [mvtype,B,C,feed,spindle] )
                     else:
-                        app[this] ( [mvtype,A,C,feed] )
+                        app[this] ( [mvtype,A,C,feed,spindle] )
 
                 if mvtype == 2 or mvtype == 3:
                     A  = self.coordunop(pos_last[:],shift,angle)
@@ -670,22 +677,22 @@ class G_Code_Rip:
                         B  = self.coordunop(cross[0]   ,shift,angle)
                         #Check length of arc before writing
                         if sqrt((A[0]-B[0])**2 + (A[1]-B[1])**2) > self.accuracy:
-                            app[this]( [mvtype,A,B,D,feed])
+                            app[this]( [mvtype,A,B,D,feed,spindle])
                             
                         if len(cross) == 1: ### Arc crosses boundary only once ###
                             #Check length of arc before writing
                             if sqrt((B[0]-C[0])**2 + (B[1]-C[1])**2) > self.accuracy:
-                                app[other]([ mvtype,B,C,D, feed] )
+                                app[other]([ mvtype,B,C,D, feed,spindle] )
                         if len(cross) == 2: ### Arc crosses boundary twice ###
                             E  = self.coordunop(cross[1],shift,angle)
                             #Check length of arc before writing
                             if sqrt((B[0]-E[0])**2 + (B[1]-E[1])**2) > self.accuracy:
-                                app[other]([ mvtype,B,E,D, feed] )
+                                app[other]([ mvtype,B,E,D, feed,spindle] )
                             #Check length of arc before writing
                             if sqrt((E[0]-C[0])**2 + (E[1]-C[1])**2) > self.accuracy:
-                                app[this] ([ mvtype,E,C,D, feed] )
+                                app[this] ([ mvtype,E,C,D, feed,spindle] )
                     else: ### Arc does not cross boundary ###
-                        app[this]([ mvtype,A,C,D, feed])
+                        app[this]([ mvtype,A,C,D, feed,spindle])
 
             ###############################################################################
             else:
@@ -707,6 +714,7 @@ class G_Code_Rip:
         passthru = ""
         POS      = [0,0,0]
         feed     = 0
+        spindle  = 0
         out      = []
 
         min_length = min(xPartitionLength,yPartitionLength) / probe_istep
@@ -723,6 +731,7 @@ class G_Code_Rip:
                 CENTER   = ['','','']
                 if line[0] == 1:
                     feed     = line[3]
+                    spindle  = line[4]
 
             elif line[0] == 3 or line[0] == 2:
                 mvtype   = line[0]
@@ -730,6 +739,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = line[3][:]
                 feed     = line[4]
+                spindle  = line[5]
             else:
                 mvtype  = -1
                 passthru = line
@@ -750,7 +760,7 @@ class G_Code_Rip:
                     dz = pos[2]-pos_last[2]
                     length = sqrt(dx*dx + dy*dy)
                     if (length <= min_length):
-                        out.append( [mvtype,pos_last,pos,feed] )
+                        out.append( [mvtype,pos_last,pos,feed,spindle] )
                     else:
                         Lsteps = max(2,int(ceil(length / min_length)))
                         xstp0 = float(pos_last[0])
@@ -760,13 +770,13 @@ class G_Code_Rip:
                             xstp1 = n/float(Lsteps)*dx + pos_last[0] 
                             ystp1 = n/float(Lsteps)*dy + pos_last[1]
                             zstp1 = n/float(Lsteps)*dz + pos_last[2]
-                            out.append( [mvtype,[xstp0,ystp0,zstp0],[xstp1,ystp1,zstp1],feed] )
+                            out.append( [mvtype,[xstp0,ystp0,zstp0],[xstp1,ystp1,zstp1],feed,spindle] )
                             xstp0 = float(xstp1)
                             ystp0 = float(ystp1)
                             zstp0 = float(zstp1)
                             
                 if mvtype == 2 or mvtype == 3:
-                    out.append( [ mvtype,pos_last,pos,center, feed] )                    
+                    out.append( [ mvtype,pos_last,pos,center, feed,spindle] )                    
             ###############################################################################
             else:
                 if passthru != '':
@@ -784,7 +794,8 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = ['','','']
                 if line[0] == 1:
-                    feed     = line[3]
+                    feed = line[3]
+                    spindle = line[4]
 
             elif line[0] == 3 or line[0] == 2:
                 mvtype   = line[0]
@@ -792,6 +803,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = line[3][:]
                 feed     = line[4]
+                spindle  = line[5]
             else:
                 mvtype  = -1
                 passthru = line
@@ -948,6 +960,7 @@ class G_Code_Rip:
         passthru = ""
         POS     =[0,0,0]
         feed = 0
+        spindle = 0
         out = []
 
         L = 0
@@ -962,6 +975,7 @@ class G_Code_Rip:
                 CENTER   = ['','','']
                 if line[0] == 1:
                     feed     = line[3] * scale[3]
+                    spindle   = line[4]
 
             elif line[0] == 3 or line[0] == 2:
                 mvtype   = line[0]
@@ -969,6 +983,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = line[3][:]
                 feed     = line[4] * scale[3]
+                spindle   = line[5]
             else:
                 mvtype  = -1
                 passthru = line
@@ -1006,10 +1021,10 @@ class G_Code_Rip:
                     out.append( [mvtype,pos_last,pos] )
                 
                 if mvtype == 1:
-                    out.append( [mvtype,pos_last,pos,feed] )
+                    out.append( [mvtype,pos_last,pos,feed, spindle] )
 
                 if mvtype == 2 or mvtype == 3:
-                    out.append( [ mvtype,pos_last,pos,center, feed] )
+                    out.append( [ mvtype,pos_last,pos,center, feed, spindle] )
                     
                     if mvtype == 3:
                         ang1 = self.Get_Angle2(pos_last[0]-center[0],pos_last[1]-center[1])
@@ -1067,6 +1082,7 @@ class G_Code_Rip:
         pos     =[0,0,0]
         pos_last=[0,0,0]
         feed = 0
+        spindle = 0
         out = []
 
         L = 0
@@ -1081,6 +1097,7 @@ class G_Code_Rip:
                 CENTER   = ['','','']
                 if line[0] == 1:
                     feed     = line[3]
+                    spindle  = line[4]
 
             elif line[0] == 3 or line[0] == 2:
                 mvtype   = line[0]
@@ -1088,6 +1105,7 @@ class G_Code_Rip:
                 POS      = line[2][:]
                 CENTER   = line[3][:]
                 feed     = line[4]
+                spindle  = line[5]
             else:
                 mvtype  = -1
                 passthru = line
@@ -1106,10 +1124,10 @@ class G_Code_Rip:
                     out.append( [mvtype,pos_last,pos] )
                 
                 if mvtype == 1:
-                    out.append( [mvtype,pos_last,pos,feed] )
+                    out.append( [mvtype,pos_last,pos,feed,spindle] )
 
                 if mvtype == 2 or mvtype == 3:
-                    out.append( [ mvtype,pos_last,pos,center, feed] )
+                    out.append( [ mvtype,pos_last,pos,center, feed,spindle] )
             ###############################################################################
             else:
                 if passthru != '':
@@ -2016,7 +2034,8 @@ class G_Code_Rip:
         for line in side:
             #print line
             if line[0] == 1:
-                feed = line[3]
+                feed    = line[3]
+                spindle = line[4]
                 x1=(line[1][0]+0j).real
                 y1=(line[1][1]+0j).real
                 z1=(line[1][2]+0j).real
@@ -2027,10 +2046,10 @@ class G_Code_Rip:
     
                 if xlast!=x1 or ylast!=y1:
                     loop = loop+1
-                    ecoords.append([x1,y1,loop,feed])
+                    ecoords.append([x1,y1,loop,feed,spindle])
                     
                 if x2!=x1 or y2!=y1:
-                    ecoords.append([x2,y2,loop,feed])
+                    ecoords.append([x2,y2,loop,feed,spindle])
 
                 xlast = x2
                 ylast = y2
