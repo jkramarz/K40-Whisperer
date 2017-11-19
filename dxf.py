@@ -331,6 +331,30 @@ class Entities:
     def update(self, value):
         self.last.update(value)
 
+class Layer:
+    def __init__(self):
+        self.data = dict()
+    def update(self, value):
+        key = str(value[0])
+        val = value[1]
+        if key in self.data:
+            if type(self.data[key]) != list:
+                self.data[key] = [self.data[key]]
+            self.data[key].append(val)
+        else:
+            self.data.update({key:val})
+
+class Layers:
+    def __init__(self):
+        self.layers = []
+        self.last = None
+    def new_layer(self):
+        e = Layer()
+        self.layers.append(e)
+        self.last = e
+    def update(self, value):
+        self.last.update(value)
+
 class Block:
     def __init__(self, master):
         self.master = master
@@ -372,6 +396,7 @@ class DXF_CLASS:
         strings = []
         floats = []
         ints = []
+        self.layer_color=dict()
 
         strings += list(range(0, 10))     #String (255 characters maximum; less for Unicode strings)
         floats += list(range(10, 60))     #Double precision 3D point
@@ -539,7 +564,14 @@ class DXF_CLASS:
         bcoords.append([xa,ya,x1,y1])
         return bcoords
 
-    def add_coords(self,line,offset,scale,rotate,color=0,layer=0):
+    def add_coords(self,line,offset,scale,rotate,color=None,layer=None):
+
+        if color == None:
+            if layer in self.layer_color:
+                color = self.layer_color[layer]
+            else:
+                color = 0
+
         x0s = line[0]*scale[0]
         y0s = line[1]*scale[1]
         x1s = line[2]*scale[0]
@@ -585,11 +617,12 @@ class DXF_CLASS:
         try:
             color = e.data["62"]
         except:
-            color = 0
+            color = None
         try:
             layer = e.data["8"]
         except:
             layer = 0
+
         ############# LINE ############
         if e.type == "LINE":
             x0 = e.data["10"]
@@ -1005,6 +1038,7 @@ class DXF_CLASS:
 
         he = Header()
         bl = Blocks()
+        la = Layers()
         while value != "EOF":
             g_code, value = next(data)
             if value == "SECTION":
@@ -1012,6 +1046,8 @@ class DXF_CLASS:
                 sections[value] = []
 
                 while value != "ENDSEC":
+
+
                     if value == "HEADER":
                         while True:
                             g_code, value = next(data)
@@ -1057,16 +1093,47 @@ class DXF_CLASS:
                                 en.new_entity(value)
                             else:
                                 en.update((g_code, value))
+                                
+                    #------------------------------------------------------------------
+                    elif value == "TABLE":
+                        while True:
+                            g_code, value = next(data)
+                            if value == "AcDbLayerTableRecord":
+                                la.new_layer()
+                                while True:
+                                    g_code, value = next(data)
+                                    if g_code==0:
+                                        break
+                                    la.update((g_code, value))
+                            if value == "ENDTAB":
+                                break
+                    #------------------------------------------------------------------
+                                
                     try:
                         g_code, value = next(data)
                     except:
                         break
+
+        #Process Units
         try:
             unit_val = he.variables.get("$INSUNITS").get("70")
             self.units = self.unit_vals[int(unit_val)]
         except:
             self.units = self.unit_vals[0]
-            
+
+        #Process Layers
+        for l in la.layers:
+            try:
+                color = l.data["62"]
+            except:
+                color = None
+            try:
+                name = l.data["2"]
+            except:
+                name = None
+            self.layer_color[name]=color
+
+        #Process Entities
         for e in en.entities:
             self.eval_entity(e,bl,tol_deg)
 

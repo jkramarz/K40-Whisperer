@@ -81,3 +81,7 @@ Version 0.14:
 - Fixed bug that resulted in two passes on some vector cut and vector engrave paths
 - Changed some error messages to be less confusing.
 
+Version 0.15:
+- Fixed DXF import so it recognizes colors assigned at the layer level
+- Improved DXF warning messages.  Identical messages are now counted and to displayed in one line.
+- Added support for the remaining board type supported by LaserDRW

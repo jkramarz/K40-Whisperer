@@ -28,7 +28,6 @@ from math import *
 ##############################################################################
 
 class egv:
-    #def __init__(self):
     def __init__(self, target=lambda s: sys.stdout.write(s)):
         self.write = target
         self.Modal_dir  = 0
@@ -44,20 +43,14 @@ class egv:
         self.ANGLE = 77 #ord("M")=77
         self.ON    = 68 #ord("D")=68
         self.OFF   = 85 #ord("U")=85
-
         
-        # % Yxtart % Xstart % Yend % Xend % I % C VXXXXXXX CUT_TYPE R YYY B XXX
-
+        # % Yxtart % Xstart % Yend % Xend % I % C VXXXXXXX CUT_TYPE
+        #
         # %Ystart_pos %Xstart_pos %Yend_pos %Xend_pos  (start pos is the location of the head before the code is run)
-        # value = 39.37 * position in mm (at least for 10mm)
-        
-        # X/Y Start/End are the position in mm * 39.37
         # I is always I ?
         # C is C for cutting or Marking otherwise it is omitted
         # V is the start of 7 digits indicating the feed rate 255 255 1
-        # CUT_TYPE cutting/marking, Engraving=G002
-        # YYY is the position of the start of the first cut position in mm * 39.6
-        # XXX is the position of the start of the first cut position in mm * 39.6
+        # CUT_TYPE cutting/marking, Engraving=G followed by the raster step in thousandths of an inch 
 
     def move(self,direction,distance,laser_on=False,angle_dirs=None):
 
@@ -95,8 +88,6 @@ class egv:
             if direction == self.UP or direction == self.DOWN:
                 self.Modal_AY = direction
                 
-
-        
         
     def flush(self,laser_on=None):
         if self.Modal_dist > 0:
@@ -246,50 +237,118 @@ class egv:
                 error = max(DY-abs(dxmils),DX-abs(dymils))
             if error > 0:
                 raise StandardError("egv.py: Error delta =%f" %(error))
-        #out_str=""
-        #for c in cdata:
-        #    out_str =out_str+"%s" %chr(c)
-        #print out_str
-        #print "error = ",error
-        #return str #,DX,DY,error
 
-        #return cdata
 
-        
+    def speed_code(self,Feed,B,M):
+        V  = B-M/float(Feed)
+        C1 = floor(V)
+        C2 = floor((V-C1)*255.0)
+        if C1 <=255:
+            s_code = "V%03d%03d%d" %(C1,C2,1)
+        else:
+            s_code = "V%08d%03d%d" %(C1,C2,1)
+        return s_code
+                    
+    
     def make_speed(self,Feed=None,board_name="LASER-M2",Raster_step=0):
         speed=[]
+        append_code = ""
         #################################################################
         if board_name=="LASER-M2":
             if Feed < 7:
                 B = 255.97
                 M = 100.21
+                append_code = "C"
             else:
                 B = 236
                 M = 1202.5
-            V  = B-M/Feed
-            C1 = floor(V)
-            C2 = floor((V-C1)*255)
+            Scode = self.speed_code(Feed,B,M)
             if Raster_step==0:
-                speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
+                speed_text = "C%s000000000" %(Scode)
             else:
-                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,abs(Raster_step))
-            if Feed < 7:
-                speed_text = speed_text + "C"
+                speed_text =  "%sG%03d" %(Scode,abs(Raster_step))
+            speed_text = speed_text + append_code
+            
+        ################################################################# 
+        elif board_name=="LASER-M1":
+            if Feed <= 5:
+                M = 1202.531
+                B = 16777452.003
+            else:
+                M = 1202.562
+                B = 236.007
+            Scode = self.speed_code(Feed,B,M)
+            if Raster_step==0:
+                speed_text = "C%s000000000" %(Scode)
+            else:
+                speed_text =  "%sG%03d" %(Scode,abs(Raster_step))
+            speed_text = speed_text + append_code
+            
+        #################################################################
+        elif board_name=="LASER-M":
+            if Feed <= 5:
+                M = 1202.531
+                B = 16777452.003
+            else:
+                M = 1202.558
+                B = 236.006
+            Scode = self.speed_code(Feed,B,M)
+            if Raster_step==0:
+                speed_text = "C%s" %(Scode)
+            else:
+                speed_text =  "%sG%03d" %(Scode,abs(Raster_step))
+                
+        #################################################################
+        elif board_name=="LASER-B2":
+            if Feed <= .7:
+                M = 200.422
+                B = 16777468.941
+                append_code = "C"
+            elif Feed <= 6:
+                M = 200.423
+                B = 252.942
+                append_code = "C"
+            elif Feed <= 9:
+                M = 2405.109
+                B = 16777468.947
+            else:
+                M = 2405.008
+                B = 252.944
+            Scode = self.speed_code(Feed,B,M)
+            if Raster_step==0:
+                speed_text = "C%s000000000" %(Scode)
+            else:
+                speed_text = "%sG%03d" %(Scode,abs(Raster_step))
+            speed_text = speed_text + append_code
+
         #################################################################
         elif board_name=="LASER-B1":
-            if Feed < .8:
-                Feed = .8
+            if Feed <= .7:
+                M = 198.438
+                B = 16777468.940
             else:
-                B = 252.94
-                M = 198.436
-            V  = B-M/float(Feed)
-            C1 = floor(V)
-            C2 = floor((V-C1)*255.0)
+                M = 198.437
+                B = 252.939
+            Scode = self.speed_code(Feed,B,M)
             if Raster_step==0:
-                speed_text = "CV%03d%03d%d000000000" %(C1,C2,1)
+                speed_text = "C%s000000000" %(Scode)
             else:
-                speed_text =  "V%03d%03d%dG%03d" %(C1,C2,1,abs(Raster_step))
-            #print board_name,Feed,speed_text
+                speed_text = "%sG%03d" %(Scode,abs(Raster_step))
+                
+        #################################################################
+        elif board_name=="LASER-B" or board_name=="LASER-A":
+            if Feed <= .7:
+                M = 198.438
+                B = 16777468.940               
+            else:
+                M = 198.437
+                B = 252.940
+            Scode = self.speed_code(Feed,B,M)
+            if Raster_step==0:
+                speed_text = "C%s" %(Scode)
+            else:
+                speed_text = "%sG%03d" %(Scode,abs(Raster_step))
+
         #################################################################
         else:
             raise StandardError("Unknown Board Designation: %s" %(board_name))
@@ -635,12 +694,22 @@ class egv:
         
         if laser_on:    
             self.write(self.ON)
+            
         
 if __name__ == "__main__":
     EGV=egv()
-    for i in range(1,258,1):
-        print i,":",
-        for n in EGV.make_distance(i):
-            print "%c" %(chr(n)),
+    for value_in in [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]:
+        print value_in,":",
+        bname = "LASER-M1"
+        step = 0
+        val1=EGV.make_speed    (value_in,board_name=bname,Raster_step=step)
+        #val2=EGV.make_speed_old(value_in,board_name=bname,Raster_step=step)
+       # if val1 != val2 :
+        for c in val1:
+            print chr(c),
         print ""
+       #     for c in val2:
+       #         print chr(c),
+    #print ""
+
     print("DONE")

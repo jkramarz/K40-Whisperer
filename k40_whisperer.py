@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.14'
+version = '0.15'
 
 import sys
 from math import *
@@ -1515,7 +1515,20 @@ class Application(Frame):
         
         dxf_units = dxf_import.units
         if dxf_import.dxf_messages != "":
-            message_box("DXF Import:",dxf_import.dxf_messages)
+            msg_split=dxf_import.dxf_messages.split("\n")
+            msg_split.sort()
+            msg_split.append("")
+            mcnt=1
+            msg_out = ""
+            for i in range(1,len(msg_split)):
+                if msg_split[i-1]==msg_split[i]:
+                    mcnt=mcnt+1
+                else:
+                    if msg_split[i-1]!="":
+                        msg_line = "%s (%d places)\n" %(msg_split[i-1],mcnt)
+                        msg_out = msg_out + msg_line
+                    mcnt=1
+            message_box("DXF Import:",msg_out)
             
         if dxf_units=="Unitless":
             d = UnitsDialog(root)
@@ -3073,11 +3086,11 @@ class Application(Frame):
         self.Label_Board_Name.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Board_Name_OptionMenu.place(x=xd_entry_L, y=D_Yloc, width=w_entry*3, height=23)
 
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M1", state="disabled")
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M" , state="disabled")
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B2", state="disabled")
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B" , state="disabled")
-        self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-A" , state="disabled")
+        #self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M1", state="disabled")
+        #self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-M" , state="disabled")
+        #self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B2", state="disabled")
+        #self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-B" , state="disabled")
+        #self.Board_Name_OptionMenu['menu'].entryconfigure("LASER-A" , state="disabled")
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Laser_Area_Width = Label(gen_settings,text="Laser Area Width")
@@ -3290,6 +3303,7 @@ def fmessage(text,newline=True):
 #                               Message Box                                    #
 ################################################################################
 def message_box(title,message):
+    title = "%s (K40 Whisperer V%s)" %(title,version)
     if VERSION == 3:
         tkinter.messagebox.showinfo(title,message)
     else:
