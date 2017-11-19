@@ -43,13 +43,18 @@ except:
 from threading import Timer
 def run_external(cmd, timeout_sec):
   proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
-  kill_proc = lambda p: p.kill()
+  kill_proc = lambda p: kill_sub_process(p,timeout_sec)
   timer = Timer(timeout_sec, kill_proc, [proc])
   try:
     timer.start()
     stdout,stderr = proc.communicate()
   finally:
     timer.cancel()
+
+def kill_sub_process(p,timeout_sec):
+    p.kill()                  
+    raise StandardError("Inkscape sub-process timed out after %d seconds." %(timeout_sec))
+
 ##################################
 
 class SVG_TEXT_EXCEPTION(Exception):
@@ -59,7 +64,6 @@ class SVG_TEXT_EXCEPTION(Exception):
         return repr(self.value)
 
 class SVG_READER(inkex.Effect):
-#class SVG_READER:
     def __init__(self):
         inkex.Effect.__init__(self)
         self.flatness = 0.01
@@ -81,7 +85,7 @@ class SVG_READER(inkex.Effect):
         self.eng_lines = []
         
         self.png_area = "--export-area-page"
-        self.timout = 60 #timeout time for external calls to Inkscape in seconds 
+        self.timout = 180 #timeout time for external calls to Inkscape in seconds 
               
         self.layers = ['0']
         self.layer = '0'
@@ -380,11 +384,10 @@ class SVG_READER(inkex.Effect):
                         "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
                         "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
+                self.raster_PIL = Image.open(png_temp_file)
+                self.raster_PIL = self.raster_PIL.convert("L")
             except:
-                formatted_lines = traceback.format_exc().splitlines()
-                raise StandardError("Inkscape Execution Failed.\n%s\n%s" %(formatted_lines[0],formatted_lines[-1]))
-            self.raster_PIL = Image.open(png_temp_file)
-            self.raster_PIL = self.raster_PIL.convert("L")
+                raise StandardError("Inkscape Execution Failed (while making raster data).")
         else:
             raise StandardError("Inkscape Not found.")
         try:
@@ -405,7 +408,7 @@ class SVG_READER(inkex.Effect):
                 run_external(cmd, self.timout)
                 self.document.parse(txt2path_file)
             except:
-                raise StandardError("Inkscape Execution Failed.")
+                raise StandardError("Inkscape Execution Failed (while converting test to paths).")
         else:
             raise StandardError("Inkscape Not found.")
         try:
@@ -430,11 +433,8 @@ class SVG_READER(inkex.Effect):
 
       
         if (self.txt2paths):
-            try:
-                self.convert_text2paths()
-            except:
-                raise StandardError("Convert Text to Path Failed")
-
+            self.convert_text2paths()
+            
         try:
             h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
             w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])

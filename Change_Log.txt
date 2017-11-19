@@ -76,3 +76,8 @@ Version 0.12:
 Version 0.13:
 - Fixed g-code processing so that it does not ignore spindle inputs. Now works with raster input from LaserWeb4
 - Fixed bug that could result in "'update_gui' is not defined" error.
+
+Version 0.14:
+- Fixed bug that resulted in two passes on some vector cut and vector engrave paths
+- Changed some error messages to be less confusing.
+

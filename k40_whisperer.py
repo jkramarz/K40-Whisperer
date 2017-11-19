@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.13'
+version = '0.14'
 
 import sys
 from math import *
@@ -1182,6 +1182,8 @@ class Application(Frame):
                 svg_reader.parse(self.SVG_FILE)
                 svg_reader.make_paths()
             except SVG_TEXT_EXCEPTION as e:
+                svg_reader = SVG_READER()
+                svg_reader.set_inkscape_path(self.inkscape_path.get())
                 self.statusMessage.set("Converting TEXT to PATHS.")
                 self.master.update()
                 svg_reader.parse(self.SVG_FILE)
