@@ -70,11 +70,13 @@ class K40_CLASS:
             raise StandardError(msg)
                 
         response = None
-        while response==None:
+        read_cnt = 0
+        while response==None and read_cnt < 10:
             try:
                 response = self.dev.read(self.read_addr,self.read_length,self.timeout)
             except:
                 response = None
+                read_cnt = read_cnt + 1
         
         DEBUG = False
         if response != None:
@@ -222,6 +224,10 @@ class K40_CLASS:
                 update_gui(msg)
                 crc_cnt=crc_cnt+1
                 continue
+            elif response == None:
+                msg = "Controller board is not responding."                
+                update_gui(msg)
+                break #break and move on to next packet
             else: #response == self.OK:
                 break #break and move on to next packet
 

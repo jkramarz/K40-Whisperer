@@ -91,6 +91,15 @@ Version 0.16:
 - Fixed divide by zero error for some DXF files
 - Fixed "zip" error for broken SVG files (now ignores the error)
 - Added rough time estimates for engraving/cutting times
-- Can now move design around while keeping the laser head as any corner or at the center of the design. (It will move back to upper left when laser starts.)
+- Can now move design around while keeping the laser head at any corner or at the center of the design. (It will move back to upper left when laser starts.)
 - Added display of the current design file name in the main window title bar.
 - Now accepts SVG 'style' data that is not in the style attribute.
+
+Version 0.17:
+- Added ability to set scale factor values for the X and Y axes to fine tune output.
+- Added rotate option in the advanced settings to rotate designs 90 degrees
+- Fixed SVG input for rectangles that had radii specified that were larger than possible given the rectangle size.
+- Fixed SVG import of files with mixed CSS data and style data
+- Fixed error that prevented G-Code from running in Version 0.16
+- Fixed bug that could cause program to enter infinite loop after lost connection with laser
+- Made a slightly better error message for when an operation is attempted and the laser has not been initialized.

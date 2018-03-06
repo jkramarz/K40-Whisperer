@@ -195,8 +195,9 @@ class SVG_READER(inkex.Effect):
             # append the the existing style data to the CSS data
             # otherwise create a new style entry.
             if node.get('style'):
-                css_data = css_data + ";" + node.get('style')
-                node.set('style', css_data)
+                if css_data!="":
+                    css_data = css_data + ";" + node.get('style')
+                    node.set('style', css_data)
             else:
                 node.set('style', css_data)
 
@@ -300,6 +301,10 @@ class SVG_READER(inkex.Effect):
                     if rx==0.0 or ry==0.0:
                         rx = max(rx,ry)
                         ry = rx
+                    Rxmax = abs(width)/2.0
+                    Rymax = abs(height)/2.0
+                    rx = min(rx,Rxmax)
+                    ry = min(ry,Rymax)
                     L1 = "M %f,%f %f,%f "      %(x+rx       , y          , x+width-rx , y          )
                     C1 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+width    , y+ry       )
                     L2 = "M %f,%f %f,%f "      %(x+width    , y+ry       , x+width    , y+height-ry)

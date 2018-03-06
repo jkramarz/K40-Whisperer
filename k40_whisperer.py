@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.16'
+version = '0.17'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -248,6 +248,7 @@ class Application(Frame):
         
         self.halftone     = BooleanVar()
         self.mirror       = BooleanVar()
+        self.rotate       = BooleanVar()
         self.inputCSYS    = BooleanVar()
         self.HomeUR       = BooleanVar()
         self.engraveUP    = BooleanVar()
@@ -280,6 +281,9 @@ class Application(Frame):
         self.LaserXsize = StringVar()
         self.LaserYsize = StringVar()
 
+        self.LaserXscale = StringVar()
+        self.LaserYscale = StringVar()
+
         self.gotoX = StringVar()
         self.gotoY = StringVar()
 
@@ -306,6 +310,7 @@ class Application(Frame):
         
         self.halftone.set(0)
         self.mirror.set(0)
+        self.rotate.set(0)
         self.inputCSYS.set(0)
         self.HomeUR.set(0)
         self.engraveUP.set(0)
@@ -358,13 +363,13 @@ class Application(Frame):
         self.DESIGN_FILE = (self.HOME_DIR+"/None")
         
         self.aspect_ratio =  0
-        
-        
         self.segID   = []
-        
         
         self.LaserXsize.set("325")
         self.LaserYsize.set("220")
+        
+        self.LaserXscale.set("1.000")
+        self.LaserYscale.set("1.000")
 
         self.gotoX.set("0.0")
         self.gotoY.set("0.0")
@@ -543,6 +548,11 @@ class Application(Frame):
         self.Checkbutton_Mirror_adv.configure(variable=self.mirror)
         self.mirror.trace_variable("w", self.menu_View_Mirror_Refresh_Callback)
 
+        self.Label_Rotate_adv = Label(self.master,text="Rotate Design")
+        self.Checkbutton_Rotate_adv = Checkbutton(self.master,text=" ", anchor=W)
+        self.Checkbutton_Rotate_adv.configure(variable=self.rotate)
+        self.rotate.trace_variable("w", self.menu_View_Mirror_Refresh_Callback)
+    
         self.Label_inputCSYS_adv = Label(self.master,text="Use Input CSYS")
         self.Checkbutton_inputCSYS_adv = Checkbutton(self.master,text=" ", anchor=W)
         self.Checkbutton_inputCSYS_adv.configure(variable=self.inputCSYS)
@@ -774,6 +784,8 @@ class Application(Frame):
         header.append('(k40_whisperer_set inputCSYS     %s )'  %( int(self.inputCSYS.get())     ))
         header.append('(k40_whisperer_set advanced      %s )'  %( int(self.advanced.get())      ))
         header.append('(k40_whisperer_set mirror        %s )'  %( int(self.mirror.get())        ))
+        header.append('(k40_whisperer_set rotate        %s )'  %( int(self.rotate.get())        ))
+        
         header.append('(k40_whisperer_set engraveUP     %s )'  %( int(self.engraveUP.get())     ))
         header.append('(k40_whisperer_set init_home     %s )'  %( int(self.init_home.get())     ))
         header.append('(k40_whisperer_set pre_pr_crc    %s )'  %( int(self.pre_pr_crc.get())    ))
@@ -797,6 +809,8 @@ class Application(Frame):
         
         header.append('(k40_whisperer_set LaserXsize    %s )'  %( self.LaserXsize.get()     ))
         header.append('(k40_whisperer_set LaserYsize    %s )'  %( self.LaserYsize.get()     ))
+        header.append('(k40_whisperer_set LaserXscale   %s )'  %( self.LaserXscale.get()    ))
+        header.append('(k40_whisperer_set LaserYscale   %s )'  %( self.LaserYscale.get()    ))
         header.append('(k40_whisperer_set gotoX         %s )'  %( self.gotoX.get()          ))
         header.append('(k40_whisperer_set gotoY         %s )'  %( self.gotoY.get()          ))
 
@@ -885,7 +899,7 @@ class Application(Frame):
         if self.inputCSYS.get() and self.RengData.image == None:
             xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
         else:
-            xmin,xmax,ymin,ymax = self.Design_bounds
+            xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         
         X = self.laserX + dx_inches
         X = min(MAXX-(xmax-xmin),X)
@@ -1174,8 +1188,32 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_Laser_Area_Height_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_Laser_Area_Height,self.Entry_Laser_Area_Height_Check(), new=1)
-        
 
+
+    #############################
+    def Entry_Laser_X_Scale_Check(self):
+        try:
+            value = float(self.LaserXscale.get())
+            if  value <= 0.0:
+                self.statusMessage.set(" Scale should be greater than 0 ")
+                return 2 # Value is invalid number
+        except:
+            return 3     # Value not a number
+        return 0         # Value is a valid number
+    def Entry_Laser_X_Scale_Callback(self, varName, index, mode):
+        self.entry_set(self.Entry_Laser_X_Scale,self.Entry_Laser_X_Scale_Check(), new=1)
+    #############################
+    def Entry_Laser_Y_Scale_Check(self):
+        try:
+            value = float(self.LaserYscale.get())
+            if  value <= 0.0:
+                self.statusMessage.set(" Height should be greater than 0 ")
+                return 2 # Value is invalid number
+        except:
+            return 3     # Value not a number
+        return 0         # Value is a valid number
+    def Entry_Laser_Y_Scale_Callback(self, varName, index, mode):
+        self.entry_set(self.Entry_Laser_Y_Scale,self.Entry_Laser_Y_Scale_Check(), new=1)
 
     # Advanced Column #
     #############################
@@ -1528,6 +1566,19 @@ class Application(Frame):
 
                 if self.mirror.get():
                     image_temp = ImageOps.mirror(image_temp)
+
+                if self.rotate.get():
+                    #image_temp = image_temp.rotate(90,expand=True)
+                    image_temp = self.rotate_raster(image_temp)
+
+                Xscale = float(self.LaserXscale.get())
+                Yscale = float(self.LaserYscale.get())
+                if Xscale != 1.0 or Yscale != 1.0:
+                    wim,him = image_temp.size
+                    nw = int(wim*Xscale)
+                    nh = int(him*Yscale)
+                    image_temp = image_temp.resize((nw,nh))
+
                     
                 if self.halftone.get():
                     #start = time()
@@ -1550,21 +1601,22 @@ class Application(Frame):
                     image_temp.save(image_name,"PNG")
 
                 Reng_np = image_temp.load()
+                wim,him = image_temp.size
                 #######################################
                 x=0
                 y=0
                 loop=1
-
+                
                 Raster_step = self.get_raster_step_1000in()
-                for i in range(0,self.him,Raster_step):
+                for i in range(0,him,Raster_step):
                     if i%100 ==0:
-                        self.statusMessage.set("Raster Engraving: Creating Scan Lines: %.1f %%" %( (100.0*i)/self.him ) )
+                        self.statusMessage.set("Raster Engraving: Creating Scan Lines: %.1f %%" %( (100.0*i)/him ) )
                         self.master.update()
                     if self.stop[0]==True:
                         raise StandardError("Action stopped by User.")
                     line = []
                     cnt=1
-                    for j in range(1,self.wim):
+                    for j in range(1,wim):
                         if (Reng_np[j,i] == Reng_np[j-1,i]):
                             cnt = cnt+1
                         else:
@@ -1574,7 +1626,7 @@ class Application(Frame):
                     laser = "U" if Reng_np[j-1,i] > cutoff else "D"
                     line.append((cnt,laser))
                     
-                    y=(self.him-i)/1000.0
+                    y=(him-i)/1000.0
                     x=0
                     rng = range(0,len(line),1)
                         
@@ -1591,6 +1643,19 @@ class Application(Frame):
                 self.RengData.set_ecoords(ecoords,data_sorted=True)
     #######################################################################
 
+
+    def rotate_raster(self,image_in):
+        wim,him = image_in.size
+        im_rotated = Image.new("L", (him, wim), "white")
+
+        image_in_np   = image_in.load()
+        im_rotated_np = im_rotated.load()
+        
+        for i in range(1,him):
+            for j in range(1,wim):
+                im_rotated_np[i,wim-j] = image_in_np[j,i]
+        return im_rotated
+    
     def get_raster_step_1000in(self):
         val_in = float(self.rast_step.get())
         value = int(round(val_in*1000.0,1))
@@ -1787,6 +1852,8 @@ class Application(Frame):
                     self.advanced.set(line[line.find("advanced"):].split()[1])
                 elif "mirror"  in line:
                     self.mirror.set(line[line.find("mirror"):].split()[1])
+                elif "rotate"  in line:
+                    self.rotate.set(line[line.find("rotate"):].split()[1])
                 elif "engraveUP"  in line:
                     self.engraveUP.set(line[line.find("engraveUP"):].split()[1])
                 elif "init_home"  in line:
@@ -1828,6 +1895,11 @@ class Application(Frame):
                      self.LaserXsize.set(line[line.find("LaserXsize"):].split()[1])
                 elif "LaserYsize"    in line:
                      self.LaserYsize.set(line[line.find("LaserYsize"):].split()[1])
+                elif "LaserXscale"    in line:
+                     self.LaserXscale.set(line[line.find("LaserXscale"):].split()[1])
+                elif "LaserYscale"    in line:
+                     self.LaserYscale.set(line[line.find("LaserYscale"):].split()[1])
+                     
                 elif "gotoX"    in line:
                      self.gotoX.set(line[line.find("gotoX"):].split()[1])
                 elif "gotoY"    in line:
@@ -1913,9 +1985,18 @@ class Application(Frame):
             self.statusMessage.set("File Saved: %s" %(filename))
             self.statusbar.configure( bg = 'white' )
         
-
+    def Get_Design_Bounds(self):
+        if self.rotate.get():
+            ymin =  self.Design_bounds[0]
+            ymax =  self.Design_bounds[1]
+            xmin = -self.Design_bounds[3]
+            xmax = -self.Design_bounds[2]
+        else:
+            xmin,xmax,ymin,ymax = self.Design_bounds
+        return (xmin,xmax,ymin,ymax)
+    
     def Move_UL(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)
             DX = round((xmax-xmin)*1000.0)
@@ -1930,7 +2011,7 @@ class Application(Frame):
             pass
 
     def Move_UR(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         if self.HomeUR.get():
             Xnew = self.laserX
             DX = 0
@@ -1945,7 +2026,7 @@ class Application(Frame):
             pass
     
     def Move_LR(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         if self.HomeUR.get():
             Xnew = self.laserX
             DX = 0
@@ -1962,7 +2043,7 @@ class Application(Frame):
             pass
     
     def Move_LL(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)
             DX = round((xmax-xmin)*1000.0)
@@ -1979,7 +2060,7 @@ class Application(Frame):
             pass
 
     def Move_CC(self,dummy=None):
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         if self.HomeUR.get():
             Xnew = self.laserX + (xmax-xmin)/2.0 
             DX = round((xmax-xmin)/2.0*1000.0)
@@ -2037,6 +2118,9 @@ class Application(Frame):
     def Send_Rapid_Move(self,dxmils,dymils):
         try:
             if self.k40 != None:
+                if float(self.LaserXscale.get()) != 1.0 or float(self.LaserYscale.get()) != 1.0:
+                    dxmils = int(round(dxmils *float(self.LaserXscale.get())))
+                    dymils = int(round(dymils *float(self.LaserYscale.get())))
                 self.k40.rapid_move(dxmils,dymils)
         except StandardError as e:
             msg1 = "Rapid Move Failed: "
@@ -2329,14 +2413,50 @@ class Application(Frame):
                 self.order.append(self.loops[i])
                 self.loops[i]=[]
 
-    def mirror_vector_coords(self,coords,xmin,xmax):
-        coords_mirror=[]
+
+    def mirror_rotate_vector_coords(self,coords):
+        xmin = self.Design_bounds[0]
+        xmax = self.Design_bounds[1]
+        coords_rotate_mirror=[]
+        
         for i in range(len(coords)):
-            coords_mirror.append(coords[i][:])
-            coords_mirror[i][0]=xmin+xmax-coords_mirror[i][0]
-        return coords_mirror
+            coords_rotate_mirror.append(coords[i][:])
+            if self.mirror.get():
+                coords_rotate_mirror[i][0]=xmin+xmax-coords_rotate_mirror[i][0]
+            if self.rotate.get():
+                x = coords_rotate_mirror[i][0]
+                y = coords_rotate_mirror[i][1]
+                coords_rotate_mirror[i][0] = -y
+                coords_rotate_mirror[i][1] =  x
+                
+        return coords_rotate_mirror
+
+    def scale_vector_coords(self,coords,startx,starty):
+        Xscale = float(self.LaserXscale.get())
+        Yscale = float(self.LaserYscale.get())
+        coords_scale=[]
+        if Xscale != 1.0 or Yscale != 1.0:
+            for i in range(len(coords)):
+                coords_scale.append(coords[i][:])
+                x = coords_scale[i][0]
+                y = coords_scale[i][1]
+                coords_scale[i][0] = x*Xscale
+                coords_scale[i][1] = y*Yscale
+            scaled_startx = startx*Xscale
+            scaled_starty = starty*Yscale
+        else:
+            coords_scale = coords
+            scaled_startx = startx
+            scaled_starty = starty
+
+        return coords_scale,scaled_startx,scaled_starty
   
     def send_data(self,operation_type=None):
+        if self.k40 == None:
+            self.statusMessage.set("Laser Cutter is not Initialized...")
+            self.statusbar.configure( bg = 'red' ) 
+            return
+        
         try:
             if self.units.get()=='in':
                 feed_factor = 25.4/60.0
@@ -2346,18 +2466,20 @@ class Application(Frame):
             if self.inputCSYS.get() and self.RengData.image == None:
                 xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
             else:
-                xmin,xmax,ymin,ymax = self.Design_bounds
-                
-            if self.HomeUR.get():
-                FlipXoffset = xmax-xmin
-            else:
-                FlipXoffset = 0
-
+                xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
+            
 
             self.move_head_window_temporary([0,0])
             startx = xmin
             starty = ymax
-                
+
+            if self.HomeUR.get():
+                FlipXoffset = abs(xmax-xmin)
+                if self.rotate.get():
+                    startx = -xmin
+            else:
+                FlipXoffset = 0
+            
             data=[]
             egv_inst = egv(target=lambda s:data.append(s))
             
@@ -2370,10 +2492,12 @@ class Application(Frame):
                     self.VcutData.set_ecoords(self.optimize_paths(self.VcutData.ecoords),data_sorted=True)
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
-                if self.mirror.get():
-                    Vcut_coords = self.mirror_vector_coords(self.VcutData.ecoords,xmin,xmax)
-                else:
-                    Vcut_coords = self.VcutData.ecoords
+
+                Vcut_coords = self.VcutData.ecoords
+                if self.mirror.get() or self.rotate.get():
+                    Vcut_coords = self.mirror_rotate_vector_coords(Vcut_coords)
+
+                Vcut_coords,startx,starty = self.scale_vector_coords(Vcut_coords,startx,starty)
                     
                 egv_inst.make_egv_data(
                                                 Vcut_coords,                      \
@@ -2397,10 +2521,12 @@ class Application(Frame):
                     self.VengData.set_ecoords(self.optimize_paths(self.VengData.ecoords),data_sorted=True)
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
-                if self.mirror.get():
-                    Veng_coords = self.mirror_vector_coords(self.VengData.ecoords,xmin,xmax)
-                else:
-                    Veng_coords = self.VengData.ecoords
+
+                Veng_coords = self.VengData.ecoords
+                if self.mirror.get() or self.rotate.get():
+                    Veng_coords = self.mirror_rotate_vector_coords(Veng_coords)
+
+                Veng_coords,startx,starty = self.scale_vector_coords(Veng_coords,startx,starty)
                     
                 egv_inst.make_egv_data(
                                                 Veng_coords,                      \
@@ -2420,12 +2546,16 @@ class Application(Frame):
                 Raster_step = self.get_raster_step_1000in()
                 if not self.engraveUP.get():
                     Raster_step = -Raster_step
+                    
+                raster_startx = 0
+                raster_starty = float(self.LaserYscale.get())*starty
+
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
                 egv_inst.make_egv_data(
                                                 self.RengData.ecoords,            \
-                                                startX=startx,                    \
-                                                startY=starty,                    \
+                                                startX=raster_startx,             \
+                                                startY=raster_starty,             \
                                                 Feed = Feed_Rate,                 \
                                                 board_name=self.board_name.get(), \
                                                 Raster_step = Raster_step,        \
@@ -2436,15 +2566,17 @@ class Application(Frame):
                 
                 self.Reng=[]
 
-            if (operation_type=="Gcode_Cut") and  (self.Gcode!=[]):
+            if (operation_type=="Gcode_Cut") and (self.GcodeData!=[]):
                 num_passes = int(self.Gcde_passes.get())
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
-                if self.mirror.get():
-                    Gcode_coords = self.mirror_vector_coords(self.Gcode.ecoords,xmin,xmax)
-                else:
-                    Gcode_coords = self.Gcode.ecoords
-                    
+
+                Gcode_coords = self.GcodeData.ecoords
+                if self.mirror.get() or self.rotate.get():
+                    Gcode_coords = self.mirror_rotate_vector_coords(Gcode_coords)
+
+                Gcode_coords,startx,starty = self.scale_vector_coords(Gcode_coords,startx,starty)
+                
                 egv_inst.make_egv_data(
                                                 Gcode_coords,                     \
                                                 startX=startx,                    \
@@ -2481,9 +2613,6 @@ class Application(Frame):
             self.k40.n_timeouts    = int(self.n_timeouts.get())
             self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC)
         else:
-            self.k40 = K40_CLASS()
-            self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC)
-            self.k40 = None
             self.master.update()
         
         if DEBUG:
@@ -2633,7 +2762,7 @@ class Application(Frame):
         dummy_event.widget=self.master
         self.Master_Configure(dummy_event,1)
         self.Plot_Data()
-        xmin,xmax,ymin,ymax = self.Design_bounds
+        xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         W = xmax-xmin
         H = ymax-ymin
 
@@ -2850,6 +2979,10 @@ class Application(Frame):
                     self.Checkbutton_Mirror_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
 
                     adv_Yloc=adv_Yloc+25
+                    self.Label_Rotate_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
+                    self.Checkbutton_Rotate_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
+
+                    adv_Yloc=adv_Yloc+25
                     self.Label_inputCSYS_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
                     self.Checkbutton_inputCSYS_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
 
@@ -2898,6 +3031,8 @@ class Application(Frame):
                     self.Checkbutton_Halftone_adv.place_forget()
                     self.Label_Mirror_adv.place_forget()
                     self.Checkbutton_Mirror_adv.place_forget()
+                    self.Label_Rotate_adv.place_forget()
+                    self.Checkbutton_Rotate_adv.place_forget()
                     self.Label_inputCSYS_adv.place_forget()
                     self.Checkbutton_inputCSYS_adv.place_forget()
                     
@@ -3008,8 +3143,8 @@ class Application(Frame):
         if self.inputCSYS.get() and self.RengData.image == None:
             xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
         else:
-            xmin,xmax,ymin,ymax = self.Design_bounds
-
+            xmin,xmax,ymin,ymax = self.Get_Design_Bounds()           
+                
         if (self.HomeUR.get()):
             XlineShift = maxx - self.laserX - (xmax-xmin)
         else:
@@ -3036,6 +3171,11 @@ class Application(Frame):
 
                         if self.mirror.get():
                             plot_im = ImageOps.mirror(plot_im)
+
+                        if self.rotate.get():
+                            plot_im = plot_im.rotate(90,expand=True)
+                            nh=int(self.SCALE*self.wim)
+                            nw=int(self.SCALE*self.him)
                             
                         try:
                             self.UI_image = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
@@ -3057,6 +3197,7 @@ class Application(Frame):
         if self.include_Rpth.get() and self.RengData.ecoords!=[]:
             loop_old = -1
             scale = 1
+
             for line in self.RengData.ecoords:
                 XY    = line
                 x1    = (XY[0]-xmin)*scale
@@ -3078,10 +3219,10 @@ class Application(Frame):
         if self.include_Veng.get():
             loop_old = -1
             scale=1
-            if self.mirror.get():
-                plot_coords = self.mirror_vector_coords(self.VengData.ecoords,xmin,xmax)
-            else:
-                plot_coords = self.VengData.ecoords
+
+            plot_coords = self.VengData.ecoords
+            if self.mirror.get() or self.rotate.get():
+                plot_coords = self.mirror_rotate_vector_coords(plot_coords)
                 
             for line in plot_coords:
                 XY    = line
@@ -3101,10 +3242,10 @@ class Application(Frame):
         if self.include_Vcut.get():
             loop_old = -1
             scale=1
-            if self.mirror.get():
-                plot_coords = self.mirror_vector_coords(self.VcutData.ecoords,xmin,xmax)
-            else:
-                plot_coords = self.VcutData.ecoords
+
+            plot_coords = self.VcutData.ecoords
+            if self.mirror.get() or self.rotate.get():
+                    plot_coords = self.mirror_rotate_vector_coords(plot_coords)
                 
             for line in plot_coords:
                 XY    = line
@@ -3127,10 +3268,10 @@ class Application(Frame):
         if self.include_Gcde.get():  
             loop_old = -1
             scale=1
-            if self.mirror.get():
-                plot_coords = self.mirror_vector_coords(self.GcodeData.ecoords,xmin,xmax)
-            else:
-                plot_coords = self.GcodeData.ecoords
+
+            plot_coords = self.GcodeData.ecoords
+            if self.mirror.get() or self.rotate.get():
+                    plot_coords = self.mirror_rotate_vector_coords(plot_coords)
                 
             for line in plot_coords:
                 XY    = line
@@ -3157,7 +3298,7 @@ class Application(Frame):
     def Plot_Raster(self, XX, YY, Xleft, Ytop, PlotScale, im):
         if (self.HomeUR.get()):
             maxx = float(self.LaserXsize.get()) / self.units_scale
-            xmin,xmax,ymin,ymax = self.Design_bounds
+            xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
             xplt = Xleft + ( maxx-XX-(xmax-xmin) )/PlotScale
         else:
             xplt = Xleft +  XX/PlotScale
@@ -3217,7 +3358,7 @@ class Application(Frame):
     #                         General Settings Window                              #
     ################################################################################
     def GEN_Settings_Window(self):
-        gen_settings = Toplevel(width=560, height=400)
+        gen_settings = Toplevel(width=560, height=460)
         gen_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
         gen_settings.resizable(0,0)
         gen_settings.title('Settings')
@@ -3340,6 +3481,25 @@ class Application(Frame):
         self.Entry_Laser_Area_Height.configure(textvariable=self.LaserYsize)
         self.LaserYsize.trace_variable("w", self.Entry_Laser_Area_Height_Callback)
         self.entry_set(self.Entry_Laser_Area_Height,self.Entry_Laser_Area_Height_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Laser_X_Scale = Label(gen_settings,text="X Scale Factor")
+        self.Label_Laser_X_Scale.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Laser_X_Scale = Entry(gen_settings,width="15")
+        self.Entry_Laser_X_Scale.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Laser_X_Scale.configure(textvariable=self.LaserXscale)
+        self.LaserXscale.trace_variable("w", self.Entry_Laser_X_Scale_Callback)
+        self.entry_set(self.Entry_Laser_X_Scale,self.Entry_Laser_X_Scale_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Laser_Y_Scale = Label(gen_settings,text="Y Scale Factor")
+        self.Label_Laser_Y_Scale.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Laser_Y_Scale = Entry(gen_settings,width="15")
+        self.Entry_Laser_Y_Scale.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Laser_Y_Scale.configure(textvariable=self.LaserYscale)
+        self.LaserYscale.trace_variable("w", self.Entry_Laser_Y_Scale_Callback)
+        self.entry_set(self.Entry_Laser_Y_Scale,self.Entry_Laser_Y_Scale_Check(),2)
+        
 
         D_Yloc=D_Yloc+D_dY+10
         self.Label_SaveConfig = Label(gen_settings,text="Configuration File")
