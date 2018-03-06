@@ -2,7 +2,7 @@
 '''
 This script reads/writes egv format
 
-Copyright (C) 2017 Scorch www.scorchworks.com
+Copyright (C) 2018 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -700,7 +700,7 @@ if __name__ == "__main__":
     EGV=egv()
     for value_in in [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]:
         print value_in,":",
-        bname = "LASER-M1"
+        bname = "LASER-M2"
         step = 0
         val1=EGV.make_speed    (value_in,board_name=bname,Raster_step=step)
         #val2=EGV.make_speed_old(value_in,board_name=bname,Raster_step=step)
@@ -712,4 +712,9 @@ if __name__ == "__main__":
        #         print chr(c),
     #print ""
 
+    for i in range(255):
+        cde=": "
+        for c in EGV.make_distance(i):
+            cde=cde+chr(c)
+        print i,cde
     print("DONE")

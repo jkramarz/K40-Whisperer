@@ -199,14 +199,15 @@ class K40_CLASS:
 
 
     def send_packet_w_error_checking(self,line,update_gui=None,stop_calc=None):
-        cnt=1
-        while cnt < self.n_timeouts and True:
+        timeout_cnt = 1
+        crc_cnt     = 1
+        while timeout_cnt < self.n_timeouts and crc_cnt < self.n_timeouts:
             try:
                 self.send_packet(line)
             except:
-                msg = "USB Timeout #%d" %(cnt)
+                msg = "USB Timeout #%d" %(timeout_cnt)
                 update_gui(msg)
-                cnt=cnt+1
+                timeout_cnt=timeout_cnt+1
                 continue
                 
             ######################################
@@ -217,9 +218,9 @@ class K40_CLASS:
                     response = self.say_hello()
                 break #break and move on to next packet
             elif response == self.CRC_ERROR:
-                msg = "Data transmission (CRC) error #%d" %(cnt)               
+                msg = "Data transmission (CRC) error #%d" %(crc_cnt)               
                 update_gui(msg)
-                cnt=cnt+1
+                crc_cnt=crc_cnt+1
                 continue
             else: #response == self.OK:
                 break #break and move on to next packet
@@ -234,8 +235,12 @@ class K40_CLASS:
             #    msg = "Something Undefined happened: response=%s" %(response)
             #    break #break and move on to next packet
             
-        if cnt == self.n_timeouts:
-            msg = "Too Many Transmission Errors (%d)" %(cnt)
+        if crc_cnt == self.n_timeouts:
+            msg = "Too Many Transmission Errors (%d CRC Errors)" %(crc_cnt)
+            update_gui(msg)
+            raise StandardError(msg)
+        if timeout_cnt == self.n_timeouts:
+            msg = "Too Many Transmission Errors (%d Timeouts)" %(timeout_cnt)
             update_gui(msg)
             raise StandardError(msg)
         if stop_calc[0]:

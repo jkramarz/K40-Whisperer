@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 '''
-Copyright (C) 2017 Scorch www.scorchworks.com
+Copyright (C) 2018 Scorch www.scorchworks.com
 Derived from dxf_outlines.py by Aaron Spike and Alvin Penner
 
 This program is free software; you can redistribute it and/or modify
@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 '''
+
 # standard library
 import math
 import tempfile, os, sys, shutil
@@ -56,12 +57,47 @@ def kill_sub_process(p,timeout_sec):
     raise StandardError("Inkscape sub-process timed out after %d seconds." %(timeout_sec))
 
 ##################################
-
 class SVG_TEXT_EXCEPTION(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
         return repr(self.value)
+
+
+class CSS_value_class():
+    def __init__(self,type_name,value):
+        type_name_list = type_name.split('.')
+        try:
+            self.object_type = type_name_list[0]
+        except:
+            self.object_type = ""
+
+        try:
+            self.value_name  = type_name_list[1]
+        except:
+            self.value_name  = ""
+        self.data_string = value
+
+
+class CSS_values_class():
+    def __init__(self):
+        self.CSS_value_list = []
+
+    def add(self,type_name,value):
+        self.CSS_value_list.append(CSS_value_class(type_name,value))
+
+    def get_css_value(self,tag_type,class_val):
+        value = ""
+        for entry in self.CSS_value_list:
+            if entry.object_type == "":
+                if entry.value_name  == class_val:
+                    value = entry.data_string
+            if entry.object_type == tag_type:
+                if entry.value_name  == class_val:
+                    value = entry.data_string
+                    break
+        return value
+
 
 class SVG_READER(inkex.Effect):
     def __init__(self):
@@ -83,6 +119,7 @@ class SVG_READER(inkex.Effect):
         self.raster_PIL = None
         self.cut_lines = []
         self.eng_lines = []
+        self.id_cnt = 0
         
         self.png_area = "--export-area-page"
         self.timout = 180 #timeout time for external calls to Inkscape in seconds 
@@ -91,7 +128,7 @@ class SVG_READER(inkex.Effect):
         self.layer = '0'
         self.layernames = []
         self.txt2paths = False
-
+        self.CSS_values = CSS_values_class()
         
     def set_inkscape_path(self,PATH):
         if PATH!=None:
@@ -101,39 +138,110 @@ class SVG_READER(inkex.Effect):
                 self.inscape_exe=location
                 break
         
-              
     def colmod(self,r,g,b,path_id):
+        changed=False
         delta = 10
-        #if (r,g,b) ==(255,0,0):
+        # Check if the color is Red (or close to it)
         if (r >= 255-delta) and (g <= delta) and (b <= delta):
             self.Cut_Type[path_id]="cut"
             (r,g,b) = (255,255,255)
-        #elif (r,g,b)==(0,0,255):
+            changed=True
+        # Check if the color is Blue (or close to it)
         elif (r <= delta) and (g <= delta) and (b >= 255-delta):
             self.Cut_Type[path_id]="engrave"
             (r,g,b) = (255,255,255)
+            changed=True
         else:
             self.Cut_Type[path_id]="raster"
-    
-        return '%02x%02x%02x' % (r,g,b)
+            changed=False
+        color_out = '#%02x%02x%02x' %(r,g,b)
+        return (color_out, changed)
         
+
     def process_shape(self, node, mat):
-        rgb = (0,0,0)
-        path_id = node.get('id') 
+        #################################
+        ### Determine the shape type  ###
+        #################################
+        try:
+            i = node.tag.find('}')
+            if i >= 0:
+                tag_type = node.tag[i+1:]
+        except:
+            tag_type=""
+        
+        ##############################################
+        ### Set a unique identifier for each shape ###
+        ##############################################
+        self.id_cnt=self.id_cnt+1
+        path_id = "ID%d"%(self.id_cnt)
+        sw_flag = False
+        changed = False
+        #######################################
+        ### Handle references to CSS data   ###
+        #######################################
+        class_val = node.get('class')
+        if class_val:
+            css_data = ""
+            for cv in class_val.split(' '):
+                if css_data!="":
+                    css_data = self.CSS_values.get_css_value(tag_type,cv)+";"+css_data
+                else:
+                    css_data = self.CSS_values.get_css_value(tag_type,cv)
+                
+            # Remove the reference to the CSS data 
+            del node.attrib['class']
+
+            # Check if a style entry already exists. If it does
+            # append the the existing style data to the CSS data
+            # otherwise create a new style entry.
+            if node.get('style'):
+                css_data = css_data + ";" + node.get('style')
+                node.set('style', css_data)
+            else:
+                node.set('style', css_data)
+
         style   = node.get('style')
         self.Cut_Type[path_id]="raster" # Set default type to raster
+
+        text_message_warning = "SVG File with Color Coded Text Outlines Found: (i.e. Blue: engrave/ Red: cut)"
+        line1 = "SVG File with color coded text outlines found (i.e. Blue: engrave/ Red: cut)."
+        line2 = "Automatic conversion to paths failed: Try upgrading to Inkscape .90 or later"
+        line3 = "To convert manually in Inkscape: select the text then select \"Path\"-\"Object to Path\" in the menu bar."
+        text_message_fatal  = "%s\n\n%s\n\n%s" %(line1,line2,line3)
         
-        #color_props_fill = ('fill', 'stop-color', 'flood-color', 'lighting-color')
-        #color_props_stroke = ('stroke',)
-        #color_props = color_props_fill + color_props_stroke
-        
-        #####################################################
-        ## The following is ripped off from Coloreffect.py ##
-        #####################################################
+        ##############################################
+        ### Handle 'style' data outside of style   ###
+        ##############################################
+        stroke_outside = node.get('stroke')        
+        if stroke_outside:
+            stroke_width_outside = node.get('stroke-width')
+            
+            col = stroke_outside
+            col= col.strip()
+            if simplestyle.isColor(col):
+                c=simplestyle.parseColor(col)
+                (new_val,changed)=self.colmod(c[0],c[1],c[2],path_id)
+            else:
+                new_val = col
+            if changed:
+                node.set('stroke',new_val)
+                node.set('stroke-width',"0.0")
+                sw_flag = True
+
+            if sw_flag == True:
+                if node.tag == inkex.addNS('text','svg'):
+                    if (self.txt2paths==False):
+                        raise SVG_TEXT_EXCEPTION(text_message_warning)
+                    else:
+                        raise StandardError(text_message_fatal)
+
+        ##############################################
+        ### Handle 'style' data                    ###
+        ##############################################
         if style:
             declarations = style.split(';')
             i_sw = -1
-            sw_flag = False
+            
             sw_prop = 'stroke-width'
             for i,decl in enumerate(declarations):
                 parts = decl.split(':', 2)
@@ -147,139 +255,140 @@ class SVG_READER(inkex.Effect):
                         col= col.strip()
                         if simplestyle.isColor(col):
                             c=simplestyle.parseColor(col)
-                            new_val='#'+self.colmod(c[0],c[1],c[2],path_id)
+                            (new_val,changed)=self.colmod(c[0],c[1],c[2],path_id)
                         else:
                             new_val = col
-                        if new_val != col:
+                        if changed:
                             declarations[i] = prop + ':' + new_val
                             sw_flag = True
             if sw_flag == True:
                 if node.tag == inkex.addNS('text','svg'):
                     if (self.txt2paths==False):
-                        raise SVG_TEXT_EXCEPTION("SVG File with Color Coded Text Outlines Found: (i.e. Blue: engrave/ Red: cut)")
+                        raise SVG_TEXT_EXCEPTION(text_message_warning)
                     else:
-                        line1 = "SVG File with color coded text outlines found (i.e. Blue: engrave/ Red: cut)."
-                        line2 = "Automatic conversion to paths failed: Try upgrading to Inkscape .90 or later"
-                        line3 = "To convert manually in Inkscape: select the text then select \"Path\"-\"Object to Path\" in the menu bar."
-                        
-                        raise StandardError("%s\n\n%s\n\n%s" %(line1,line2,line3))
+                        raise StandardError(text_message_fatal)
 
                 if i_sw != -1:
                     declarations[i_sw] = sw_prop + ':' + "0.0"
                 else:
                     declarations.append(sw_prop + ':' + "0.0")
             node.set('style', ';'.join(declarations))
+        ##############################################
 
         #####################################################
-        if node.tag == inkex.addNS('path','svg'):
-            d = node.get('d')
-            if not d:
-                return
-            p = cubicsuperpath.parsePath(d)
-        elif node.tag == inkex.addNS('rect','svg'):
-            x = float(node.get('x'))
-            y = float(node.get('y'))
-            width = float(node.get('width'))
-            height = float(node.get('height'))
-            #d = "M %f,%f %f,%f %f,%f %f,%f Z" %(x,y, x+width,y,  x+width,y+height, x,y+height) 
-            #p = cubicsuperpath.parsePath(d)
-            rx = 0.0
-            ry = 0.0
-            if node.get('rx'):
-                rx=float(node.get('rx'))
-            if node.get('ry'):
-                ry=float(node.get('ry'))
+        ### If vector data was found save the path data   ###
+        #####################################################
+        if changed:
+            if node.tag == inkex.addNS('path','svg'):
+                d = node.get('d')
+                if not d:
+                    return
+                p = cubicsuperpath.parsePath(d)
+            elif node.tag == inkex.addNS('rect','svg'):
+                x = float(node.get('x'))
+                y = float(node.get('y'))
+                width = float(node.get('width'))
+                height = float(node.get('height'))
+                rx = 0.0
+                ry = 0.0
+                if node.get('rx'):
+                    rx=float(node.get('rx'))
+                if node.get('ry'):
+                    ry=float(node.get('ry'))
+                    
+                if max(rx,ry) > 0.0:
+                    if rx==0.0 or ry==0.0:
+                        rx = max(rx,ry)
+                        ry = rx
+                    L1 = "M %f,%f %f,%f "      %(x+rx       , y          , x+width-rx , y          )
+                    C1 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+width    , y+ry       )
+                    L2 = "M %f,%f %f,%f "      %(x+width    , y+ry       , x+width    , y+height-ry)
+                    C2 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+width-rx , y+height   )
+                    L3 = "M %f,%f %f,%f "      %(x+width-rx , y+height   , x+rx       , y+height   )
+                    C3 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x          , y+height-ry)
+                    L4 = "M %f,%f %f,%f "      %(x          , y+height-ry, x          , y+ry       )
+                    C4 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+rx       , y          )
+                    d =  L1 + C1 + L2 + C2 + L3 + C3 + L4 + C4    
+                else:
+                    d = "M %f,%f %f,%f %f,%f %f,%f Z" %(x,y, x+width,y,  x+width,y+height, x,y+height) 
+                p = cubicsuperpath.parsePath(d)
                 
-            if max(rx,ry) > 0.0:
-                if rx==0.0 or ry==0.0:
-                    rx = max(rx,ry)
-                    ry = rx
-                L1 = "M %f,%f %f,%f "      %(x+rx       , y          , x+width-rx , y          )
-                C1 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+width    , y+ry       )
-                L2 = "M %f,%f %f,%f "      %(x+width    , y+ry       , x+width    , y+height-ry)
-                C2 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+width-rx , y+height   )
-                L3 = "M %f,%f %f,%f "      %(x+width-rx , y+height   , x+rx       , y+height   )
-                C3 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x          , y+height-ry)
-                L4 = "M %f,%f %f,%f "      %(x          , y+height-ry, x          , y+ry       )
-                C4 = "A %f,%f 0 0 1 %f,%f" %(rx         , ry         , x+rx       , y          )
-                d =  L1 + C1 + L2 + C2 + L3 + C3 + L4 + C4    
+            elif node.tag == inkex.addNS('circle','svg'):
+                cx = float(node.get('cx') )
+                cy = float(node.get('cy'))
+                r  = float(node.get('r'))
+                d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+r,cy, r,r,cx,cy+r,  r,r,cx-r,cy,  r,r,cx,cy-r, r,r,cx+r,cy)
+                p = cubicsuperpath.parsePath(d)
+            
+            elif node.tag == inkex.addNS('ellipse','svg'):
+                cx = float(node.get('cx')) 
+                cy = float(node.get('cy'))
+                rx = float(node.get('rx'))
+                ry = float(node.get('ry'))
+                d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+rx,cy, rx,ry,cx,cy+ry,  rx,ry,cx-rx,cy,  rx,ry,cx,cy-ry, rx,ry,cx+rx,cy)
+                p = cubicsuperpath.parsePath(d)
+                
+            elif (node.tag == inkex.addNS('polygon','svg')) or (node.tag == inkex.addNS('polyline','svg')):
+                points = node.get('points')
+                if not points:
+                    return  
+                points = points.strip().split(" ")
+                points = map(lambda x: x.split(","), points)
+                d = "M "
+                for point in points:
+                    x = float(point[0])
+                    y = float(point[1])
+                    d = d + "%f,%f " %(x,y)
+
+                #Close the loop if it is a ploygon
+                if node.tag == inkex.addNS('polygon','svg'):
+                    d = d + "Z"
+                p = cubicsuperpath.parsePath(d)
+
+            elif node.tag == inkex.addNS('line','svg'):
+                x1 = float(node.get('x1')) 
+                y1 = float(node.get('y1'))
+                x2 = float(node.get('x2'))
+                y2 = float(node.get('y2'))
+                d = "M "
+                d = "M %f,%f %f,%f" %(x1,y1,x2,y2)
+                p = cubicsuperpath.parsePath(d)          
             else:
-                d = "M %f,%f %f,%f %f,%f %f,%f Z" %(x,y, x+width,y,  x+width,y+height, x,y+height) 
-            p = cubicsuperpath.parsePath(d)
+                return
             
-        elif node.tag == inkex.addNS('circle','svg'):
-            cx = float(node.get('cx') )
-            cy = float(node.get('cy'))
-            r  = float(node.get('r'))
-            d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+r,cy, r,r,cx,cy+r,  r,r,cx-r,cy,  r,r,cx,cy-r, r,r,cx+r,cy)
-            p = cubicsuperpath.parsePath(d)
-        
-        elif node.tag == inkex.addNS('ellipse','svg'):
-            cx = float(node.get('cx')) 
-            cy = float(node.get('cy'))
-            rx = float(node.get('rx'))
-            ry = float(node.get('ry'))
-            d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+rx,cy, rx,ry,cx,cy+ry,  rx,ry,cx-rx,cy,  rx,ry,cx,cy-ry, rx,ry,cx+rx,cy)
-            p = cubicsuperpath.parsePath(d)
+            trans = node.get('transform')
+            if trans:
+                mat = simpletransform.composeTransform(mat, simpletransform.parseTransform(trans))
+            simpletransform.applyTransformToPath(mat, p)
             
-        elif (node.tag == inkex.addNS('polygon','svg')) or (node.tag == inkex.addNS('polyline','svg')):
-            points = node.get('points')
-            if not points:
-                return  
-            points = points.strip().split(" ")
-            points = map(lambda x: x.split(","), points)
-            d = "M "
-            for point in points:
-                x = float(point[0])
-                y = float(point[1])
-                d = d + "%f,%f " %(x,y)
-
-            #Close the loop if it is a ploygon
-            if node.tag == inkex.addNS('polygon','svg'):
-                d = d + "Z"
-            p = cubicsuperpath.parsePath(d)
-
-        elif node.tag == inkex.addNS('line','svg'):
-            x1 = float(node.get('x1')) 
-            y1 = float(node.get('y1'))
-            x2 = float(node.get('x2'))
-            y2 = float(node.get('y2'))
-            d = "M "
-            d = "M %f,%f %f,%f" %(x1,y1,x2,y2)
-            p = cubicsuperpath.parsePath(d)
-            
-        else:
-            return
-
-        trans = node.get('transform')
-        if trans:
-            mat = simpletransform.composeTransform(mat, simpletransform.parseTransform(trans))
-        simpletransform.applyTransformToPath(mat, p)
-        
-        ###################################################
-        ## Break Curves down into small lines
-        ###################################################
-        f = self.flatness
-        is_flat = 0
-        while is_flat < 1:
-            try:
-                cspsubdiv.cspsubdiv(p, f)
-                is_flat = 1
-            except IndexError:
-                break
-            except:
-                f += 0.1
-                if f>2 :
-                  break
-                  #something has gone very wrong.
-        ###################################################
-        for sub in p:
-            for i in range(len(sub)-1):
-                x1 = sub[i][1][0]
-                y1 = sub[i][1][1]
-                x2 = sub[i+1][1][0]
-                y2 = sub[i+1][1][1]
-                self.lines.append([x1,y1,x2,y2,rgb,path_id])                
+            ##########################################
+            ## Break Curves down into small lines  ###
+            ##########################################
+            f = self.flatness
+            is_flat = 0
+            while is_flat < 1:
+                try:
+                    cspsubdiv.cspsubdiv(p, f)
+                    is_flat = 1
+                except IndexError:
+                    break
+                except:
+                    f += 0.1
+                    if f>2 :
+                      break
+                      #something has gone very wrong.
+            ##########################################
+            rgb=(0,0,0)
+            for sub in p:
+                for i in range(len(sub)-1):
+                    x1 = sub[i][1][0]
+                    y1 = sub[i][1][1]
+                    x2 = sub[i+1][1][0]
+                    y2 = sub[i+1][1][1]
+                    self.lines.append([x1,y1,x2,y2,rgb,path_id])
+        #####################################################
+        ### End of saving the vector path data            ###
+        #####################################################
                 
         
     def process_clone(self, node):
@@ -331,11 +440,44 @@ class SVG_READER(inkex.Effect):
                 self.process_group(node)
             elif node.tag == inkex.addNS('use', 'svg'):
                 self.process_clone(node)
+            elif node.tag == inkex.addNS('defs', 'svg'):
+                for sub in node:
+                    if sub.tag == inkex.addNS('style','svg'):
+                        self.parse_css(sub.text)
             else:
                 self.process_shape(node, self.groupmat[-1])
         if trans:
             self.groupmat.pop()
 
+    def parse_css(self,css_string):
+        name_list=[]
+        value_list=[]
+        name=""
+        value=""
+        i=0
+        while i < len(css_string):
+            c=css_string[i]
+            if c=="{":
+                i=i+1
+                while i < len(css_string):
+                    c=css_string[i]
+                    i=i+1
+                    if c=="}":
+                        break
+                    else:
+                        value = value+c
+                name_list.append(name)
+                value_list.append(value)
+                name=""
+                value=""
+                continue
+            name=name+c
+            i=i+1
+        for i in range(len(name_list)):
+            name_list[i]=" ".join(name_list[i].split())
+            self.CSS_values.add(name_list[i],value_list[i])
+
+            
     def unit2mm(self, string):
         # Returns mm given a string representation of units in another system
         # a dictionary of unit to user unit conversion factors
@@ -485,7 +627,7 @@ class SVG_READER(inkex.Effect):
 
         self.groupmat = [[[scale_w,    0.0,  0.0-Dx],
                           [0.0  , -scale_h, h_mm+Dy]]]
-        #doc = self.document.getroot()
+
         self.process_group(self.document.getroot())
 
         

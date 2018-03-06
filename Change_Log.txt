@@ -85,3 +85,12 @@ Version 0.15:
 - Fixed DXF import so it recognizes colors assigned at the layer level
 - Improved DXF warning messages.  Identical messages are now counted and to displayed in one line.
 - Added support for the remaining board type supported by LaserDRW
+
+Version 0.16:
+- Added support for CSS style data in SVG files (some version of CorelDraw use this formating for SVG files)
+- Fixed divide by zero error for some DXF files
+- Fixed "zip" error for broken SVG files (now ignores the error)
+- Added rough time estimates for engraving/cutting times
+- Can now move design around while keeping the laser head as any corner or at the center of the design. (It will move back to upper left when laser starts.)
+- Added display of the current design file name in the main window title bar.
+- Now accepts SVG 'style' data that is not in the style attribute.

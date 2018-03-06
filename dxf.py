@@ -2,7 +2,7 @@
 """
     DXF Utilities
 
-    Copyright (C) <2017>  <Scorch>              
+    Copyright (C) <2018>  <Scorch>              
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -663,7 +663,13 @@ class DXF_CLASS:
         elif e.type == "LWPOLYLINE":
             flag=0
             lpcnt=-1
-            for x,y in zip(e.data["10"], e.data["20"]):
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                self.dxf_message("DXF Import zero length %s Ignored" %(e.type))
+                xy_data = []
+                
+            for x,y in xy_data:
                 x1 = x
                 y1 = y
                 lpcnt=lpcnt+1
@@ -749,27 +755,34 @@ class DXF_CLASS:
             for i in range(len(self.Knots)):
                 self.Knots[i] = (self.Knots[i]-kmin)/(kmax-kmin)
 
-            for x,y in zip(e.data["10"], e.data["20"]):
-                self.CPoints.append(PointClass(float(x), float(y)))
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                self.dxf_message("DXF Import zero length %s Ignored" %(e.type))
+                xy_data = []
 
-            self.MYNURBS=NURBSClass(degree=self.degree, \
-                                     Knots=self.Knots,  \
-                                   Weights=self.Weights,\
-                                   CPoints=self.CPoints)
+            if xy_data!=[]:
+                for x,y in xy_data:
+                    self.CPoints.append(PointClass(float(x), float(y)))
 
-            mypoints=self.MYNURBS.calc_curve(n=0, tol_deg=tol_deg)
-            flag = 0
-            for XY in mypoints:
-                x1 = XY.x
-                y1 = XY.y
-                if flag==0:
-                    x0=x1
-                    y0=y1
-                    flag=1
-                else:
-                    self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
-                    x0=x1
-                    y0=y1
+                self.MYNURBS=NURBSClass(degree=self.degree, \
+                                         Knots=self.Knots,  \
+                                       Weights=self.Weights,\
+                                       CPoints=self.CPoints)
+
+                mypoints=self.MYNURBS.calc_curve(n=0, tol_deg=tol_deg)
+                flag = 0
+                for XY in mypoints:
+                    x1 = XY.x
+                    y1 = XY.y
+                    if flag==0:
+                        x0=x1
+                        y0=y1
+                        flag=1
+                    else:
+                        self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
+                        x0=x1
+                        y0=y1
 
         ########### ELLIPSE ###########
         elif e.type == "ELLIPSE":
@@ -825,8 +838,11 @@ class DXF_CLASS:
                 dy2 = (y2 - y_test)
                 L2 = sqrt(dx2*dx2 + dy2*dy2)
 
-                angle=acos( dx1/L1 * dx2/L2 + dy1/L1 * dy2/L2)
-
+                try:
+                    angle=acos( dx1/L1 * dx2/L2 + dy1/L1 * dy2/L2)
+                except:
+                    angle = 0
+                    
                 if angle > tol:
                     step = step/2
                 else:
@@ -878,7 +894,14 @@ class DXF_CLASS:
         ########### LEADER ###########
         elif e.type == "LEADER":
             flag=0
-            for x,y in zip(e.data["10"], e.data["20"]):
+
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                self.dxf_message("DXF Import zero length %s Ignored" %(e.type))
+                xy_data = []
+                
+            for x,y in xy_data:
                 x1 = x
                 y1 = y
                 if flag==0:
@@ -900,9 +923,9 @@ class DXF_CLASS:
                     pass
                 elif (TYPE==1):
                     self.POLY_CLOSED=1
-                else:
-                    self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
-                    self.POLY_FLAG = 0
+                #else:
+                #    self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
+                #    self.POLY_FLAG = -1
             except:
                 pass
 
