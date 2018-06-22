@@ -337,7 +337,11 @@ class SVG_READER(inkex.Effect):
                 points = node.get('points')
                 if not points:
                     return
+               
                 points = points.replace(',', ' ')
+                while points.find('  ') > -1:
+                    points = points.replace('  ', ' ')
+                    
                 points = points.strip().split(" ")
                 d = "M "
                 for i in range(0,len(points),2):

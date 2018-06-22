@@ -107,3 +107,7 @@ Version 0.17:
 Version 0.18:
 - Fixed import of polygons and polylines items in SVG files without the customary commas
 - Fixed bug that caused moving to the corners to not work for SVG files if the "Use Input CSYS" was selected for DXF files.
+
+
+Version 0.19:
+- Fixed SVG input error for SVG files with extra spaces in point definitions
