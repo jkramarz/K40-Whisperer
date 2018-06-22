@@ -336,13 +336,13 @@ class SVG_READER(inkex.Effect):
             elif (node.tag == inkex.addNS('polygon','svg')) or (node.tag == inkex.addNS('polyline','svg')):
                 points = node.get('points')
                 if not points:
-                    return  
+                    return
+                points = points.replace(',', ' ')
                 points = points.strip().split(" ")
-                points = map(lambda x: x.split(","), points)
                 d = "M "
-                for point in points:
-                    x = float(point[0])
-                    y = float(point[1])
+                for i in range(0,len(points),2):
+                    x = float(points[i])
+                    y = float(points[i+1])
                     d = d + "%f,%f " %(x,y)
 
                 #Close the loop if it is a ploygon
