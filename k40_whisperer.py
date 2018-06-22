@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.17'
+version = '0.18'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -611,6 +611,7 @@ class Application(Frame):
         if DEBUG:
             top_File.add_separator()
             top_File.add("command", label = "Open EGV File"     , command = self.menu_File_Open_EGV)
+
     
         top_File.add_separator()
         top_File.add("command", label = "Exit"              , command = self.menu_File_Quit)
@@ -2153,7 +2154,6 @@ class Application(Frame):
         self.Stop_Button.configure(state="normal")
         self.statusbar.configure(state="normal")
         self.master.update()
-    
 
     def Vector_Cut(self):
         self.stop[0]=False
@@ -3340,13 +3340,13 @@ class Application(Frame):
     #                         Temporary Move Window                                #
     ################################################################################
     def move_head_window_temporary(self,new_pos_offset):
-        if not self.inputCSYS.get():
-            xdist = -self.pos_offset[0] + new_pos_offset[0]
-            ydist = -self.pos_offset[1] + new_pos_offset[1]
-        else:
+        if self.inputCSYS.get() and self.RengData.image == None:
             new_pos_offset = [0,0]
             xdist = -self.pos_offset[0]
             ydist = -self.pos_offset[1]
+        else:
+            xdist = -self.pos_offset[0] + new_pos_offset[0]
+            ydist = -self.pos_offset[1] + new_pos_offset[1]
 
         if self.k40 != None:
             self.Send_Rapid_Move( xdist,ydist )

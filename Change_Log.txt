@@ -103,3 +103,7 @@ Version 0.17:
 - Fixed error that prevented G-Code from running in Version 0.16
 - Fixed bug that could cause program to enter infinite loop after lost connection with laser
 - Made a slightly better error message for when an operation is attempted and the laser has not been initialized.
+
+Version 0.18:
+- Fixed import of polygons and polylines items in SVG files without the customary commas
+- Fixed bug that caused moving to the corners to not work for SVG files if the "Use Input CSYS" was selected for DXF files.
