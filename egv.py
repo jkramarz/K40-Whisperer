@@ -907,12 +907,12 @@ if __name__ == "__main__":
     bname = "LASER-M2"
     step=0
     for value_in in values:
-        print "% 8.2f" %(value_in),": ",
+        print ("% 8.2f" %(value_in),": ",)
         val=EGV.make_speed(value_in,board_name=bname,Raster_step=step)
         txt=""
         for c in val:
             txt=txt+chr(c)
-        print txt
+        print(txt)
         
        #     for c in val2:
        #         print chr(c),

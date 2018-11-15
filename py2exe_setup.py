@@ -7,6 +7,7 @@ setup(
     options = {
 		"py2exe": 
 		{
+            "dll_excludes": ["crypt32.dll"],
 			"compressed": 1, "optimize": 0,
 			"includes": ["lxml.etree", "lxml._elementpath", "gzip"],
 		} 

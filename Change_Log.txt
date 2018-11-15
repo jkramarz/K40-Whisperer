@@ -120,3 +120,9 @@ Version 0.20:
 - Added ability to save and run EGV files.  Can run EGV files made by LaserDRW and generate files that can be run from LaserDRW.
 - Changed behavior after number of timeouts is exceeded during a design run.  K40 Whisperer will continue to try running the job until the user stops it.  Previously and error window would pop up and the job would be terminated without user intervention.  During pre-run moves the error window will still pop up.
 - Added logic to wait for the laser to finish running a job before the interface becomes active again.
+
+Version 0.21:
+- Updated build scripts to eliminate errors on some Windows computers.
+- Changed default setting so that halftone/dithering is turned on.
+- Fixed bug that generated error sometimes when opening a design is canceled from the file select dialog.
+
