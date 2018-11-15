@@ -108,6 +108,15 @@ Version 0.18:
 - Fixed import of polygons and polylines items in SVG files without the customary commas
 - Fixed bug that caused moving to the corners to not work for SVG files if the "Use Input CSYS" was selected for DXF files.
 
-
 Version 0.19:
-- Fixed SVG input error for SVG files with extra spaces in point definitions
+- Fixed SVG import error for SVG files with extra spaces in point definitions
+
+Version 0.20:
+- Fixed bug that resulted in 45 degree angles (and other shapes not straight lines) being cut faster than horizontal and vertical lines.
+- Added keyboard shortcuts for some main window functions
+- Fixed divide by zero error when running g-code with very slow feed rates
+- Added support for hidden layers in DXF files
+- Improved interpretation of some DXF files
+- Added ability to save and run EGV files.  Can run EGV files made by LaserDRW and generate files that can be run from LaserDRW.
+- Changed behavior after number of timeouts is exceeded during a design run.  K40 Whisperer will continue to try running the job until the user stops it.  Previously and error window would pop up and the job would be terminated without user intervention.  During pre-run moves the error window will still pop up.
+- Added logic to wait for the laser to finish running a job before the interface becomes active again.

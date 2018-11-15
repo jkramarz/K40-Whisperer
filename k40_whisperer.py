@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.19'
+version = '0.20'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -186,7 +186,7 @@ class ECoord():
                 on   = on + dist 
             else:
                 move = move + dist
-            #print "on= ",on," move= ",move
+
         self.bounds = (xmin,xmax,ymin,ymax)
         self.len = on
         self.move = move
@@ -237,6 +237,18 @@ class Application(Frame):
         self.master.bind('<Control-Up>'   , self.Move_Up)
         self.master.bind('<Control-Down>' , self.Move_Down)
 
+        self.master.bind('<Control-i>' , self.Initialize_Laser)
+        self.master.bind('<Control-o>' , self.menu_File_Open_Design)
+        self.master.bind('<Control-l>' , self.menu_Reload_Design)
+        self.master.bind('<Control-h>' , self.Home)
+        self.master.bind('<Control-u>' , self.Unlock)
+        self.master.bind('<Escape>'    , self.Stop)
+
+        #self.master.bind('<Control-o>' , self.Raster_Eng)
+        #self.master.bind('<Control-l>' , self.Vector_Eng)
+        #self.master.bind('<Control-r>' , self.Vector_Cut)
+        #self.master.bind('<Control-g>' , self.Gcode_Cut)        
+
         self.include_Reng = BooleanVar()
         self.include_Rpth = BooleanVar()
         self.include_Veng = BooleanVar()
@@ -286,6 +298,8 @@ class Application(Frame):
 
         self.gotoX = StringVar()
         self.gotoY = StringVar()
+
+        self.n_egv_passes = StringVar()
 
         self.inkscape_path = StringVar()
         self.t_timeout  = StringVar()
@@ -361,6 +375,7 @@ class Application(Frame):
             self.HOME_DIR = ""
 
         self.DESIGN_FILE = (self.HOME_DIR+"/None")
+        self.EGV_FILE    = None
         
         self.aspect_ratio =  0
         self.segID   = []
@@ -373,6 +388,8 @@ class Application(Frame):
 
         self.gotoX.set("0.0")
         self.gotoY.set("0.0")
+
+        self.n_egv_passes.set("1")
         
         self.laserX    = 0.0
         self.laserY    = 0.0
@@ -608,10 +625,12 @@ class Application(Frame):
         top_File.add("command", label = "Open Design (SVG/DXF/G-Code)"  , command = self.menu_File_Open_Design)
         top_File.add("command", label = "Reload Design"          , command = self.menu_Reload_Design)
 
-        if DEBUG:
-            top_File.add_separator()
-            top_File.add("command", label = "Open EGV File"     , command = self.menu_File_Open_EGV)
-
+        top_File.add_separator()
+        top_File.add("command", label = "Send EGV File to Laser"             , command = self.menu_File_Open_EGV)
+        top_File.add("command", label = "Save EGV File - Raster Engrave"     , command = self.menu_File_Raster_Engrave)
+        top_File.add("command", label = "Save EGV File - Vector Engrave"     , command = self.menu_File_Vector_Engrave)
+        top_File.add("command", label = "Save EGV File - Vector Cut"         , command = self.menu_File_Vector_Cut)
+        top_File.add("command", label = "Save EGV File - G-Code Operations"  , command = self.menu_File_G_Code)
     
         top_File.add_separator()
         top_File.add("command", label = "Exit"              , command = self.menu_File_Quit)
@@ -871,8 +890,9 @@ class Application(Frame):
         self.laserX,self.laserY = self.XY_in_bounds(dx,dy)
         DXmils = round((self.laserX - Xold)*1000.0,0)
         DYmils = round((self.laserY - Yold)*1000.0,0)
-        self.Send_Rapid_Move(DXmils,DYmils)
-        self.menu_View_Refresh()
+        
+        if self.Send_Rapid_Move(DXmils,DYmils):
+            self.menu_View_Refresh()
 
     def LASER_Size(self):
         MINX = 0.0
@@ -1163,6 +1183,19 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_N_Timeouts_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_N_Timeouts,self.Entry_N_Timeouts_Check(), new=1)
+
+    #############################
+    def Entry_N_EGV_Passes_Check(self):
+        try:
+            value = int(self.n_egv_passes.get())
+            if  value < 1:
+                self.statusMessage.set(" EGV passes should be 1 or higher")
+                return 2 # Value is invalid number
+        except:
+            return 3     # Value not a number
+        return 0         # Value is a valid number
+    def Entry_N_EGV_Passes_Callback(self, varName, index, mode):
+        self.entry_set(self.Entry_N_EGV_Passes,self.Entry_N_EGV_Passes_Check(), new=1)
         
     #############################
     def Entry_Laser_Area_Width_Check(self):
@@ -1351,7 +1384,7 @@ class Application(Frame):
         except:
             return ''
 
-    def menu_File_Open_Settings_File(self):
+    def menu_File_Open_Settings_File(self,event=None):
         init_dir = os.path.dirname(self.DESIGN_FILE)
         if ( not os.path.isdir(init_dir) ):
             init_dir = self.HOME_DIR
@@ -1362,33 +1395,34 @@ class Application(Frame):
             self.Open_Settings_File(fileselect)
 
 
-    def menu_Reload_Design(self):
+    def menu_Reload_Design(self,event=None):
         file_full = self.DESIGN_FILE
         file_name = os.path.basename(file_full)
         if ( os.path.isfile(file_full) ):
-            filname = file_full
+            filename = file_full
         elif ( os.path.isfile( file_name ) ):
-            filname = file_name
+            filename = file_name
         elif ( os.path.isfile( self.HOME_DIR+"/"+file_name ) ):
-            filname = self.HOME_DIR+"/"+file_name
+            filename = self.HOME_DIR+"/"+file_name
         else:
             self.statusMessage.set("file not found: %s" %(os.path.basename(file_full)) )
             self.statusbar.configure( bg = 'red' ) 
             return
         
-        
-        Name, fileExtension = os.path.splitext(filname)
+        Name, fileExtension = os.path.splitext(filename)
         TYPE=fileExtension.upper()
         if TYPE=='.DXF':
-            self.Open_DXF(filname)
+            self.Open_DXF(filename)
         elif TYPE=='.SVG':
-            self.Open_SVG(filname)
+            self.Open_SVG(filename)
+        elif TYPE=='.EGV':
+            self.EGV_Send_Window(filename)
         else:
-            self.Open_G_Code(filname)
+            self.Open_G_Code(filename)
         self.menu_View_Refresh()
         
 
-    def menu_File_Open_Design(self):
+    def menu_File_Open_Design(self,event=None):
         init_dir = os.path.dirname(self.DESIGN_FILE)
         if ( not os.path.isdir(init_dir) ):
             init_dir = self.HOME_DIR
@@ -1419,6 +1453,45 @@ class Application(Frame):
         self.menu_View_Refresh()
         
 
+    def menu_File_Raster_Engrave(self):
+        self.menu_File_save_EGV(operation_type="Raster_Eng")
+        
+    def menu_File_Vector_Engrave(self):
+        self.menu_File_save_EGV(operation_type="Vector_Eng")
+        
+    def menu_File_Vector_Cut(self):
+        self.menu_File_save_EGV(operation_type="Vector_Cut")
+        
+    def menu_File_G_Code(self):
+        self.menu_File_save_EGV(operation_type="Gcode_Cut")
+
+    def menu_File_save_EGV(self,operation_type=None,default_name="out.EGV"):
+        fileName, fileExtension = os.path.splitext(self.DESIGN_FILE)
+        init_file=os.path.basename(fileName)
+        default_name = init_file+"_"+operation_type
+        
+        if self.EGV_FILE != None:
+            init_dir = os.path.dirname(self.EGV_FILE)
+        else:
+            init_dir = os.path.dirname(self.DESIGN_FILE)
+            
+        if ( not os.path.isdir(init_dir) ):
+            init_dir = self.HOME_DIR
+            
+        fileName, fileExtension = os.path.splitext(default_name)
+        init_file=os.path.basename(fileName)
+
+        filename = asksaveasfilename(defaultextension='.EGV', \
+                                     filetypes=[("EGV File","*.EGV")],\
+                                     initialdir=init_dir,\
+                                     initialfile= init_file )
+        
+        if filename != '' and filename != ():
+            self.send_data(operation_type=operation_type, output_filename=filename)
+            self.EGV_FILE = filename
+        
+
+
     def menu_File_Open_EGV(self):
         init_dir = os.path.dirname(self.DESIGN_FILE)
         if ( not os.path.isdir(init_dir) ):
@@ -1426,28 +1499,90 @@ class Application(Frame):
         fileselect = askopenfilename(filetypes=[("Engraver Files", ("*.egv","*.EGV")),\
                                                     ("All Files","*")],\
                                                      initialdir=init_dir)
-
         if fileselect != '' and fileselect != ():
+            self.resetPath()
             self.DESIGN_FILE = fileselect
-            self.Open_EGV(fileselect)
-            self.menu_View_Refresh()
+            self.EGV_Send_Window(fileselect)
+
             
-    def Open_EGV(self,filemname):
+    def Open_EGV(self,filemname,n_passes=1):
         pass
         EGV_data=[]
+        value1 = ""
+        value2 = ""
+        value3 = ""
+        value4 = ""
         data=""
+        #value1 and value2 are the absolute y and x starting positions
+        #value3 and value4 are the absolute y and x end positions
         with open(filemname) as f:
+            while True:
+                ## Skip header
+                c = f.read(1)
+                while c!="%" and c:
+                    c = f.read(1)
+                ## Read 1st Value
+                c = f.read(1)
+                while c!="%" and c:
+                    value1 = value1 + c
+                    c = f.read(1)
+                y_start_mils = int(value1) 
+                ## Read 2nd Value
+                c = f.read(1)
+                while c!="%" and c:
+                    value2 = value2 + c
+                    c = f.read(1)
+                x_start_mils = int(value2)   
+                ## Read 3rd Value
+                c = f.read(1)
+                while c!="%" and c:
+                    value3 = value3 + c
+                    c = f.read(1)
+                y_end_mils = int(value3)
+                ## Read 4th Value
+                c = f.read(1)
+                while c!="%" and c:
+                    value4 = value4 + c
+                    c = f.read(1)
+                x_end_mils = int(value4)
+                break
+
+            ## Read Data
             while True:
                 c = f.read(1)
                 if not c:
-                  break
+                    break
                 if c=='\n' or c==' ' or c=='\r':
                     pass
                 else:
                     data=data+"%c" %c
                     EGV_data.append(ord(c))
-        if message_ask_ok_cancel("EGV", "Send EGV Data to Laser...."):
-            self.send_egv_data(EGV_data)
+                    
+        if ( (x_end_mils != 0) or (y_end_mils != 0) ):
+            n_passes=1
+        else:
+            x_start_mils = 0
+            y_start_mils = 0
+
+        try:
+            self.send_egv_data(EGV_data,n_passes)
+        except MemoryError as e:
+            raise StandardError("Memory Error:  Out of Memory.")
+            debug_message(traceback.format_exc())
+        except StandardError as e:
+            msg1 = "Sending Data Stopped: "
+            msg2 = "%s" %(e)
+            if msg2 == "":
+                formatted_lines = traceback.format_exc().splitlines()
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
+
+        #rapid move back to starting position
+        dxmils = -(x_end_mils - x_start_mils)
+        dymils =   y_end_mils - y_start_mils
+        self.Send_Rapid_Move(dxmils,dxmils)
 
         
     def Open_SVG(self,filemname):
@@ -2109,12 +2244,16 @@ class Application(Frame):
         Xnew,Ynew = self.XY_in_bounds(dx_inches,dy_inches)
         dxmils = (Xnew - self.laserX)*1000.0
         dymils = (Ynew - self.laserY)*1000.0
+
+        if self.k40 == None:
+            self.laserX  = Xnew
+            self.laserY  = Ynew
+            self.menu_View_Refresh()
+        elif self.Send_Rapid_Move(dxmils,dymils):
+            self.laserX  = Xnew
+            self.laserY  = Ynew
+            self.menu_View_Refresh()
         
-        self.Send_Rapid_Move(dxmils,dymils)
-            
-        self.laserX  = Xnew
-        self.laserY  = Ynew
-        self.menu_View_Refresh()
 
     def Send_Rapid_Move(self,dxmils,dymils):
         try:
@@ -2122,7 +2261,11 @@ class Application(Frame):
                 if float(self.LaserXscale.get()) != 1.0 or float(self.LaserYscale.get()) != 1.0:
                     dxmils = int(round(dxmils *float(self.LaserXscale.get())))
                     dymils = int(round(dymils *float(self.LaserYscale.get())))
+                self.k40.n_timeouts = 10
                 self.k40.rapid_move(dxmils,dymils)
+                return True
+            else:
+                return True
         except StandardError as e:
             msg1 = "Rapid Move Failed: "
             msg2 = "%s" %(e)
@@ -2130,13 +2273,15 @@ class Application(Frame):
                 formatted_lines = traceback.format_exc().splitlines()
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
-            message_box(msg1, msg2)
             debug_message(traceback.format_exc())
+            return False       
 
-    def update_gui(self, message=None):
+    def update_gui(self, message=None, bgcolor='white'):
         if message!=None:
-            self.statusMessage.set(message)   
+            self.statusMessage.set(message)
+            self.statusbar.configure( bg = bgcolor )
         self.master.update()
+        return True
 
     def set_gui(self,new_state="normal"):
         self.menuBar.entryconfigure("File"    , state=new_state)
@@ -2155,33 +2300,33 @@ class Application(Frame):
         self.statusbar.configure(state="normal")
         self.master.update()
 
-    def Vector_Cut(self):
+    def Vector_Cut(self, output_filename=None):
         self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Vector Cut: Processing Vector Data.")
         self.master.update()
         if self.VcutData.ecoords!=[]:
-            self.send_data("Vector_Cut")
+            self.send_data("Vector_Cut", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to cut")
         self.set_gui("normal")
         
-    def Vector_Eng(self):
+    def Vector_Eng(self, output_filename=None):
         self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("Vector Engrave: Processing Vector Data.")
         self.master.update()
         if self.VengData.ecoords!=[]:
-            self.send_data("Vector_Eng")
+            self.send_data("Vector_Eng", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to engrave")
         self.set_gui("normal")
 
-    def Raster_Eng(self):
+    def Raster_Eng(self, output_filename=None):
         self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
@@ -2190,7 +2335,7 @@ class Application(Frame):
         try:
             self.make_raster_coords()
             if self.RengData.ecoords!=[]:
-                self.send_data("Raster_Eng")
+                self.send_data("Raster_Eng", output_filename)
             else:
                 self.statusbar.configure( bg = 'yellow' )
                 self.statusMessage.set("No raster data to engrave")
@@ -2204,14 +2349,14 @@ class Application(Frame):
         self.set_gui("normal")
 
 
-    def Gcode_Cut(self):
+    def Gcode_Cut(self, output_filename=None):
         self.stop[0]=False
         self.set_gui("disabled")
         self.statusbar.configure( bg = 'green' )
         self.statusMessage.set("G Code Cutting.")
         self.master.update()
         if self.GcodeData.ecoords!=[]:
-            self.send_data("Gcode_Cut")
+            self.send_data("Gcode_Cut", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No g-code data to cut")
@@ -2451,12 +2596,12 @@ class Application(Frame):
 
         return coords_scale,scaled_startx,scaled_starty
   
-    def send_data(self,operation_type=None):
-        if self.k40 == None:
+    def send_data(self,operation_type=None, output_filename=None):
+        num_passes=0
+        if self.k40 == None and output_filename == None:
             self.statusMessage.set("Laser Cutter is not Initialized...")
             self.statusbar.configure( bg = 'red' ) 
             return
-        
         try:
             if self.units.get()=='in':
                 feed_factor = 25.4/60.0
@@ -2467,9 +2612,9 @@ class Application(Frame):
                 xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
             else:
                 xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
-            
-
+                
             self.move_head_window_temporary([0,0])
+                        
             startx = xmin
             starty = ymax
 
@@ -2510,7 +2655,6 @@ class Application(Frame):
                                                 stop_calc=self.stop,              \
                                                 FlipXoffset=FlipXoffset
                                                 )
-
 
             if (operation_type=="Vector_Eng") and  (self.VengData.ecoords!=[]):
                 num_passes = int(self.Veng_passes.get())
@@ -2566,7 +2710,8 @@ class Application(Frame):
                 
                 self.Reng=[]
 
-            if (operation_type=="Gcode_Cut") and (self.GcodeData!=[]):
+            if (operation_type=="Gcode_Cut") and (self.GcodeData.ecoords!=[]):
+
                 num_passes = int(self.Gcde_passes.get())
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
@@ -2590,8 +2735,12 @@ class Application(Frame):
                                                 )
                 
             self.master.update()
-            self.send_egv_data(data, num_passes)
-            self.menu_View_Refresh()
+            if output_filename != None:
+                self.write_egv_to_file(data,output_filename)
+            else:
+                self.send_egv_data(data, num_passes, output_filename)
+                self.menu_View_Refresh()
+                
         except MemoryError as e:
             raise StandardError("Memory Error:  Out of Memory.")
             debug_message(traceback.format_exc())
@@ -2606,44 +2755,46 @@ class Application(Frame):
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
 
-    def send_egv_data(self,data,num_passes=1):
+    def send_egv_data(self,data,num_passes=1,output_filename=None):        
         pre_process_CRC        = self.pre_pr_crc.get()
         if self.k40 != None:
             self.k40.timeout       = int(self.t_timeout.get())   
             self.k40.n_timeouts    = int(self.n_timeouts.get())
-            self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC)
+            if DEBUG:
+                time_start = time()
+            self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC, wait_for_laser=True)
+            if DEBUG:
+                print "Elapsed Time: %.2f" %(time()-time_start)
         else:
-            self.master.update()
-        
-        if DEBUG:
-            print "Saving Data to File...."
-            self.write_egv_to_file(data)
-        #self.set_gui("normal")
+            self.statusMessage.set("Laser is not initialized.")
+            self.statusbar.configure( bg = 'yellow' )
+            return
         self.menu_View_Refresh()
         
     ##########################################################################
     ##########################################################################
-    def write_egv_to_file(self,data):
+    def write_egv_to_file(self,data,fname):
+        if len(data) == 0:
+            raise StandardError("No data available to write to file.")
         try:
-            fname = os.path.expanduser("~")+"/EGV_DATA.EGV"
             fout = open(fname,'w')
         except:
-            self.statusMessage.set("Unable to open file for writing: %s" %(fname))
-            return
+            raise StandardError("Unable to open file ( %s ) for writing." %(fname))
+        fout.write("Document type : LHYMICRO-GL file\n")
+        fout.write("Creator-Software: K40 Whisperer\n")
+        
+        fout.write("\n")
+        fout.write("%0%0%0%0%")
         for char_val in data:
             char = chr(char_val)
-            if char == "N":
-                fout.write("\n")
-                fout.write("%s" %(char))
-            elif char == "E":
-                fout.write("%s" %(char))
-                fout.write("\n")
-            else:
-                fout.write("%s" %(char))
-        fout.write("\n")
+            fout.write("%s" %(char))
+            
+        #fout.write("\n")
         fout.close
+        self.menu_View_Refresh()
+        self.statusMessage.set("Data saved to: %s" %(fname))
         
-    def Home(self):
+    def Home(self, event=None):
         if self.k40 != None:
             self.k40.home_position()
         self.laserX  = 0.0
@@ -2691,7 +2842,7 @@ class Application(Frame):
                 pass
             self.k40=None
         
-    def Initialize_Laser(self,junk=None):
+    def Initialize_Laser(self,event=None):
         self.stop[0]=False
         self.Release_USB()
         self.k40=None
@@ -2720,7 +2871,7 @@ class Application(Frame):
             self.k40=None
             debug_message(traceback.format_exc())
             
-    def Unlock(self):
+    def Unlock(self,event=None):
         if self.k40 != None:
             try:
                 self.k40.unlock_rail()
@@ -3349,10 +3500,12 @@ class Application(Frame):
             ydist = -self.pos_offset[1] + new_pos_offset[1]
 
         if self.k40 != None:
-            self.Send_Rapid_Move( xdist,ydist )
-
-        self.pos_offset = new_pos_offset
-        self.menu_View_Refresh()
+            if self.Send_Rapid_Move( xdist,ydist ):
+                self.pos_offset = new_pos_offset
+                self.menu_View_Refresh()
+        else:      
+            self.pos_offset = new_pos_offset
+            self.menu_View_Refresh()
     
     ################################################################################
     #                         General Settings Window                              #
@@ -3656,6 +3809,77 @@ class Application(Frame):
         self.Set_Input_States_RASTER()
 
 
+
+
+    ################################################################################
+    #                            EGV Send Window                                   #
+    ################################################################################
+    def EGV_Send_Window(self,EGV_filename):
+        
+        egv_send = Toplevel(width=400, height=180)
+        egv_send.grab_set() # Use grab_set to prevent user input in the main window during calculations
+        egv_send.resizable(0,0)
+        egv_send.title('EGV Send')
+        egv_send.iconname("EGV Send")
+        try:
+            egv_send.iconbitmap(bitmap="@emblem64")
+        except:
+            debug_message(traceback.format_exc())
+            pass
+
+        D_Yloc  = 0
+        D_dY = 28
+        xd_label_L = 12
+
+        w_label=150
+        w_entry=40
+        w_units=35
+        xd_entry_L=xd_label_L+w_label+10
+        xd_units_L=xd_entry_L+w_entry+5
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Preprocess_CRC = Label(egv_send,text="Preprocess CRC Data")
+        self.Label_Preprocess_CRC.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_Preprocess_CRC = Checkbutton(egv_send,text="", anchor=W)
+        self.Checkbutton_Preprocess_CRC.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_Preprocess_CRC.configure(variable=self.pre_pr_crc)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_N_EGV_Passes = Label(egv_send,text="Number of EGV Passes")
+        self.Label_N_EGV_Passes.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_N_EGV_Passes = Entry(egv_send,width="15")
+        self.Entry_N_EGV_Passes.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_N_EGV_Passes.configure(textvariable=self.n_egv_passes)
+        self.n_egv_passes.trace_variable("w", self.Entry_N_EGV_Passes_Callback)
+        self.entry_set(self.Entry_N_EGV_Passes,self.Entry_N_EGV_Passes_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        font_entry_width=215
+        self.Label_Inkscape_Path = Label(egv_send,text="EGV File:")
+        self.Label_Inkscape_Path.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+
+        EGV_Name = os.path.basename(EGV_filename)
+        self.Label_Inkscape_Path = Label(egv_send,text=EGV_Name,anchor="w") #,bg="yellow")
+        self.Label_Inkscape_Path.place(x=xd_entry_L, y=D_Yloc, width=200, height=21,anchor="nw")
+        
+        ## Buttons ##
+        egv_send.update_idletasks()
+        Ybut=int(egv_send.winfo_height())-30
+        Xbut=int(egv_send.winfo_width()/2)
+
+        self.EGV_Close = Button(egv_send,text="Cancel",command=self.Close_Current_Window_Click)
+        self.EGV_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="e")
+
+
+        def Close_and_Send_Click():
+            win_id=self.grab_current()
+            win_id.destroy()
+            self.Open_EGV(EGV_filename, n_passes=int(self.n_egv_passes.get()) )
+            
+        self.EGV_Send = Button(egv_send,text="Send EGV Data",command=Close_and_Send_Click)
+        self.EGV_Send.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
+        ################################################################################
+        
         
 ################################################################################
 #             Function for outputting messages to different locations          #

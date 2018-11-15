@@ -43,11 +43,11 @@ class K40_CLASS:
         self.read_length= 168
 
         #### RESPONSE CODES ####
-        self.OK          = 206
-        self.BUFFER_FULL = 238
-        self.CRC_ERROR   = 207
-        self.UNKNOWN_1   = 236
-        self.UNKNOWN_2   = 239 #after failed initialization followed by succesful initialization
+        self.OK             = 206
+        self.BUFFER_FULL    = 238
+        self.CRC_ERROR      = 207
+        self.TASK_COMPLETE  = 236
+        self.UNKNOWN_2      = 239 #after failed initialization followed by succesful initialization
         #######################
         self.hello   = [160]
         self.unlock  = [166,0,73,83,50,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,15]
@@ -56,22 +56,21 @@ class K40_CLASS:
 
 
     def say_hello(self):
-        #255, 206, 111, 8, 19, 0
         cnt=0
-        while cnt<self.n_timeouts:
+        status_timeouts = 20
+        while cnt < status_timeouts:
             cnt=cnt+1
             try:
                 self.send_packet(self.hello)
                 break
             except:
                 pass
-        if cnt == self.n_timeouts:
-            msg = "Too Many Transmission Errors (%d Status Timeouts)" %(cnt)
-            raise StandardError(msg)
+        if cnt >= status_timeouts:
+            return None
                 
         response = None
         read_cnt = 0
-        while response==None and read_cnt < 10:
+        while response==None and read_cnt < status_timeouts:
             try:
                 response = self.dev.read(self.read_addr,self.read_length,self.timeout)
             except:
@@ -96,14 +95,14 @@ class K40_CLASS:
                 else:
                     print ".",
             
-            if response[1]==self.OK          or \
-               response[1]==self.BUFFER_FULL or \
-               response[1]==self.CRC_ERROR   or \
-               response[1]==self.UNKNOWN_1   or \
+            if response[1]==self.OK            or \
+               response[1]==self.BUFFER_FULL   or \
+               response[1]==self.CRC_ERROR     or \
+               response[1]==self.TASK_COMPLETE or \
                response[1]==self.UNKNOWN_2:
                 return response[1]
             else:
-                return None
+                return 9999
         else:
             return None
 
@@ -141,11 +140,11 @@ class K40_CLASS:
                 inbyte >>= 1
         return crc
     #######################################################################
-    def none_function(self,dummy=None):
+    def none_function(self,dummy=None,bgcolor=None):
         #Don't delete this function (used in send_data)
-        pass
+        return False
     
-    def send_data(self,data,update_gui=None,stop_calc=None,passes=1,preprocess_crc=True):
+    def send_data(self,data,update_gui=None,stop_calc=None,passes=1,preprocess_crc=True, wait_for_laser=False):
         if stop_calc == None:
             stop_calc=[]
             stop_calc.append(0)
@@ -198,71 +197,89 @@ class K40_CLASS:
             packet_cnt = packet_cnt+1.0
             update_gui( "Sending Data to Laser = %.1f%%" %( 100.0*packet_cnt/len(packets) ) )
         ##############################################################
+        if wait_for_laser:
+            self.wait_for_laser_to_finish(update_gui,stop_calc)
 
 
     def send_packet_w_error_checking(self,line,update_gui=None,stop_calc=None):
         timeout_cnt = 1
         crc_cnt     = 1
-        while timeout_cnt < self.n_timeouts and crc_cnt < self.n_timeouts:
+        while True:
+            if stop_calc[0]:
+                msg="Action Stopped by User."
+                update_gui(msg,bgcolor='red')
+                raise StandardError(msg)
             try:
                 self.send_packet(line)
             except:
-                msg = "USB Timeout #%d" %(timeout_cnt)
-                update_gui(msg)
                 timeout_cnt=timeout_cnt+1
+                if timeout_cnt < self.n_timeouts:
+                    msg = "USB Timeout #%d" %(timeout_cnt)
+                    update_gui(msg,bgcolor='yellow')
+                else:
+                    msg = "The laser cutter is not responding (%d attempts). Press stop to stop trying!"  %(timeout_cnt)
+                    gui_active = update_gui(msg,bgcolor='red')
+                    if not gui_active:
+                        msg = "The laser cutter is not responding after %d attempts." %(timeout_cnt)
+                        raise StandardError(msg)
                 continue
-                
             ######################################
             response = self.say_hello()
-            
+                            
             if response == self.BUFFER_FULL:
                 while response == self.BUFFER_FULL:
                     response = self.say_hello()
                 break #break and move on to next packet
+
             elif response == self.CRC_ERROR:
-                msg = "Data transmission (CRC) error #%d" %(crc_cnt)               
-                update_gui(msg)
                 crc_cnt=crc_cnt+1
+                if crc_cnt < self.n_timeouts:
+                    msg = "Data transmission (CRC) error #%d" %(crc_cnt)               
+                    update_gui(msg,bgcolor='yellow')
+                else:
+                    msg = "There are many data transmission errors (%d). Press stop to stop trying!"  %(crc_cnt)
+                    gui_active = update_gui(msg,bgcolor='red')
+                    if not gui_active:
+                        msg = "There are many data transmission errors (%d)."  %(crc_cnt)
+                        raise StandardError(msg)
                 continue
             elif response == None:
-                msg = "Controller board is not responding."                
-                update_gui(msg)
-                break #break and move on to next packet
-            else: #response == self.OK:
-                break #break and move on to next packet
-
-            #elif response == self.UNKNOWN_1:
-            #    msg = "Something UNKNOWN_1 happened: response=%s" %(response)
-            #    break #break and move on to next packet
-            #elif response == self.UNKNOWN_2:
-            #    msg = "Something UNKNOWN_2 happened: response=%s" %(response)
-            #    break #break and move on to next packet
-            #else:
-            #    msg = "Something Undefined happened: response=%s" %(response)
-            #    break #break and move on to next packet
+                # The controller board is not reporting status. but we will
+                # assume things are going OK. until we cannot transmit to the controller.
+                break #break to move on to next packet
             
-        if crc_cnt == self.n_timeouts:
-            msg = "Too Many Transmission Errors (%d CRC Errors)" %(crc_cnt)
-            update_gui(msg)
-            raise StandardError(msg)
-        if timeout_cnt == self.n_timeouts:
-            msg = "Too Many Transmission Errors (%d Timeouts)" %(timeout_cnt)
-            update_gui(msg)
-            raise StandardError(msg)
-        if stop_calc[0]:
-            msg="Action Stopped by User."
-            update_gui(msg)
-            raise StandardError(msg)
-        
+            else: #assume: response == self.OK:
+                break #break to move on to next packet
+
+
+    def wait_for_laser_to_finish(self,update_gui=None,stop_calc=None):
+        FINISHED = False
+        while not FINISHED:
+            response = self.say_hello()
+            if response == self.TASK_COMPLETE:
+                FINISHED = True
+                break
+            elif response == None:
+                msg = "The laser cutter stopped responding after sending data was complete."
+                raise StandardError(msg)
+            else: #assume: response == self.OK:
+                msg = "Waiting for the laser to finish."
+                update_gui(msg)
+            if stop_calc[0]:
+                msg="Action Stopped by User."
+                update_gui(msg,bgcolor='red')
+                raise StandardError(msg)
+
 
     def send_packet(self,line):
         self.dev.write(self.write_addr,line,self.timeout)
 
     def rapid_move(self,dxmils,dymils):
-        data=[]
-        egv_inst = egv(target=lambda s:data.append(s))
-        egv_inst.make_move_data(dxmils,dymils)
-        self.send_data(data)
+        if (dxmils!=0 or dymils!=0):
+            data=[]
+            egv_inst = egv(target=lambda s:data.append(s))
+            egv_inst.make_move_data(dxmils,dymils)
+            self.send_data(data, wait_for_laser=False)
     
     def initialize_device(self,verbose=False):
         try:

@@ -26,7 +26,28 @@ from shutil import copyfile
 from math import *
 
 ##############################################################################
+# Linear Interpolation from Stack Overflow Answer
+# https://stackoverflow.com/questions/7343697/how-to-implement-linear-interpolation
 
+from bisect import bisect_left
+class Interpolate(object):
+    def __init__(self, x_list, y_list):
+        if any([y - x <= 0 for x, y in zip(x_list, x_list[1:])]):
+            raise ValueError("x value list must be in ascending order!")
+        x_list = self.x_list = map(float, x_list)
+        y_list = self.y_list = map(float, y_list)
+        intervals = zip(x_list, x_list[1:], y_list, y_list[1:])
+        self.slopes = [(y2 - y1)/(x2 - x1) for x1, x2, y1, y2 in intervals]        
+    def __getitem__(self, x):
+        if x <= self.x_list[0]:
+            return self.y_list[0]
+        elif x >= self.x_list[-1]:
+            return self.y_list[-1]
+        else:
+            i = bisect_left(self.x_list, x) - 1
+            return self.y_list[i] + self.slopes[i] * (x - self.x_list[i])
+
+##############################################################################
 class egv:
     def __init__(self, target=lambda s: sys.stdout.write(s)):
         self.write = target
@@ -117,6 +138,7 @@ class egv:
                 inbyte >>= 1
         return crcS
 
+
     def make_distance(self,dist_mils):
         dist_mils=float(dist_mils)
         if abs(dist_mils-round(dist_mils,0)) > 0.000001:
@@ -146,7 +168,6 @@ class egv:
             raise StandardError("Error in EGV make_distance_in(): dist_milsA=",dist_milsA)
         return code
     
-
     def make_dir_dist(self,dxmils,dymils,laser_on=False):
         adx = abs(dxmils)
         ady = abs(dymils)
@@ -162,7 +183,6 @@ class egv:
                 else:
                     self.move(self.LEFT ,adx,laser_on)
             
-    
     def make_cut_line(self,dxmils,dymils,Spindle):
         XCODE = self.RIGHT
         if dxmils < 0.0:
@@ -243,10 +263,8 @@ class egv:
         V  = B-M/float(Feed)
         C1 = floor(V)
         C2 = floor((V-C1)*255.0)
-        if C1 <=255:
-            s_code = "V%03d%03d%d" %(C1,C2,1)
-        else:
-            s_code = "V%08d%03d%d" %(C1,C2,1)
+        s_code = "V%03d%03d%d" %(C1,C2,1)
+        #s_code = "V%03d %03d %d" %(C1,C2,1)
         return s_code
                     
     
@@ -255,7 +273,11 @@ class egv:
         append_code = ""
         #################################################################
         if board_name=="LASER-M2":
-            if Feed < 7:
+            if Feed < .4:
+                B = 16777471.974
+                M = 100.211
+                append_code = "C"
+            elif Feed < 7:
                 B = 255.97
                 M = 100.21
                 append_code = "C"
@@ -264,7 +286,16 @@ class egv:
                 M = 1202.5
             Scode = self.speed_code(Feed,B,M)
             if Raster_step==0:
-                speed_text = "C%s000000000" %(Scode)
+                diag_linterp = self.make_diagonal_speed_interpolator(board_name)
+                if Feed <= 240.0:
+                    C4 = "%03d" %( floor(min(Feed/2.0+1,128)))
+                    C5 = "%06d" %( int(round(diag_linterp[Feed/2.0],0)) )
+                else:
+                    C4 = "000"
+                    C5 = "000000"
+                #speed_text = "C%s000000000" %(Scode)
+                speed_text = "C%s%s%s" %(Scode,C4,C5)
+                #speed_text = "C%s %s %s" %(Scode,C4,C5)
             else:
                 speed_text =  "%sG%03d" %(Scode,abs(Raster_step))
             speed_text = speed_text + append_code
@@ -358,14 +389,186 @@ class egv:
         return speed
 
 
+    def make_diagonal_speed_interpolator(self,board_name):
+        # I have not been able to figure out the relationship between the speeds
+        # in the first column and the codes in the second columns below.
+        # these codes somehow ensure the speeds on the diagonal are the same horizontal
+        # and vertical moves.  For now we will just use tables and interpolate as needed.
+        vals = []
+        self.diag_linterp = None
+        #################################################################
+        if board_name=="LASER-M2":
+            vals = [
+            [ 0.010 , 2617140 ],
+            [ 0.050 , 523130 ],
+            [ 0.100 , 261193 ],
+            [ 0.150 , 174129 ],
+            [ 0.200 , 130224 ],
+            [ 0.300 , 87064 ],
+            [ 0.400 , 65112 ],
+            [ 0.500 , 52089 ],
+            [ 0.600 , 43160 ],
+            [ 0.700 , 37101 ],
+            [ 0.800 , 32184 ],
+            [ 0.900 , 29021 ],
+            [ 0.990 , 26112 ],
+            [ 1.000 , 13022 ],
+            [ 1.500 , 8185 ],
+            [ 2.000 , 4092 ],
+            [ 3.000 , 2046 ],
+            [ 3.500 , 1222 ],
+            [ 4.000 , 1079 ],
+            [ 4.500 , 1041 ],
+            [ 4.990 , 1012 ],
+            [ 5.000 , 223 ],
+            [ 6.000 , 159 ],
+            [ 6.990 , 136 ],
+            [ 7.000 , 5155 ],
+            [ 8.000 , 4092 ],
+            [ 9.000 , 3125 ],
+            [ 10.000 , 2219 ],
+            [ 12.000 , 2003 ],
+            [ 12.080 , 2000 ],
+            [ 12.090 , 1255 ],
+            [ 12.500 , 1238 ],
+            [ 13.000 , 1185 ],
+            [ 15.000 , 1079 ],
+            [ 17.000 , 1006 ],
+            [ 17.450 , 1000 ],
+            [ 17.460 , 255 ],
+            [ 18.000 , 235 ],
+            [ 19.000 , 211 ],
+            [ 20.000 , 191 ],
+            [ 25.000 , 123 ],
+            [ 30.000 , 86 ],
+            [ 40.000 , 49 ],
+            [ 50.000 , 31 ],
+            [ 60.000 , 21 ],
+            [ 70.000 , 16 ],
+            [ 80.000 , 12 ],
+            [ 90.000 ,  9 ],
+            [ 100.000 , 7 ],
+            [ 120.000 , 5 ],
+            [ 150.000 , 4 ],
+            [ 200.000 , 3 ],
+            [ 220.000 , 2 ],
+            [ 230.000 , 2 ],
+            [ 240.000 , 2 ],
+            [ 241.000 , 0 ]
+            ]
+        ################################################################# 
+        elif board_name=="LASER-M1":
+            vals = [
+            [ 0.100 , 3141014 ],
+            [ 0.200 , 1570135 ],
+            [ 0.300 , 1047004 ],
+            [ 0.400 , 785067 ],
+            [ 0.500 , 628054 ],
+            [ 0.600 , 523130 ],
+            [ 0.700 , 448185 ],
+            [ 0.800 , 392161 ],
+            [ 0.900 , 349001 ],
+            [ 1.000 , 157013 ],
+            [ 2.000 , 52089 ],
+            [ 3.000 , 26044 ],
+            [ 4.000 , 15180 ],
+            [ 5.000 , 10120 ],
+            [ 6.000 , 7122 ],
+            [ 7.000 , 5155 ],
+            [ 8.000 , 4092 ],
+            [ 9.000 , 3125 ],
+            [ 10.000 , 2219 ],
+            [ 20.000 , 191 ],
+            [ 50.000 , 31 ],
+            [ 70.000 , 16 ],
+            [ 100.000 , 7 ],
+            [ 150.000 , 4 ],
+            [ 200.000 , 3 ]
+            ]
+        #################################################################
+        elif board_name=="LASER-M":
+            # LASER-M does not have this type of speed code.
+            pass
+        #################################################################
+        elif board_name=="LASER-B2":
+            vals = [
+            [ 0.100 , 523 ],
+            [ 0.200 , 261 ],
+            [ 0.300 , 174 ],
+            [ 0.400 , 130 ],
+            [ 0.500 , 104 ],
+            [ 0.600 , 87 ],
+            [ 0.700 , 74 ],
+            [ 0.800 , 65112 ],
+            [ 0.900 , 58043 ],
+            [ 1.000 , 26044 ],
+            [ 2.000 , 8185 ],
+            [ 3.000 , 4092 ],
+            [ 4.000 , 2158 ],
+            [ 5.000 , 1190 ],
+            [ 6.000 , 1063 ], 
+            [ 7.000 , 11055 ],
+            [ 8.000 , 8185 ],
+            [ 9.000 , 6250 ],
+            [ 10.000 , 5182 ],
+            [ 15.000 , 2158 ],
+            [ 20.000 , 1126 ],
+            [ 30.000 , 172 ],
+            [ 50.000 , 63 ],
+            [ 100.000 , 15 ],
+            [ 150.000 , 8 ],
+            [ 200.000 , 6 ]
+            ]
+        #################################################################
+        elif board_name=="LASER-B1":
+            vals = [
+            [ 0.100 , 518083 ],
+            [ 0.200 , 259041 ],
+            [ 0.300 , 172198 ],
+            [ 0.400 , 129148 ],
+            [ 0.500 , 103170 ],
+            [ 0.600 , 86099 ],
+            [ 0.700 , 74012 ],
+            [ 0.800 , 64202 ],
+            [ 0.900 , 57151 ],
+            [ 1.000 , 25234 ],
+            [ 2.000 , 8163 ],
+            [ 5.000 , 1186 ],
+            [ 10.000 , 120 ],
+            [ 20.000 , 31 ],
+            [ 30.000 , 14 ],
+            [ 40.000 , 8 ],
+            [ 50.000 , 5 ],
+            [ 70.000 , 2 ],
+            [ 90.000 , 1 ],
+            [ 100.000 , 1 ],
+            [ 190.000 , 0 ],
+            [ 199.000 , 0 ],
+            [ 200.000 , 0 ]
+            ]
+        #################################################################
+        elif board_name=="LASER-B" or board_name=="LASER-A":
+            # LASER-A and LASER-B do not have this type of speed code.
+            pass
+            
+        if vals != []:
+            xvals=[]
+            yvals=[]
+            for i in range(len(vals)):
+                xvals.append(vals[i][0])
+                yvals.append(vals[i][1])
+            return Interpolate(xvals,yvals)
+        else:
+            return None
+
     def make_move_data(self,dxmils,dymils):
         if (abs(dxmils)+abs(dymils)) > 0:
             self.write(73) # I
             self.make_dir_dist(dxmils,dymils)
             self.flush()
-            self.write(83)
-            self.write(49)
-            self.write(80)
+            self.write(83) #S
+            self.write(49) #1 (one)
+            self.write(80) #P
 
     #######################################################################
     def none_function(self,dummy=None):
@@ -381,7 +584,7 @@ class egv:
         e2 = ecoords_adj_in[2]
         return e0,e1,e2
 
-    
+
     def make_egv_data(self, ecoords_in,
                             startX=0,
                             startY=0,
@@ -392,6 +595,7 @@ class egv:
                             update_gui=None,
                             stop_calc=None,
                             FlipXoffset=0):
+
         ########################################################
         if stop_calc == None:
             stop_calc=[]
@@ -412,7 +616,7 @@ class egv:
         Spindle = True
         if Feed==None:
             variable_feed_scale = 25.4/60.0
-            Feed = round(ecoords_in[0][3]*variable_feed_scale,1)
+            Feed = round(ecoords_in[0][3]*variable_feed_scale,2)
             Spindle = False
             
         speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
@@ -452,7 +656,7 @@ class egv:
                 if (abs(dx)+abs(dy))>0:
                     if laser:
                         if variable_feed_scale!=None:
-                            Feed_current    = round(ecoords_in[i][3]*variable_feed_scale,1)
+                            Feed_current    = round(ecoords_in[i][3]*variable_feed_scale,2)
                             Spindle = ecoords_in[i][4] > 0
                             if Feed != Feed_current:
                                 Feed = Feed_current
@@ -698,23 +902,25 @@ class egv:
         
 if __name__ == "__main__":
     EGV=egv()
-    for value_in in [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]:
-        print value_in,":",
-        bname = "LASER-M2"
-        step = 0
-        val1=EGV.make_speed    (value_in,board_name=bname,Raster_step=step)
-        #val2=EGV.make_speed_old(value_in,board_name=bname,Raster_step=step)
-       # if val1 != val2 :
-        for c in val1:
-            print chr(c),
-        print ""
+    #values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]
+    values = [.01,.05,.1,10,400]
+    bname = "LASER-M2"
+    step=0
+    for value_in in values:
+        print "% 8.2f" %(value_in),": ",
+        val=EGV.make_speed(value_in,board_name=bname,Raster_step=step)
+        txt=""
+        for c in val:
+            txt=txt+chr(c)
+        print txt
+        
        #     for c in val2:
        #         print chr(c),
     #print ""
 
-    for i in range(255):
-        cde=": "
-        for c in EGV.make_distance(i):
-            cde=cde+chr(c)
-        print i,cde
+    #for i in range(255):
+    #    cde=": "
+    #    for c in EGV.make_distance(i):
+    #        cde=cde+chr(c)
+    #    print i,cde
     print("DONE")
