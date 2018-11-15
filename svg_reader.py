@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # standard library
 import math
 import tempfile, os, sys, shutil
-from subprocess import Popen, PIPE
+
 import zipfile
 import re
 # local library
@@ -40,21 +40,28 @@ except:
     print("localize failed")
     pass
 
-## Subprocess timout stuff ######
+#### Subprocess timout stuff ######
+from subprocess import Popen, PIPE
 from threading import Timer
 def run_external(cmd, timeout_sec):
-  proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
-  kill_proc = lambda p: kill_sub_process(p,timeout_sec)
-  timer = Timer(timeout_sec, kill_proc, [proc])
-  try:
-    timer.start()
-    stdout,stderr = proc.communicate()
-  finally:
-    timer.cancel()
-
-def kill_sub_process(p,timeout_sec):
-    p.kill()                  
-    raise StandardError("Inkscape sub-process timed out after %d seconds." %(timeout_sec))
+    FLAG=[True]
+    try:
+        proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    except Exception as e:
+        raise Exception("\n%s\n\nExecutable Path:\n%s" %(e,cmd[0]))
+    kill_proc = lambda p: kill_sub_process(p,timeout_sec, FLAG)
+    timer = Timer(timeout_sec, kill_proc, [proc])
+    try:
+        timer.start()
+        stdout,stderr = proc.communicate()
+    finally:
+        timer.cancel()
+    if not FLAG[0]:
+        raise Exception("\nInkscape sub-process terminated after %d seconds." %(timeout_sec))
+        
+def kill_sub_process(p,timeout_sec, FLAG):
+    FLAG[0]=False
+    p.kill()
 
 ##################################
 class SVG_TEXT_EXCEPTION(Exception):
@@ -235,7 +242,7 @@ class SVG_READER(inkex.Effect):
                     if (self.txt2paths==False):
                         raise SVG_TEXT_EXCEPTION(text_message_warning)
                     else:
-                        raise StandardError(text_message_fatal)
+                        raise Exception(text_message_fatal)
 
         ##############################################
         ### Handle 'style' data                    ###
@@ -268,7 +275,7 @@ class SVG_READER(inkex.Effect):
                     if (self.txt2paths==False):
                         raise SVG_TEXT_EXCEPTION(text_message_warning)
                     else:
-                        raise StandardError(text_message_fatal)
+                        raise Exception(text_message_fatal)
 
                 if i_sw != -1:
                     declarations[i_sw] = sw_prop + ':' + "0.0"
@@ -434,7 +441,8 @@ class SVG_READER(inkex.Effect):
             style = group.get('style')
             if style:
                 style = simplestyle.parseStyle(style)
-                if style.has_key('display'):
+                #if style.has_key('display'):
+                if 'display' in style:   
                     if style['display'] == 'none':
                         return
             layer = group.get(inkex.addNS('label', 'inkscape'))
@@ -515,7 +523,7 @@ class SVG_READER(inkex.Effect):
         if u:
             retunit = u.string[u.start():u.end()]
         else:
-            raise StandardError
+            raise Exception
             
         try:
             return retval * uuconv[retunit]
@@ -536,16 +544,18 @@ class SVG_READER(inkex.Effect):
                         "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
                         "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
+                Image.MAX_IMAGE_PIXELS = None
                 self.raster_PIL = Image.open(png_temp_file)
                 self.raster_PIL = self.raster_PIL.convert("L")
-            except:
-                raise StandardError("Inkscape Execution Failed (while making raster data).")
+            except Exception as e:
+                error_text = "%s" %(e)
+                raise Exception("Inkscape Execution Failed (while making raster data).\n%s" %(error_text))
         else:
-            raise StandardError("Inkscape Not found.")
+            raise Exception("Inkscape Not found.")
         try:
             shutil.rmtree(tmp_dir) 
         except:
-            raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
+            raise Exception("Temp dir failed to delete:\n%s" %(tmp_dir) )
 
 
     def convert_text2paths(self):
@@ -560,13 +570,13 @@ class SVG_READER(inkex.Effect):
                 run_external(cmd, self.timout)
                 self.document.parse(txt2path_file)
             except:
-                raise StandardError("Inkscape Execution Failed (while converting test to paths).")
+                raise Exception("Inkscape Execution Failed (while converting test to paths).")
         else:
-            raise StandardError("Inkscape Not found.")
+            raise Exception("Inkscape Not found.")
         try:
             shutil.rmtree(tmp_dir) 
         except:
-            raise StandardError("Temp dir failed to delete:\n%s" %(tmp_dir) )
+            raise Exception("Temp dir failed to delete:\n%s" %(tmp_dir) )
     
     def make_paths(self, txt2paths=False ):
         self.txt2paths = txt2paths
@@ -595,7 +605,7 @@ class SVG_READER(inkex.Effect):
             line2 = "Inkscape v0.90 or higher makes SVG files with units data.\n"
             line3 = "1.) In Inkscape (v0.90 or higher) select 'File'-'Document Properties'."
             line4 = "2.) In the 'Custom Size' region on the 'Page' tab set the 'Units' to 'mm' or 'in'."
-            raise StandardError("%s\n%s\n%s\n%s" %(line1,line2,line3,line4))
+            raise Exception("%s\n%s\n%s\n%s" %(line1,line2,line3,line4))
         
         try:
             view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
@@ -613,7 +623,7 @@ class SVG_READER(inkex.Effect):
             line4 = "and press enter. Changing the value will add the Viewbox attribute."
             line5 = "The 'Scale x:' can then be changed back to the original value."
             ##if self.inkscape_dpi==None:
-            raise StandardError("%s\n%s\n%s\n%s\n%s" %(line1,line2,line3,line4,line5))
+            raise Exception("%s\n%s\n%s\n%s\n%s" %(line1,line2,line3,line4,line5))
 
 ##            print "Using guessed dpi value of: ",self.inkscape_dpi
 ##            scale_h = 25.4/self.inkscape_dpi
@@ -625,7 +635,7 @@ class SVG_READER(inkex.Effect):
             line1 ="SVG Files with different scales in X and Y are not supported.\n"
             line2 ="In Inkscape (v0.92): 'File'-'Document Properties'"
             line3 ="on the 'Page' tab adjust 'Scale x:' in the 'Scale' section"
-            raise StandardError("%s\n%s\n%s" %(line1,line2,line3))
+            raise Exception("%s\n%s\n%s" %(line1,line2,line3))
         
         for node in self.document.getroot().xpath('//svg:g', namespaces=inkex.NSS):
             if node.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
