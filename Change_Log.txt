@@ -126,3 +126,10 @@ Version 0.21:
 - Changed default setting so that halftone/dithering is turned on.
 - Fixed bug that generated error sometimes when opening a design is canceled from the file select dialog.
 
+Version 0.22:
+- Fixed DXF import so that working with DXF files will be faster.
+- Added link to the new manual web page in the Help menu
+- Updated code to work with Python 3 (Still works with Python 2.7)
+- Number of timeouts setting not controls how many timeouts trigger a laser disconnected message at the end of engraving.
+- Added Python version information to the Help info window
+

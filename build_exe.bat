@@ -1,8 +1,8 @@
+PROMPT $g
 rem ---------------------------------------------------------------------
 rem This file executes the build command for the windows executable file.
 rem It is here because I am lazy
 rem ---------------------------------------------------------------------
-
 del *.pyc
 rmdir /S /Q dist
 rmdir /S /Q dist32

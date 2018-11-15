@@ -53,7 +53,7 @@ def parseTransform(transf,mat=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]):
         if len(args)==1:
             cx,cy=(0.0,0.0)
         else:
-            cx,cy=map(float,args[1:])
+            cx,cy=list(map(float,args[1:]))
         matrix=[[math.cos(a),-math.sin(a),cx],[math.sin(a),math.cos(a),cy]]
         matrix=composeTransform(matrix,[[1,0,-cx],[0,1,-cy]])
 #-- skewX --
@@ -131,7 +131,7 @@ def applyTransformToPath(mat,path):
 def fuseTransform(node):
     if node.get('d')==None:
         #FIXME: how do you raise errors?
-        raise AssertionError, 'can not fuse "transform" of elements that have no "d" attribute'
+        raise AssertionError('can not fuse "transform" of elements that have no "d" attribute')
     t = node.get("transform")
     if t == None:
         return

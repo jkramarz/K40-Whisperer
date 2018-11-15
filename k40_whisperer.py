@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.21'
+version = '0.22'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -36,6 +36,8 @@ import simpletransform
 import cubicsuperpath
 import cspsubdiv
 import traceback
+import struct
+
 DEBUG = False
 
 VERSION = sys.version_info[0]
@@ -55,7 +57,8 @@ else:
 
 if VERSION < 3 and sys.version_info[1] < 6:
     def next(item):
-        return item.next()
+        #return item.next()
+        return item.__next__()
     
 try:
     import psyco
@@ -230,7 +233,12 @@ class Application(Frame):
         self.master.bind("<Configure>", self.Master_Configure)
         self.master.bind('<Enter>', self.bindConfigure)
         self.master.bind('<F1>', self.KEY_F1)
+        self.master.bind('<F2>', self.KEY_F2)
+        self.master.bind('<F3>', self.KEY_F3)
+        self.master.bind('<F4>', self.KEY_F4)
         self.master.bind('<F5>', self.KEY_F5)
+        self.master.bind('<Home>', self.Home)
+        
 
         self.master.bind('<Control-Left>' , self.Move_Left)
         self.master.bind('<Control-Right>', self.Move_Right)
@@ -243,11 +251,6 @@ class Application(Frame):
         self.master.bind('<Control-h>' , self.Home)
         self.master.bind('<Control-u>' , self.Unlock)
         self.master.bind('<Escape>'    , self.Stop)
-
-        #self.master.bind('<Control-o>' , self.Raster_Eng)
-        #self.master.bind('<Control-l>' , self.Vector_Eng)
-        #self.master.bind('<Control-r>' , self.Vector_Cut)
-        #self.master.bind('<Control-g>' , self.Gcode_Cut)        
 
         self.include_Reng = BooleanVar()
         self.include_Rpth = BooleanVar()
@@ -366,7 +369,7 @@ class Application(Frame):
 
 
         self.units.set("mm")            # Options are "in" and "mm"
-        self.t_timeout.set("2000")   
+        self.t_timeout.set("200")   
         self.n_timeouts.set("30")
 
         self.HOME_DIR    = os.path.expanduser("~")
@@ -445,7 +448,7 @@ class Application(Frame):
         # Canvas
         lbframe = Frame( self.master )
         self.PreviewCanvas_frame = lbframe
-        self.PreviewCanvas = Canvas(lbframe, width=self.w-(220+20), height=self.h-200, background="grey")
+        self.PreviewCanvas = Canvas(lbframe, width=self.w-(220+20), height=self.h-200, background="grey75")
         self.PreviewCanvas.pack(side=LEFT, fill=BOTH, expand=1)
         self.PreviewCanvas_frame.place(x=230, y=10)
 
@@ -676,7 +679,8 @@ class Application(Frame):
         
         top_Help = Menu(self.menuBar, tearoff=0)
         top_Help.add("command", label = "About (e-mail)", command = self.menu_Help_About)
-        top_Help.add("command", label = "Web Page", command = self.menu_Help_Web)
+        top_Help.add("command", label = "K40 Whisperer Web Page", command = self.menu_Help_Web)
+        top_Help.add("command", label = "Manual (Web Page)", command = self.menu_Help_Manual)
         self.menuBar.add("cascade", label="Help", menu=top_Help)
 
         self.master.config(menu=self.menuBar)
@@ -1312,7 +1316,7 @@ class Application(Frame):
     ##########################################################################
     ##########################################################################
     def Check_All_Variables(self):
-        pass
+        return 0
 ##        MAIN_error_cnt= \
 ##        self.entry_set(self.Entry_Yscale, self.Entry_Yscale_Check()    ,2) +\
 ##        self.entry_set(self.Entry_Toptol, self.Entry_Toptol_Check()    ,2) 
@@ -1567,9 +1571,11 @@ class Application(Frame):
         try:
             self.send_egv_data(EGV_data,n_passes)
         except MemoryError as e:
-            raise StandardError("Memory Error:  Out of Memory.")
+            #raise StandardError("Memory Error:  Out of Memory.")
+            raise Exception("Memory Error:  Out of Memory.")
             debug_message(traceback.format_exc())
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "Sending Data Stopped: "
             msg2 = "%s" %(e)
             if msg2 == "":
@@ -1605,7 +1611,8 @@ class Application(Frame):
                 svg_reader.parse(self.SVG_FILE)
                 svg_reader.make_paths(txt2paths=True)
                 
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "SVG file load failed: "
             msg2 = "%s" %(e)
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
@@ -1749,7 +1756,8 @@ class Application(Frame):
                         self.statusMessage.set("Raster Engraving: Creating Scan Lines: %.1f %%" %( (100.0*i)/him ) )
                         self.master.update()
                     if self.stop[0]==True:
-                        raise StandardError("Action stopped by User.")
+                        #raise StandardError("Action stopped by User.")
+                        raise Exception("Action stopped by User.")
                     line = []
                     cnt=1
                     for j in range(1,wim):
@@ -1764,7 +1772,8 @@ class Application(Frame):
                     
                     y=(him-i)/1000.0
                     x=0
-                    rng = range(0,len(line),1)
+                    #rng = range(0,len(line),1)
+                    rng = list(range(0,len(line),1))
                         
                     for i in rng:
                         seg = line[i]
@@ -1860,7 +1869,8 @@ class Application(Frame):
                 for line in MSG:
                     Error_Text = Error_Text + line + "\n"
                     message_box("G-Code Messages", Error_Text)
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "G-Code Load Failed:  "
             msg2 = "Filename: %s" %(filename)
             msg3 = "%s" %(e)
@@ -1880,12 +1890,42 @@ class Application(Frame):
         
         self.DXF_FILE = filemname
         dxf_import=DXF_CLASS()
-        segarc = 2
+        tolerance = .0005
         try:
             fd = open(self.DXF_FILE)
-            dxf_import.GET_DXF_DATA(fd,tol_deg=segarc)
+            dxf_import.GET_DXF_DATA(fd,lin_tol = tolerance,get_units=True,units=None)
+            fd.seek(0)
+            
+            dxf_units = dxf_import.units
+            if dxf_units=="Unitless":
+                d = UnitsDialog(root)
+                dxf_units = d.result
+            if dxf_units=="Inches":
+                dxf_scale = 1.0
+            elif dxf_units=="Feet":
+                dxf_scale = 12.0
+            elif dxf_units=="Miles":
+                dxf_scale = 5280.0*12.0
+            elif dxf_units=="Millimeters":
+                dxf_scale = 1.0/25.4
+            elif dxf_units=="Centimeters":
+                dxf_scale = 1.0/2.54
+            elif dxf_units=="Meters":
+                dxf_scale = 1.0/254.0
+            elif dxf_units=="Kilometers":
+                dxf_scale = 1.0/254000.0
+            elif dxf_units=="Microinches":
+                dxf_scale = 1.0/1000000.0
+            elif dxf_units=="Mils":
+                dxf_scale = 1.0/1000.0
+            else:
+                return    
+
+            lin_tol = tolerance / dxf_scale
+            dxf_import.GET_DXF_DATA(fd,lin_tol=lin_tol,get_units=False,units=None)
             fd.close()
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "DXF Load Failed:"
             msg2 = "%s" %(e)
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
@@ -1901,7 +1941,7 @@ class Application(Frame):
         dxf_engrave_coords = dxf_import.DXF_COORDS_GET_TYPE(engrave=True, new_origin=False)
         dxf_cut_coords     = dxf_import.DXF_COORDS_GET_TYPE(engrave=False,new_origin=False)
         
-        dxf_units = dxf_import.units
+        
         if dxf_import.dxf_messages != "":
             msg_split=dxf_import.dxf_messages.split("\n")
             msg_split.sort()
@@ -1917,32 +1957,7 @@ class Application(Frame):
                         msg_out = msg_out + msg_line
                     mcnt=1
             message_box("DXF Import:",msg_out)
-            
-        if dxf_units=="Unitless":
-            d = UnitsDialog(root)
-            dxf_units = d.result
-
-        if dxf_units=="Inches":
-            dxf_scale = 1.0
-        elif dxf_units=="Feet":
-            dxf_scale = 12.0
-        elif dxf_units=="Miles":
-            dxf_scale = 5280.0*12.0
-        elif dxf_units=="Millimeters":
-            dxf_scale = 1.0/25.4
-        elif dxf_units=="Centimeters":
-            dxf_scale = 1.0/2.54
-        elif dxf_units=="Meters":
-            dxf_scale = 1.0/254.0
-        elif dxf_units=="Kilometers":
-            dxf_scale = 1.0/254000.0
-        elif dxf_units=="Microinches":
-            dxf_scale = 1.0/1000000.0
-        elif dxf_units=="Mils":
-            dxf_scale = 1.0/1000.0
-        else:
-            return
-        
+                    
         ##########################
         ###   Create ECOORDS   ###
         ##########################
@@ -2266,7 +2281,8 @@ class Application(Frame):
                 return True
             else:
                 return True
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "Rapid Move Failed: "
             msg2 = "%s" %(e)
             if msg2 == "":
@@ -2339,7 +2355,8 @@ class Application(Frame):
             else:
                 self.statusbar.configure( bg = 'yellow' )
                 self.statusMessage.set("No raster data to engrave")
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "Making Raster Data Stopped: "
             msg2 = "%s" %(e)
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
@@ -2521,7 +2538,7 @@ class Application(Frame):
             self.remove_self_references(lns,self.LoopTree[i])
 
         self.order=[]
-        self.loops = range(Nloops)
+        self.loops = list(range(Nloops))
         for i in range(Nloops):
             if self.LoopTree[i]!=[]:
                 self.addlist(self.LoopTree[i])
@@ -2742,10 +2759,12 @@ class Application(Frame):
                 self.menu_View_Refresh()
                 
         except MemoryError as e:
-            raise StandardError("Memory Error:  Out of Memory.")
+            #raise StandardError("Memory Error:  Out of Memory.")
+            raise Exception("Memory Error:  Out of Memory.")
             debug_message(traceback.format_exc())
         
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             msg1 = "Sending Data Stopped: "
             msg2 = "%s" %(e)
             if msg2 == "":
@@ -2764,7 +2783,7 @@ class Application(Frame):
                 time_start = time()
             self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC, wait_for_laser=True)
             if DEBUG:
-                print("Elapsed Time: %.2f" %(time()-time_start))
+                print(("Elapsed Time: %.2f" %(time()-time_start)))
         else:
             self.statusMessage.set("Laser is not initialized.")
             self.statusbar.configure( bg = 'yellow' )
@@ -2775,11 +2794,13 @@ class Application(Frame):
     ##########################################################################
     def write_egv_to_file(self,data,fname):
         if len(data) == 0:
-            raise StandardError("No data available to write to file.")
+            #raise StandardError("No data available to write to file.")
+            raise Exception("No data available to write to file.")
         try:
             fout = open(fname,'w')
         except:
-            raise StandardError("Unable to open file ( %s ) for writing." %(fname))
+            #raise StandardError("Unable to open file ( %s ) for writing." %(fname))
+            raise Exception("Unable to open file ( %s ) for writing." %(fname))
         fout.write("Document type : LHYMICRO-GL file\n")
         fout.write("Creator-Software: K40 Whisperer\n")
         
@@ -2856,7 +2877,8 @@ class Application(Frame):
             else:
                 self.Unlock()
             
-        except StandardError as e:
+        #except StandardError as e:
+        except Exception as e:
             error_text = "%s" %(e)
             if "BACKEND" in error_text.upper():
                 error_text = error_text + " (libUSB driver not installed)"
@@ -2962,17 +2984,36 @@ class Application(Frame):
         pass
 
     def menu_Help_About(self):
+        
         about = "K40 Whisperer by Scorch.\n"
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
-        about = about + "http://www.scorchworks.com/"
+        about = about + "http://www.scorchworks.com/\n\n"
+        try:
+            version = "%d.%d.%d" %(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
+        except:
+            version = ""
+        about = about + "Python "+version+" (%d bit)" %(struct.calcsize("P") * 8)
         message_box("About k40_whisperer",about)
 
     def menu_Help_Web(self):
         webbrowser.open_new(r"http://www.scorchworks.com/K40whisperer/k40whisperer.html")
 
+    def menu_Help_Manual(self):
+        webbrowser.open_new(r"http://www.scorchworks.com/K40whisperer/k40w_manual.html")
+
     def KEY_F1(self, event):
         self.menu_Help_About()
+
+    def KEY_F2(self, event):
+        self.GEN_Settings_Window()
+
+    def KEY_F3(self, event):
+        self.RASTER_Settings_Window()
+
+    def KEY_F4(self, event):
+        self.advanced.set(not self.advanced.get())
+        self.menu_View_Refresh()
 
     def KEY_F5(self, event):
         self.menu_View_Refresh()
@@ -3512,7 +3553,8 @@ class Application(Frame):
     ################################################################################
     def GEN_Settings_Window(self):
         gen_settings = Toplevel(width=560, height=460)
-        gen_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
+        gen_settings.grab_set() # Use grab_set to prevent user input in the main window
+        gen_settings.focus_set()
         gen_settings.resizable(0,0)
         gen_settings.title('Settings')
         gen_settings.iconname("Settings")
@@ -3677,7 +3719,8 @@ class Application(Frame):
         Wset=425+280
         Hset=330 #260
         raster_settings = Toplevel(width=Wset, height=Hset)
-        raster_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
+        raster_settings.grab_set() # Use grab_set to prevent user input in the main window
+        raster_settings.focus_set()
         raster_settings.resizable(0,0)
         raster_settings.title('Raster Settings')
         raster_settings.iconname("Raster Settings")
@@ -3784,7 +3827,7 @@ class Application(Frame):
         self.Bezier_frame.place(x=Wset-280, y=10, height=265, width=265)
         self.BezierCanvas = Canvas(self.Bezier_frame, background="white")
         self.BezierCanvas.pack(side=LEFT, fill=BOTH, expand=1)
-        self.BezierCanvas.create_line( 5,260-0,260,260-255,fill="grey", capstyle="round", width = 2, tags='perm')
+        self.BezierCanvas.create_line( 5,260-0,260,260-255,fill="grey75", capstyle="round", width = 2, tags='perm')
 
 
         M1 = self.bezier_M1_default
@@ -3793,7 +3836,7 @@ class Application(Frame):
         num = 10
         x,y = self.generate_bezier(M1,M2,w,n=num)
         for i in range(0,num):
-            self.BezierCanvas.create_line( 5+x[i],260-y[i],5+x[i+1],260-y[i+1],fill="lightgrey", stipple='gray25',\
+            self.BezierCanvas.create_line( 5+x[i],260-y[i],5+x[i+1],260-y[i+1],fill="grey85", stipple='gray25',\
                                            capstyle="round", width = 2, tags='perm')
         
 
@@ -3941,7 +3984,11 @@ def debug_message(message):
 ################################################################################
 #                         Choose Units Dialog                                  #
 ################################################################################
-import tkSimpleDialog
+if VERSION < 3:
+    import tkSimpleDialog
+else:
+    import tkinter.simpledialog as tkSimpleDialog
+
 class UnitsDialog(tkSimpleDialog.Dialog):
     def body(self, master):
         self.resizable(0,0)

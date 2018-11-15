@@ -2065,7 +2065,7 @@ if __name__ == "__main__":
     g_rip = G_Code_Rip()
     filename="Z:\\text.ngc"
     MSG = g_rip.Read_G_Code(filename, XYarc2line = True, arc_angle=2, units="in", Accuracy="")
-    print MSG
+    print(MSG)
     ecoords = g_rip.generate_laser_paths(g_rip.g_code_data)
     for line in ecoords:
-        print line
+        print(line)
