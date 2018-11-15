@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.22'
+version = '0.23'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -1940,7 +1940,12 @@ class Application(Frame):
         new_origin=False
         dxf_engrave_coords = dxf_import.DXF_COORDS_GET_TYPE(engrave=True, new_origin=False)
         dxf_cut_coords     = dxf_import.DXF_COORDS_GET_TYPE(engrave=False,new_origin=False)
-        
+##        if DEBUG:
+##            dxf_code = dxf_import.WriteDXF(close_loops=False)
+##            fout = open('Z:\\out.dxf','w')
+##            for line in dxf_code:
+##                fout.write(line+'\n')
+##            fout.close
         
         if dxf_import.dxf_messages != "":
             msg_split=dxf_import.dxf_messages.split("\n")

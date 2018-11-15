@@ -133,3 +133,6 @@ Version 0.22:
 - Number of timeouts setting not controls how many timeouts trigger a laser disconnected message at the end of engraving.
 - Added Python version information to the Help info window
 
+Version 0.23:
+- Fixed DXF import for a specific subset of DXF files that use multiple layers designations for a single feature (array commands?).
+
