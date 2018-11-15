@@ -594,7 +594,8 @@ class egv:
                             Raster_step=0,
                             update_gui=None,
                             stop_calc=None,
-                            FlipXoffset=0):
+                            FlipXoffset=0,
+                            Slow_Rapids=False):
 
         ########################################################
         if stop_calc == None:
@@ -626,8 +627,9 @@ class egv:
             self.write(code)
         
         if Raster_step==0:
-            lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)  
-            self.make_dir_dist(lastx-startX,lasty-startY)
+            lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)
+            if not Slow_Rapids:
+                self.make_dir_dist(lastx-startX,lasty-startY)
             self.flush(laser_on=False)
             self.write(ord("N"))
             self.write(ord("R"))
@@ -638,7 +640,10 @@ class egv:
             self.write(ord("E"))
             ###########################################################
             laser   = False
-        
+            
+            if Slow_Rapids:
+                self.rapid_move_slow(lastx-startX,lasty-startY)
+            
             for i in range(1,len(ecoords_in)):
                 e0,e1,e2                = self.ecoord_adj(ecoords_in[i]  ,scale,FlipXoffset)
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
@@ -678,7 +683,7 @@ class egv:
                 
             dx = startX-lastx
             dy = startY-lasty
-            if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
+            if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)) or Slow_Rapids:
                 self.rapid_move_slow(dx,dy)
             else:
                 self.rapid_move_fast(dx,dy)

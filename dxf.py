@@ -51,24 +51,10 @@ class NURBSClass:
                                   Knots=self.Knots,\
                                   CPts=self.HCPts)
 
-    #Calculate a number of evenly distributed points
-    def calc_curve_old(self,n=0, cpts_nr=20):
-        #Initial values for step and u
-        u=0; Points=[]
-        step=self.Knots[-1]/(cpts_nr-1)
-        while u<=self.Knots[-1]:
-            Pt=self.NURBS_evaluate(n=n,u=u)
-            Points.append(Pt)
-            u+=step
-        return Points
-
-
     #Calculate a number points using error limiting
-    def calc_curve(self,n=0, tol_deg=5):
+    def calc_curve(self,n=0, lin_tol=.001):
         #Initial values for step and u
         u=0; Points=[]
-
-        tol = radians(tol_deg)
         i=1
         while self.Knots[i]==0:
             i=i+1
@@ -90,28 +76,8 @@ class NURBSClass:
             DXtest = Pt_test.x-(Pt1.x+Pt2.x)/2.0
             DYtest = Pt_test.y-(Pt1.y+Pt2.y)/2.0
             t = sqrt(DXtest*DXtest + DYtest*DYtest)
-            if (abs(t) > Zero):
-                R = (cord*cord/4.0 + t*t)/(2.0*t)
-            else:
-                R = 0.0
 
-            dx1 = (Pt_test.x - Pt1.x)
-            dy1 = (Pt_test.y - Pt1.y)
-            L1 = sqrt(dx1*dx1 + dy1*dy1)
-
-            dx2 = (Pt2.x - Pt_test.x)
-            dy2 = (Pt2.y - Pt_test.y)
-            L2 = sqrt(dx2*dx2 + dy2*dy2)
-
-            if L1 > Zero and L2 > Zero and R > Zero:
-                sin_ratio = (cord/2)/R
-                if abs(sin_ratio) > 1.0:
-                    sin_ratio = round(sin_ratio,0)
-                angle = 2 * asin(sin_ratio)
-            else:
-                angle=0.0
-
-            if angle > tol:
+            if t > lin_tol:
                 step = step/2
             else:
                 u+=step
@@ -519,7 +485,7 @@ class DXF_CLASS:
         newy = x * sin(angle) + y * cos(angle)
         return newx,newy
 
-    def bulge_coords(self,x0,y0,x1,y1,bulge,tol_deg=5):
+    def bulge_coords(self,x0,y0,x1,y1,bulge,lin_tol=.001):
         global Zero
         bcoords=[]
         if bulge < 0.0:
@@ -534,7 +500,12 @@ class DXF_CLASS:
         alpha   = 2.0 * (atan(bulge))
         R       = c / (2*sin(alpha))
         L       = R * cos(alpha)
-        steps   = ceil(2*alpha / radians(tol_deg))
+
+        if (lin_tol < R):
+            step_deg = 2*acos((R-lin_tol)/R)*180/pi
+        else:
+            step_deg = 45
+        steps   = ceil(2*alpha / radians(step_deg))
 
         if abs(c) < Zero:
             phi = 0
@@ -624,7 +595,7 @@ class DXF_CLASS:
             
         self.coords.append([x0,y0,x1,y1])
 
-    def eval_entity(self,e,bl,tol_deg=5,offset=[0,0],scale=[1,1],rotate=0):
+    def eval_entity(self,e,bl,lin_tol=.001,offset=[0,0],scale=[1,1],rotate=0):
         try:
             color = e.data["62"]
         except:
@@ -661,7 +632,12 @@ class DXF_CLASS:
             if end < start:
                 end=end+360.0
             delta  = end-start
-            angle_steps = max(floor(delta/tol_deg),2)
+
+            if (lin_tol < r):
+                step_deg = 2*acos((r-lin_tol)/r)*180/pi
+            else:
+                step_deg = 45
+            angle_steps = max(floor(delta/step_deg),2)
 
             start_r = radians(start)
             end_r   = radians(end)
@@ -705,7 +681,7 @@ class DXF_CLASS:
                     flag=1
                 else:
                     if bulge0 != 0:
-                        bcoords = self.bulge_coords(x0,y0,x1,y1,bulge0,tol_deg)
+                        bcoords = self.bulge_coords(x0,y0,x1,y1,bulge0,lin_tol=lin_tol)
                         for line in bcoords:
                             self.add_coords(line,offset,scale,rotate,color,layer)
                     else:
@@ -718,7 +694,7 @@ class DXF_CLASS:
                 x1 = e.data["10"][0]
                 y1 = e.data["20"][0]
                 if bulge0 != 0:
-                    bcoords = self.bulge_coords(x0,y0,x1,y1,bulge1,tol_deg)
+                    bcoords = self.bulge_coords(x0,y0,x1,y1,bulge1,lin_tol=lin_tol)
                     for line in bcoords:
                         self.add_coords(line,offset,scale,rotate,color,layer)
                 else:
@@ -734,7 +710,12 @@ class DXF_CLASS:
             if end < start:
                 end=end+360.0
             delta  = end-start
-            angle_steps = max(floor(delta)/tol_deg,2)
+
+            if (lin_tol < r):
+                step_deg = 2*acos((r-lin_tol)/r)*180/pi
+            else:
+                step_deg = 45
+            angle_steps = max(floor(delta/step_deg),2)
 
             start_r = radians( start )
             end_r   = radians( end )
@@ -789,8 +770,8 @@ class DXF_CLASS:
                                          Knots=self.Knots,  \
                                        Weights=self.Weights,\
                                        CPoints=self.CPoints)
-
-                mypoints=self.MYNURBS.calc_curve(n=0, tol_deg=tol_deg)
+                
+                mypoints=self.MYNURBS.calc_curve(n=0, lin_tol=lin_tol)
                 flag = 0
                 for XY in mypoints:
                     x1 = XY.x
@@ -834,8 +815,7 @@ class DXF_CLASS:
             start_r = radians( start )
             end_r   = radians( end )
 
-            tol = radians( tol_deg )
-
+            tol = radians(2)
             phi = start_r
             x1 = xcp + ( a*cos(phi) * cos(rotation) - b*sin(phi) * sin(rotation) );
             y1 = ycp + ( a*cos(phi) * sin(rotation) + b*sin(phi) * cos(rotation) );
@@ -850,20 +830,13 @@ class DXF_CLASS:
                 x_test = xcp + ( a*cos(phi+step/2) * cos(rotation) - b*sin(phi+step/2) * sin(rotation) );
                 y_test = ycp + ( a*cos(phi+step/2) * sin(rotation) + b*sin(phi+step/2) * cos(rotation) );
 
-                dx1 = (x_test - x1)
-                dy1 = (y_test - y1)
-                L1 = sqrt(dx1*dx1 + dy1*dy1)
-
-                dx2 = (x2 - x_test)
-                dy2 = (y2 - y_test)
-                L2 = sqrt(dx2*dx2 + dy2*dy2)
-
-                try:
-                    angle=acos( dx1/L1 * dx2/L2 + dy1/L1 * dy2/L2)
-                except:
-                    angle = 0
-                    
-                if angle > tol:
+                x_mid = (x1+x2)/2
+                y_mid = (y1+y2)/2
+                dx_mid = x_mid-x_test
+                dy_mid = y_mid-y_test
+                delta = sqrt(dx_mid*dx_mid + dy_mid*dy_mid)
+                
+                if delta > lin_tol:
                     step = step/2
                 else:
                     phi+=step
@@ -871,45 +844,6 @@ class DXF_CLASS:
                     step = step*2
                     x1=x2
                     y1=y2
-        ########### ELLIPSE ###########
-        elif e.type == "OLD_ELLIPSE":
-            #X and Y center points
-            xcp = e.data["10"]
-            ycp = e.data["20"]
-            #X and Y of major axis end point
-            xma = e.data["11"]
-            yma = e.data["21"]
-            #Ratio of minor axis to major axis
-            ratio = e.data["40"]
-            #Start and end angles (in radians 0 and 2pi for full ellipse)
-            start = degrees( e.data["41"] )
-            end   = degrees( e.data["42"] )
-
-            rotation = atan2(yma, xma)
-            a = sqrt(xma**2 + yma**2)
-            b = a * ratio
-
-            ##################
-            if end < start:
-                end=end+360.0
-            delta  = end-start
-            angle_steps = max(floor(delta/tol_deg),2)
-
-            start_r = radians( start )
-            end_r   = radians( end )
-
-            step_phi = radians( delta/angle_steps )
-            x0 = xcp + ( a*cos(start_r) * cos(rotation) - b*sin(start_r) * sin(rotation) );
-            y0 = ycp + ( a*cos(start_r) * sin(rotation) + b*sin(start_r) * cos(rotation) );
-            pcnt = 1
-            while pcnt < angle_steps+1:
-                phi = start_r + pcnt*step_phi
-                x1 = xcp + ( a*cos(phi) * cos(rotation) - b*sin(phi) * sin(rotation) );
-                y1 = ycp + ( a*cos(phi) * sin(rotation) + b*sin(phi) * cos(rotation) );
-                self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
-                x0=x1
-                y0=y1
-                pcnt += 1
 
         ########### LEADER ###########
         elif e.type == "LEADER":
@@ -986,7 +920,7 @@ class DXF_CLASS:
                     y1 = self.PY0
 
                     if self.bulge != 0:
-                        bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,tol_deg)
+                        bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,lin_tol=lin_tol)
                         for line in bcoords:
                             self.add_coords(line,offset,scale,rotate,color,layer)
                     else:
@@ -1044,7 +978,7 @@ class DXF_CLASS:
                 self.PY=y1
 
                 if self.bulge != 0:
-                    bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,tol_deg)
+                    bcoords = self.bulge_coords(x0,y0,x1,y1,self.bulge,lin_tol=lin_tol)
                     for line in bcoords:
                         self.add_coords(line,offset,scale,rotate,color,layer)
                 else:
@@ -1099,7 +1033,7 @@ class DXF_CLASS:
             yoff = yoff - y_block_ref
             
             for e in bl.blocks[key].entities:
-                self.eval_entity(e,bl,tol_deg,offset=[xoff,yoff],scale=[xscale,yscale],rotate=rotate)
+                self.eval_entity(e,bl,lin_tol,offset=[xoff,yoff],scale=[xscale,yscale],rotate=rotate)
 
         ########### END INSERT ###########
 
@@ -1129,8 +1063,7 @@ class DXF_CLASS:
             pass
 
 
-
-    def GET_DXF_DATA(self,fd, tol_deg=5):
+    def GET_DXF_DATA(self,fd, lin_tol=.001,get_units=False,units=None):
         data = []
         try:
             self.read_dxf_data(fd, data)
@@ -1227,6 +1160,9 @@ class DXF_CLASS:
         except:
             self.units = self.unit_vals[0]
 
+        if get_units:
+            return
+        
         #Process Layers
         for l in la.layers:
             try:
@@ -1241,7 +1177,7 @@ class DXF_CLASS:
 
         #Process Entities
         for e in en.entities:
-            self.eval_entity(e,bl,tol_deg)
+            self.eval_entity(e,bl,lin_tol)
 
 
     def DXF_COORDS_GET(self,new_origin=True):

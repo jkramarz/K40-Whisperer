@@ -57,7 +57,7 @@ class K40_CLASS:
 
     def say_hello(self):
         cnt=0
-        status_timeouts = 20
+        status_timeouts = self.n_timeouts
         while cnt < status_timeouts:
             cnt=cnt+1
             try:
