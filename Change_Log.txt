@@ -136,3 +136,9 @@ Version 0.22:
 Version 0.23:
 - Fixed DXF import for a specific subset of DXF files that use multiple layers designations for a single feature (array commands?).
 
+Version 0.24:
+- Fixed handling of large laser area files.  Previous version would fail to generate raster data for large areas.
+- Fixed compatibility with Python 3.7
+- Added better error reporting when raster data fails to be produced by Inkscape
+
+
