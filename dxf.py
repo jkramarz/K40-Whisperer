@@ -565,12 +565,23 @@ class DXF_CLASS:
         return bcoords
 
     def add_coords(self,line,offset,scale,rotate,color=None,layer=None):
-
+        slcolor = 0
+        if layer in self.layer_color:
+            slcolor = self.layer_color[layer]
+        # Now test for Hidden layer IE Color < 0
+        if ( slcolor != None) and (slcolor < 0):
+            return
         if color == None:
-            if layer in self.layer_color:
-                color = self.layer_color[layer]
-            else:
-                color = 0
+            # default to layer color
+            color = slcolor
+        if ( color != None) and (color < 0):
+            return
+        
+        #if color == None:
+        #    if layer in self.layer_color:
+        #        color = self.layer_color[layer]
+        #    else:
+        #        color = 0
 
         x0s = line[0]*scale[0]
         y0s = line[1]*scale[1]
@@ -618,11 +629,20 @@ class DXF_CLASS:
             color = e.data["62"]
         except:
             color = None
+        if ( color != None) and (color < 0):
+            return
         try:
             layer = e.data["8"]
         except:
             layer = 0
 
+        slcolor = 0
+        if layer in self.layer_color:
+            slcolor = self.layer_color[layer]
+        # Now test for Hidden layer IE Color < 0
+        if ( slcolor != None) and (slcolor < 0):
+            return
+        
         ############# LINE ############
         if e.type == "LINE":
             x0 = e.data["10"]
@@ -919,20 +939,45 @@ class DXF_CLASS:
             self.POLY_FLAG   = -1
             try:
                 TYPE=e.data["70"]
-                if (TYPE==0 or TYPE==8):
-                    pass
-                elif (TYPE==1):
+                #print "TYPE=",TYPE
+                #if (TYPE==0 or TYPE==8):
+                #    pass
+                #elif (TYPE==1):
+                #    self.POLY_CLOSED=1
+
+                if TYPE >=128:
+                    #print "#128 = The linetype pattern is generated continuously around the vertices of this polyline."
+                    TYPE=TYPE-128
+                if TYPE >=64:
+                    #print "#64 = The polyline is a polyface mesh."
+                    TYPE=TYPE-64
+                if TYPE >=32:
+                    #print "#32 = The polygon mesh is closed in the N direction."
+                    TYPE=TYPE-32
+                if TYPE >=16:
+                    #print "#16 = This is a 3D polygon mesh."
+                    TYPE=TYPE-16
+                if TYPE >=8:
+                    #print "#8 = This is a 3D polyline."
+                    TYPE=TYPE-8
+                if TYPE >=4:
+                    #print "#4 = Spline-fit vertices have been added."
+                    TYPE=TYPE-4
+                if TYPE >=2:
+                    #print "#2 = Curve-fit vertices have been added."
+                    TYPE=TYPE-2
+                if TYPE >=1:
+                    #print "#1 = This is a closed polyline (or a polygon mesh closed in the M direction)."
                     self.POLY_CLOSED=1
-                #else:
-                #    self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
-                #    self.POLY_FLAG = -1
+                    TYPE=TYPE-1
             except:
                 pass
 
+
         ########### SEQEND ###########
         elif e.type == "SEQEND":
-            if (self.POLY_FLAG != 0):
-                self.POLY_FLAG=0
+            if (self.POLY_FLAG == 1): # None):
+                self.POLY_FLAG=None
                 if (self.POLY_CLOSED==1):
                     self.POLY_CLOSED==0
                     x0 = self.PX
@@ -952,19 +997,45 @@ class DXF_CLASS:
 
         ########### VERTEX ###########
         elif e.type == "VERTEX":
+            SKIP=False
 
-            if (self.POLY_FLAG==-1):
-                self.PX  = e.data["10"]
-                self.PY  = e.data["20"]
-                self.PX0 = self.PX
-                self.PY0 = self.PY
-                try:
-                    self.bulge = e.data["42"]
-                except:
-                    self.bulge = 0
+            try:
+                TYPE=e.data["70"]
+                #print "TYPE=",TYPE
+                #if (TYPE==0 or TYPE==8):
+                #    pass
+                #elif (TYPE==1):
+                #    self.POLY_CLOSED=1
 
-                self.POLY_FLAG = 1
-            elif (self.POLY_FLAG == 1):
+                if TYPE >=128:
+                    #print "128 = Polyface mesh vertex"
+                    TYPE=TYPE-128
+                if TYPE >=64:
+                    #print "64 = 3D polygon mesh"
+                    TYPE=TYPE-64
+                if TYPE >=32:
+                    #print "32 = 3D polyline vertex"
+                    TYPE=TYPE-32
+                if TYPE >=16:
+                    #print "16 = Spline frame control point"
+                    TYPE=TYPE-16
+                    SKIP=True
+                if TYPE >=8:
+                    #print "8 = Spline vertex created by spline-fitting"
+                    TYPE=TYPE-8
+                if TYPE >=4:
+                    #print "4 = Not used"
+                    TYPE=TYPE-4
+                if TYPE >=2:
+                    #print "2 = Curve-fit tangent defined for this vertex. A curve-fit tangent direction of 0 may be omitted from DXF output but is significant if this bit is set."
+                    TYPE=TYPE-2
+                if TYPE >=1:
+                    #print "1 = Extra vertex created by curve-fitting"
+                    TYPE=TYPE-1
+            except:
+                pass
+            
+            if (self.POLY_FLAG == 1 and not SKIP):
                 x0 = self.PX
                 y0 = self.PY
                 x1 = e.data["10"]
@@ -978,14 +1049,25 @@ class DXF_CLASS:
                         self.add_coords(line,offset,scale,rotate,color,layer)
                 else:
                     self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
-
                 try:
                     self.bulge = e.data["42"]
                 except:
                     self.bulge = 0
+                    
+            elif (self.POLY_FLAG == -1 and not SKIP):
+                self.PX  = e.data["10"]
+                self.PY  = e.data["20"]
+                self.PX0 = self.PX
+                self.PY0 = self.PY
+                try:
+                    self.bulge = e.data["42"]
+                except:
+                    self.bulge = 0
+                self.POLY_FLAG = 1
+                
             else:
                 self.dxf_message("DXF Import Ignored: - %s - Entity" %(e.type))
-                pass
+                
         ########### END VERTEX ###########
         ########### INSERT ###########
         elif e.type == "INSERT":
@@ -1121,17 +1203,18 @@ class DXF_CLASS:
                     elif value == "TABLE":
                         while True:
                             g_code, value = next(data)
-                            if value == "AcDbLayerTableRecord":
+                            if value == "AcDbLayerTableRecord" or value == "LAYER":
                                 la.new_layer()
                                 while True:
                                     g_code, value = next(data)
                                     if g_code==0:
-                                        break
+                                        if value == "AcDbLayerTableRecord" or value == "LAYER":
+                                            la.new_layer()
+                                        else:
+                                            break
                                     la.update((g_code, value))
                             if value == "ENDTAB":
                                 break
-                    #------------------------------------------------------------------
-                                
                     try:
                         g_code, value = next(data)
                     except:
