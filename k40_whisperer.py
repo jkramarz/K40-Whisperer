@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.20'
+version = '0.21'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -322,7 +322,7 @@ class Application(Frame):
         self.include_Time.set(0)
         self.advanced.set(0)
         
-        self.halftone.set(0)
+        self.halftone.set(1)
         self.mirror.set(0)
         self.rotate.set(0)
         self.inputCSYS.set(0)
@@ -1434,10 +1434,10 @@ class Application(Frame):
                                             ("All Files","*"),\
                                             ("Design Files ", ("*.svg","*.dxf"))],\
                                             initialdir=init_dir)
-        
-        if ( not os.path.isfile(fileselect) ):
+
+        if fileselect == () or (not os.path.isfile(fileselect)):
             return
-                
+            
         Name, fileExtension = os.path.splitext(fileselect)
         self.update_gui("Opening '%s'" % fileselect )
         TYPE=fileExtension.upper()
@@ -2764,7 +2764,7 @@ class Application(Frame):
                 time_start = time()
             self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC, wait_for_laser=True)
             if DEBUG:
-                print "Elapsed Time: %.2f" %(time()-time_start)
+                print("Elapsed Time: %.2f" %(time()-time_start))
         else:
             self.statusMessage.set("Laser is not initialized.")
             self.statusbar.configure( bg = 'yellow' )

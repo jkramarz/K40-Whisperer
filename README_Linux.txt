@@ -3,7 +3,7 @@ Setting up K40whisperer on Linux (by Dr. med. Jan Schiefer):
 # Requirements
 
 Prerequirements:
-* python 2.7.x
+* python 2.7.x (python versions 3.x.x and higher will not work)
 * unzip
 * udev
 * inkscape
