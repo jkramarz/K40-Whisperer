@@ -537,8 +537,14 @@ class DXF_CLASS:
 
     def add_coords(self,line,offset,scale,rotate,color=None,layer=None):
         slcolor = 0
-        if layer in self.layer_color:
-            slcolor = self.layer_color[layer]
+        if len(layer)<=1:
+            if layer in self.layer_color:     
+                slcolor = self.layer_color[layer]
+        else:
+            for layer_item in layer:
+                if layer_item in self.layer_color:  
+                    slcolor = self.layer_color[layer_item]
+                    
         # Now test for Hidden layer IE Color < 0
         if ( slcolor != None) and (slcolor < 0):
             return
@@ -548,12 +554,6 @@ class DXF_CLASS:
         if ( color != None) and (color < 0):
             return
         
-        #if color == None:
-        #    if layer in self.layer_color:
-        #        color = self.layer_color[layer]
-        #    else:
-        #        color = 0
-
         x0s = line[0]*scale[0]
         y0s = line[1]*scale[1]
         x1s = line[2]*scale[0]
@@ -608,8 +608,14 @@ class DXF_CLASS:
             layer = 0
 
         slcolor = 0
-        if layer in self.layer_color:
-            slcolor = self.layer_color[layer]
+        if len(layer)<=1:
+            if layer in self.layer_color:     
+                slcolor = self.layer_color[layer]
+        else:
+            for layer_item in layer:
+                if layer_item in self.layer_color:  
+                    slcolor = self.layer_color[layer_item]
+
         # Now test for Hidden layer IE Color < 0
         if ( slcolor != None) and (slcolor < 0):
             return
