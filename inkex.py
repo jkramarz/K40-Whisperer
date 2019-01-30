@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 inkex.py
 A helper module for creating Inkscape extensions
@@ -7,7 +5,7 @@ A helper module for creating Inkscape extensions
 Copyright (C) 2005,2010 Aaron Spike <aaron@ekips.org> and contributors
 
 Contributors:
-  Aurélio A. Heckert <aurium(a)gmail.com>
+  Aurelio A. Heckert <aurium(a)gmail.com>
   Bulia Byak <buliabyak@users.sf.net>
   Nicolas Dufour, nicoduf@yahoo.fr
   Peter J. R. Moulder <pjrm@users.sourceforge.net>
@@ -33,7 +31,8 @@ import os
 import random
 import re
 import sys
-from math import *
+from   math import *
+from   lxml import etree
 
 # a dictionary of all of the xmlns prefixes in a standard inkscape doc
 NSS = {
@@ -106,21 +105,6 @@ def errormsg(msg):
 
 def are_near_relative(a, b, eps):
     return (a-b <= a*eps) and (a-b >= -a*eps)
-
-
-# third party library
-try:
-    from lxml import etree
-# the following does not work for python 2.5
-except ImportError as e:
-    localize()
-    errormsg(_("The fantastic lxml wrapper for libxml2 is required by inkex.py and therefore this extension."
-               "Please download and install the latest version from http://cheeseshop.python.org/pypi/lxml/, "
-               "or install it through your package manager by a command like: sudo apt-get install "
-               "python-lxml\n\nTechnical details:\n%s" % (e, )))
-
-    #raw_input("_Press the <ENTER> key to continue...")
-    sys.exit()
 
 
 def check_inkbool(option, opt, value):
@@ -201,7 +185,7 @@ class Effect:
         else:
             stream = sys.stdin
 
-        p = etree.XMLParser(huge_tree=True)
+        p = etree.XMLParser(huge_tree=True, recover=True)
         self.document = etree.parse(stream, parser=p)
         self.original_document = copy.deepcopy(self.document)
         stream.close()
@@ -413,5 +397,3 @@ class Effect:
             return value + self.getDocumentUnit()
         except ValueError:
             return value
-
-# vim: expandtab shiftwidth=4 tabstop=8 softtabstop=4 fileencoding=utf-8 textwidth=99

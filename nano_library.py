@@ -181,7 +181,7 @@ class K40_CLASS:
                     cnt = 2
                     
                     if stop_calc[0]==True:
-                        raise StandardError("Action Stopped by User.")
+                        raise Exception("Action Stopped by User.")
                 packet[cnt]=data[i]
                 cnt=cnt+1
         packet[-1]=self.OneWireCRC(packet[1:len(packet)-2])
@@ -208,7 +208,7 @@ class K40_CLASS:
             if stop_calc[0]:
                 msg="Action Stopped by User."
                 update_gui(msg,bgcolor='red')
-                raise StandardError(msg)
+                raise Exception(msg)
             try:
                 self.send_packet(line)
             except:
@@ -221,7 +221,7 @@ class K40_CLASS:
                     gui_active = update_gui(msg,bgcolor='red')
                     if not gui_active:
                         msg = "The laser cutter is not responding after %d attempts." %(timeout_cnt)
-                        raise StandardError(msg)
+                        raise Exception(msg)
                 continue
             ######################################
             response = self.say_hello()
@@ -241,7 +241,7 @@ class K40_CLASS:
                     gui_active = update_gui(msg,bgcolor='red')
                     if not gui_active:
                         msg = "There are many data transmission errors (%d)."  %(crc_cnt)
-                        raise StandardError(msg)
+                        raise Exception(msg)
                 continue
             elif response == None:
                 # The controller board is not reporting status. but we will
@@ -261,14 +261,14 @@ class K40_CLASS:
                 break
             elif response == None:
                 msg = "The laser cutter stopped responding after sending data was complete."
-                raise StandardError(msg)
+                raise Exception(msg)
             else: #assume: response == self.OK:
                 msg = "Waiting for the laser to finish."
                 update_gui(msg)
             if stop_calc[0]:
                 msg="Action Stopped by User."
                 update_gui(msg,bgcolor='red')
-                raise StandardError(msg)
+                raise Exception(msg)
 
 
     def send_packet(self,line):
@@ -289,7 +289,7 @@ class K40_CLASS:
         # find the device
         self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512)
         if self.dev is None:
-            raise StandardError("Laser USB Device not found.")
+            raise Exception("Laser USB Device not found.")
             #return "Laser USB Device not found."
 
         if verbose:
@@ -301,7 +301,7 @@ class K40_CLASS:
             self.dev.set_configuration()
         except:
             #return "Unable to set USB Device configuration."
-            raise StandardError("Unable to set USB Device configuration.")
+            raise Exception("Unable to set USB Device configuration.")
 
         # get an endpoint instance
         cfg = self.dev.get_active_configuration()
@@ -320,7 +320,7 @@ class K40_CLASS:
                 usb.util.endpoint_direction(e.bEndpointAddress) == \
                 usb.util.ENDPOINT_OUT)
         if ep == None:
-            raise StandardError("Unable to match the USB 'OUT' endpoint.")
+            raise Exception("Unable to match the USB 'OUT' endpoint.")
         if verbose:
             print ("-------------- ep --------------")
             print (ep)

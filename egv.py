@@ -24,28 +24,7 @@ import struct
 import os
 from shutil import copyfile
 from math import *
-
-##############################################################################
-# Linear Interpolation from Stack Overflow Answer
-# https://stackoverflow.com/questions/7343697/how-to-implement-linear-interpolation
-
-from bisect import bisect_left
-class Interpolate(object):
-    def __init__(self, x_list, y_list):
-        if any([y - x <= 0 for x, y in zip(x_list, x_list[1:])]):
-            raise ValueError("x value list must be in ascending order!")
-        x_list = self.x_list = map(float, x_list)
-        y_list = self.y_list = map(float, y_list)
-        intervals = zip(x_list, x_list[1:], y_list, y_list[1:])
-        self.slopes = [(y2 - y1)/(x2 - x1) for x1, x2, y1, y2 in intervals]        
-    def __getitem__(self, x):
-        if x <= self.x_list[0]:
-            return self.y_list[0]
-        elif x >= self.x_list[-1]:
-            return self.y_list[-1]
-        else:
-            i = bisect_left(self.x_list, x) - 1
-            return self.y_list[i] + self.slopes[i] * (x - self.x_list[i])
+from interpolate import interpolate
 
 ##############################################################################
 class egv:
@@ -142,7 +121,7 @@ class egv:
     def make_distance(self,dist_mils):
         dist_mils=float(dist_mils)
         if abs(dist_mils-round(dist_mils,0)) > 0.000001:
-            raise StandardError('Distance values should be integer value (inches*1000)')
+            raise Exception('Distance values should be integer value (inches*1000)')
         DIST=0.0
         code = []
         v122 = 255
@@ -165,7 +144,7 @@ class egv:
             code.append(ord(num_str[1]))
             code.append(ord(num_str[2]))
         else:
-            raise StandardError("Error in EGV make_distance_in(): dist_milsA=",dist_milsA)
+            raise Exception("Error in EGV make_distance_in(): dist_milsA=",dist_milsA)
         return code
     
     def make_dir_dist(self,dxmils,dymils,laser_on=False):
@@ -192,7 +171,7 @@ class egv:
             YCODE = self.DOWN
             
         if abs(dxmils-round(dxmils,0)) > 0.0 or abs(dymils-round(dymils,0)) > 0.0:
-            raise StandardError('Distance values should be integer value (inches*1000)')
+            raise Exception('Distance values should be integer value (inches*1000)')
 
         adx = abs(dxmils/1000.0)
         ady = abs(dymils/1000.0)
@@ -256,7 +235,7 @@ class egv:
             else:
                 error = max(DY-abs(dxmils),DX-abs(dymils))
             if error > 0:
-                raise StandardError("egv.py: Error delta =%f" %(error))
+                raise Exception("egv.py: Error delta =%f" %(error))
 
 
     def speed_code(self,Feed,B,M):
@@ -382,7 +361,7 @@ class egv:
 
         #################################################################
         else:
-            raise StandardError("Unknown Board Designation: %s" %(board_name))
+            raise Exception("Unknown Board Designation: %s" %(board_name))
         
         for c in speed_text:
             speed.append(ord(c))
@@ -557,7 +536,7 @@ class egv:
             for i in range(len(vals)):
                 xvals.append(vals[i][0])
                 yvals.append(vals[i][1])
-            return Interpolate(xvals,yvals)
+            return interpolate(xvals,yvals)
         else:
             return None
 
@@ -622,7 +601,7 @@ class egv:
             
         speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
         
-        self.write(ord("I"))
+        #self.write(ord("I"))
         for code in speed:
             self.write(code)
         
@@ -634,7 +613,7 @@ class egv:
             self.write(ord("N"))
             self.write(ord("R"))
             self.write(ord("B"))
-            # Insert "SIE"
+            # Insert "S1E"
             self.write(ord("S"))
             self.write(ord("1"))
             self.write(ord("E"))
@@ -648,7 +627,7 @@ class egv:
                 e0,e1,e2                = self.ecoord_adj(ecoords_in[i]  ,scale,FlipXoffset)
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
                 if stop_calc[0]==True:
-                    raise StandardError("Action Stopped by User.")
+                    raise Exception("Action Stopped by User.")
             
                 if ( e2  == last_loop) and (not laser):
                     laser = True
@@ -741,7 +720,7 @@ class egv:
                     scan.append([e0,e1,e2])
                 update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
                 if stop_calc[0]==True:
-                    raise StandardError("Action Stopped by User.")
+                    raise Exception("Action Stopped by User.")
                 cnt = cnt+1
                 ######################################
                 ## Flip direction and reset loop    ##
@@ -763,8 +742,8 @@ class egv:
                         yoffset = -Raster_step*3
                     else:
                         yoffset = -Raster_step
-                    
-                    if (dy+yoffset) < 0:
+                        
+                    if (dy+yoffset)*(abs(yoffset)/yoffset) < 0:
                         self.flush(laser_on=False)
                         self.write(ord("N"))
                         self.make_dir_dist(0,dy+yoffset)
@@ -773,9 +752,9 @@ class egv:
                         self.write(ord("E"))
                         Rapid_flag=True
                     else:
-                        adj_steps = dy/Raster_step
-                        
+                        adj_steps = int(dy/Raster_step)
                         for stp in range(1,adj_steps):
+                            
                             adj_dist=5
                             self.make_dir_dist(sign*adj_dist,0)
                             lastx = lastx + sign*adj_dist

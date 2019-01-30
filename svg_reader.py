@@ -33,6 +33,9 @@ import cspsubdiv
 import traceback
 
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+
+from lxml import etree
 
 try:
     inkex.localize()
@@ -166,7 +169,7 @@ class SVG_READER(inkex.Effect):
         return (color_out, changed)
         
 
-    def process_shape(self, node, mat):
+    def process_shape(self, node, mat, group_stroke = None):
         #################################
         ### Determine the shape type  ###
         #################################
@@ -221,7 +224,9 @@ class SVG_READER(inkex.Effect):
         ##############################################
         ### Handle 'style' data outside of style   ###
         ##############################################
-        stroke_outside = node.get('stroke')        
+        stroke_outside = node.get('stroke')
+        if not stroke_outside:
+            stroke_outside = group_stroke
         if stroke_outside:
             stroke_width_outside = node.get('stroke-width')
             
@@ -238,7 +243,7 @@ class SVG_READER(inkex.Effect):
                 sw_flag = True
 
             if sw_flag == True:
-                if node.tag == inkex.addNS('text','svg'):
+                if node.tag == inkex.addNS('text','svg') or node.tag == inkex.addNS('flowRoot','svg'):
                     if (self.txt2paths==False):
                         raise SVG_TEXT_EXCEPTION(text_message_warning)
                     else:
@@ -271,7 +276,7 @@ class SVG_READER(inkex.Effect):
                             declarations[i] = prop + ':' + new_val
                             sw_flag = True
             if sw_flag == True:
-                if node.tag == inkex.addNS('text','svg'):
+                if node.tag == inkex.addNS('text','svg') or node.tag == inkex.addNS('flowRoot','svg'):
                     if (self.txt2paths==False):
                         raise SVG_TEXT_EXCEPTION(text_message_warning)
                     else:
@@ -371,6 +376,8 @@ class SVG_READER(inkex.Effect):
                 d = "M %f,%f %f,%f" %(x1,y1,x2,y2)
                 p = cubicsuperpath.parsePath(d)          
             else:
+                #print("something was ignored")
+                #print(node.tag)
                 return
             
             trans = node.get('transform')
@@ -426,7 +433,7 @@ class SVG_READER(inkex.Effect):
         refid = node.get(inkex.addNS('href','xlink'))
         refnode = self.getElementById(refid[1:])
         if refnode is not None:
-            if refnode.tag == inkex.addNS('g','svg'):
+            if refnode.tag == inkex.addNS('g','svg') or refnode.tag == inkex.addNS('switch','svg'):
                 self.process_group(refnode)
             elif refnode.tag == inkex.addNS('use', 'svg'):
                 self.process_clone(refnode)
@@ -437,11 +444,27 @@ class SVG_READER(inkex.Effect):
             self.groupmat.pop()
 
     def process_group(self, group):
+        ##############################################
+        ### Get color set at group level
+        stroke_group = group.get('stroke')
+        ##############################################
+        ### Handle 'style' data                   
+        style = group.get('style')
+        if style:
+            declarations = style.split(';')
+            for i,decl in enumerate(declarations):
+                parts = decl.split(':', 2)
+                if len(parts) == 2:
+                    (prop, col) = parts
+                    prop = prop.strip().lower()
+                    if prop == 'stroke':
+                        stroke_group = col.strip()
+        ##############################################
+        
         if group.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
             style = group.get('style')
             if style:
                 style = simplestyle.parseStyle(style)
-                #if style.has_key('display'):
                 if 'display' in style:   
                     if style['display'] == 'none':
                         return
@@ -454,7 +477,7 @@ class SVG_READER(inkex.Effect):
         if trans:
             self.groupmat.append(simpletransform.composeTransform(self.groupmat[-1], simpletransform.parseTransform(trans)))
         for node in group:
-            if node.tag == inkex.addNS('g','svg'):
+            if node.tag == inkex.addNS('g','svg') or  node.tag == inkex.addNS('switch','svg'):
                 self.process_group(node)
             elif node.tag == inkex.addNS('use', 'svg'):
                 self.process_clone(node)
@@ -463,7 +486,7 @@ class SVG_READER(inkex.Effect):
                     if sub.tag == inkex.addNS('style','svg'):
                         self.parse_css(sub.text)
             else:
-                self.process_shape(node, self.groupmat[-1])
+                self.process_shape(node, self.groupmat[-1], group_stroke = stroke_group)
         if trans:
             self.groupmat.pop()
 
@@ -544,7 +567,6 @@ class SVG_READER(inkex.Effect):
                         "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
                         "255" ,"--export-png", png_temp_file, svg_temp_file ]
                 run_external(cmd, self.timout)
-                Image.MAX_IMAGE_PIXELS = None
                 self.raster_PIL = Image.open(png_temp_file)
                 self.raster_PIL = self.raster_PIL.convert("L")
             except Exception as e:
@@ -568,9 +590,10 @@ class SVG_READER(inkex.Effect):
                 self.document.write(svg_temp_file)
                 cmd = [ self.inscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, svg_temp_file ]
                 run_external(cmd, self.timout)
-                self.document.parse(txt2path_file)
-            except:
-                raise Exception("Inkscape Execution Failed (while converting test to paths).")
+                p = etree.XMLParser(huge_tree=True, recover=True)
+                self.document.parse(txt2path_file, parser=p)
+            except Exception as e:
+                raise Exception("Inkscape Execution Failed (while converting text to paths).\n\n"+str(e))
         else:
             raise Exception("Inkscape Not found.")
         try:

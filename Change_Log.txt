@@ -141,4 +141,13 @@ Version 0.24:
 - Fixed compatibility with Python 3.7
 - Added better error reporting when raster data fails to be produced by Inkscape
 
+Version 0.25:
+- Fixed a variety of minor issues with SVG import (especially files generated with Adobe Illustrator)
+- Fixed a couple of issues with importing DXF files.
+- Added option to invert colors for raster engraving.
 
+Version 0.26:
+- Fixed option to invert colors for raster engraving.
+- Fixed more compatibility problems with Python 3
+- Added zoom to design size option
+- Added options to combine engrave operations, vector operations or all operations.

@@ -121,9 +121,9 @@ class BSplineClass:
 
         # Incoming inspection, fit the upper node number, etc.
         if  self.Knots_len< self.degree+1:
-            raise StandardError("SPLINE: degree greater than number of control points.")
+            raise Exception("SPLINE: degree greater than number of control points.")
         if self.Knots_len != (self.CPts_len + self.degree+1):
-            raise StandardError("SPLINE: Knot/Control Point/degree number error.")
+            raise Exception("SPLINE: Knot/Control Point/degree number error.")
 
     #Modified Version of Algorithm A3.2 from "THE NURBS BOOK" pg.93
     def bspline_ders_evaluate(self,n=0,u=0):
@@ -537,7 +537,7 @@ class DXF_CLASS:
 
     def add_coords(self,line,offset,scale,rotate,color=None,layer=None):
         slcolor = 0
-        if len(layer)<=1:
+        if(type(layer)!=list):
             if layer in self.layer_color:     
                 slcolor = self.layer_color[layer]
         else:
@@ -608,7 +608,7 @@ class DXF_CLASS:
             layer = 0
 
         slcolor = 0
-        if len(layer)<=1:
+        if(type(layer)!=list):
             if layer in self.layer_color:     
                 slcolor = self.layer_color[layer]
         else:
@@ -668,9 +668,11 @@ class DXF_CLASS:
             try:
                 xy_data = zip(e.data["10"], e.data["20"])
             except:
-                self.dxf_message("DXF Import zero length %s Ignored" %(e.type))
-                xy_data = []
-                
+                try:
+                    xy_data = [[e.data["10"], e.data["20"]]]
+                except:
+                    self.dxf_message("DXF Import zero length %s Ignored" %(e.type))
+                    xy_data = []
             for x,y in xy_data:
                 x1 = x
                 y1 = y
@@ -697,8 +699,12 @@ class DXF_CLASS:
                     bulge0 = bulge1
 
             if (e.data["70"]!=0):
-                x1 = e.data["10"][0]
-                y1 = e.data["20"][0]
+                try:
+                    x1 = e.data["10"][0]
+                    y1 = e.data["20"][0]
+                except:
+                    x1 = e.data["10"]
+                    y1 = e.data["20"]
                 if bulge0 != 0:
                     bcoords = self.bulge_coords(x0,y0,x1,y1,bulge1,lin_tol=lin_tol)
                     for line in bcoords:
