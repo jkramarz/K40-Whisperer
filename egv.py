@@ -2,7 +2,7 @@
 '''
 This script reads/writes egv format
 
-Copyright (C) 2018 Scorch www.scorchworks.com
+Copyright (C) 2017-2019 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -865,7 +865,11 @@ class egv:
                 lasty = lasty + Raster_step
 
             self.flush(laser_on=False)
-            
+
+            max_return_feed = 50.0
+            if Feed > max_return_feed:
+                self.change_speed(max_return_feed,board_name,laser_on=False)
+                
             self.write(ord("N"))
             dx_final = (startX - lastx)
             if Raster_step < 0:
@@ -909,11 +913,11 @@ class egv:
 
 
     def change_speed(self,Feed,board_name,laser_on=False):
-        cspad = 5
+        #cspad = 5
         if laser_on:
             self.write(self.OFF)
 
-        self.make_dir_dist(-cspad,-cspad)
+        #self.make_dir_dist(-cspad,-cspad)
         self.flush(laser_on=False)
         
         self.write(ord("@"))
@@ -932,7 +936,7 @@ class egv:
         self.write(ord("1"))
         self.write(ord("E"))
 
-        self.make_dir_dist(cspad,cspad)
+        #self.make_dir_dist(cspad,cspad)
         self.flush(laser_on=False)
         
         if laser_on:    

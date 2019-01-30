@@ -29,6 +29,7 @@ import os
 from shutil import copyfile
 from egv import egv
 import traceback
+from windowsinhibitor import WindowsInhibitor
 from time import time
 
 ##############################################################################
@@ -151,6 +152,9 @@ class K40_CLASS:
         if update_gui == None:
             update_gui = self.none_function
 
+        NoSleep = WindowsInhibitor()
+        NoSleep.inhibit()
+
         blank   = [166,0,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,0]
         packets = []
         packet  = blank[:]
@@ -186,6 +190,7 @@ class K40_CLASS:
                     cnt = 2
                     
                     if stop_calc[0]==True:
+                        NoSleep.uninhibit()
                         raise Exception("Action Stopped by User.")
                 packet[cnt]=data[i]
                 cnt=cnt+1
@@ -204,6 +209,7 @@ class K40_CLASS:
         ##############################################################
         if wait_for_laser:
             self.wait_for_laser_to_finish(update_gui,stop_calc)
+        NoSleep.uninhibit()
 
 
     def send_packet_w_error_checking(self,line,update_gui=None,stop_calc=None):

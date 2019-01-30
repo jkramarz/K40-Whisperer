@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.28'
+version = '0.29'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -141,6 +141,11 @@ class Application(Frame):
         self.master.bind('<Control-Right>', self.Move_Right)
         self.master.bind('<Control-Up>'   , self.Move_Up)
         self.master.bind('<Control-Down>' , self.Move_Down)
+
+        self.master.bind('<Alt-Control-Left>' , self.Move_Arb_Left)
+        self.master.bind('<Alt-Control-Right>', self.Move_Arb_Right)
+        self.master.bind('<Alt-Control-Up>'   , self.Move_Arb_Up)
+        self.master.bind('<Alt-Control-Down>' , self.Move_Arb_Down)
 
         self.master.bind('<Control-i>' , self.Initialize_Laser)
         self.master.bind('<Control-o>' , self.menu_File_Open_Design)
@@ -2283,6 +2288,33 @@ class Application(Frame):
         NewYpos = self.pos_offset[1]+DY
         self.move_head_window_temporary([NewXpos,NewYpos])
 
+    def Move_Arb_Step(self,dx,dy):
+        if self.units.get()=="in":
+            dx_inches = round(dx*1000)
+            dy_inches = round(dy*1000)
+        else:
+            dx_inches = round(dx/25.4*1000)
+            dy_inches = round(dy/25.4*1000)
+        self.Move_Arbitrary( dx_inches,dy_inches )
+
+    def Move_Arb_Right(self,dummy=None):
+        JOG_STEP = float( self.jog_step.get() )
+        self.Move_Arb_Step( JOG_STEP,0 )
+
+    def Move_Arb_Left(self,dummy=None):
+        JOG_STEP = float( self.jog_step.get() )
+        self.Move_Arb_Step( -JOG_STEP,0 )
+
+    def Move_Arb_Up(self,dummy=None):
+        JOG_STEP = float( self.jog_step.get() )
+        self.Move_Arb_Step( 0,JOG_STEP )
+
+    def Move_Arb_Down(self,dummy=None):
+        JOG_STEP = float( self.jog_step.get() )
+        self.Move_Arb_Step( 0,-JOG_STEP )
+
+    ####################################################
+
     def Move_Right(self,dummy=None):
         JOG_STEP = float( self.jog_step.get() )
         self.Rapid_Move( JOG_STEP,0 )
@@ -3559,8 +3591,6 @@ class Application(Frame):
                         self.SCALE = new_SCALE
                         nw=int(self.SCALE*self.wim)
                         nh=int(self.SCALE*self.him)
-                        #PIL_im = PIL_im.convert("1") #"1"=1BBP, "L"=grey
-
                         plot_im = self.RengData.image.convert("L")
                         
                         if self.negate.get():
@@ -3568,6 +3598,7 @@ class Application(Frame):
 
                         if self.halftone.get() == False:
                             plot_im = plot_im.point(lambda x: 0 if x<128 else 255, '1')
+                            plot_im = plot_im.convert("L")
 
                         if self.mirror.get():
                             plot_im = ImageOps.mirror(plot_im)

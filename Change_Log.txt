@@ -159,3 +159,9 @@ Version 0.28:
 - Added ability to move the laser head to any position on the design.  Use the right mouse button to move the laser head independent of the design location.  Previously could only move to corners and center.)
 - Reduced the number of times the display updates during calculation.
 - Fixed speeds for controller boards (except M2).  Higher speeds were inaccurate.
+
+Version 0.29:
+- Slowed down the movement to return to the zero position after engraving.  At high speeds the laser head would sometimes over-run and slam into the hard-stop if the job was started from the home position.
+- Added command to stop windows computers from going to sleep while the laser is running.
+- Changed the SVG reader so it ignores CSS entry without data instead of throwing an error.
+- Added key binding for alt-control-(arrow keys) for moving the laser head independent of the design.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 '''
-Copyright (C) 2018 Scorch www.scorchworks.com
+Copyright (C) 2017-2019 Scorch www.scorchworks.com
 Derived from dxf_outlines.py by Aaron Spike and Alvin Penner
 
 This program is free software; you can redistribute it and/or modify
@@ -491,6 +491,8 @@ class SVG_READER(inkex.Effect):
             self.groupmat.pop()
 
     def parse_css(self,css_string):
+        if css_string == None:
+            return
         name_list=[]
         value_list=[]
         name=""
