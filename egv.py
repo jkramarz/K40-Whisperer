@@ -238,11 +238,21 @@ class egv:
                 raise Exception("egv.py: Error delta =%f" %(error))
 
 
-    def speed_code(self,Feed,B,M):
+    def speed_code(self,Feed,B,M,bumps=None):
+        bval = 1
         V  = B-M/float(Feed)
         C1 = floor(V)
         C2 = floor((V-C1)*255.0)
-        s_code = "V%03d%03d%d" %(C1,C2,1)
+        
+        if (bumps!=None):
+            for b in bumps:
+                if Feed >= b:
+                    bval=bval+1
+            if bval == 3:
+                C1=C1-2
+            elif bval == 4:
+                C1=C1-4
+        s_code = "V%03d%03d%d" %(C1,C2,bval)
         #s_code = "V%03d %03d %d" %(C1,C2,1)
         return s_code
                     
@@ -263,7 +273,17 @@ class egv:
             else:
                 B = 236
                 M = 1202.5
-            Scode = self.speed_code(Feed,B,M)
+
+            # The 7th digit changes at these "bump" speeds I am not sure what significance
+            # this digit has but I have adjusted the speed codes to mimic the
+            # 7th digit which helps at higher speeds.  (It might have to do with acceleration,
+            # overshoot or both.)
+            if Raster_step==0:
+                bumps = [30 ,61 ,127] # Vector
+            else:
+                bumps = [30 ,130,325] # Raster
+
+            Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
                 diag_linterp = self.make_diagonal_speed_interpolator(board_name)
                 if Feed <= 240.0:
@@ -886,25 +906,20 @@ class egv:
         
 if __name__ == "__main__":
     EGV=egv()
-    #values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]
-    values = [.01,.05,.1,10,400]
     bname = "LASER-M2"
-    step=0
+    values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]
+    step=2
     for value_in in values:
-        print ("% 8.2f" %(value_in),": ",)
+        #print ("% 8.2f" %(value_in),": ",end='')
         val=EGV.make_speed(value_in,board_name=bname,Raster_step=step)
         txt=""
         for c in val:
             txt=txt+chr(c)
         print(txt)
-        
-       #     for c in val2:
-       #         print chr(c),
-    #print ""
-
-    #for i in range(255):
-    #    cde=": "
-    #    for c in EGV.make_distance(i):
-    #        cde=cde+chr(c)
-    #    print i,cde
     print("DONE")
+
+
+
+
+
+    

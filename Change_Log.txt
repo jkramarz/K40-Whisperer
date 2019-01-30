@@ -151,3 +151,6 @@ Version 0.26:
 - Fixed more compatibility problems with Python 3
 - Added zoom to design size option
 - Added options to combine engrave operations, vector operations or all operations.
+
+Version 0.27:
+- Fixed speeds for M2 controller boards.  Higher speeds were inaccurate.
