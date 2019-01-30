@@ -2,7 +2,7 @@
 '''
 This script comunicated with the K40 Laser Cutter.
 
-Copyright (C) 2017 Scorch www.scorchworks.com
+Copyright (C) 2017-2019 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,8 +28,8 @@ import struct
 import os
 from shutil import copyfile
 from egv import egv
-import time
 import traceback
+from time import time
 
 ##############################################################################
 
@@ -167,16 +167,21 @@ class K40_CLASS:
                     data[-4]=ord("F")
                 else:
                     data[-4]=ord("@")
-                
+            timestamp=0   
             for i in range(istart,len_data):
                 if cnt > 31:
                     packet[-1] = self.OneWireCRC(packet[1:len(packet)-2])
+                    stamp=int(3*time()) #update every 1/3 of a second
                     if not preprocess_crc:
                         self.send_packet_w_error_checking(packet,update_gui,stop_calc)
-                        update_gui("Sending Data to Laser = %.1f%%" %(100.0*float(i)/float(len_data)))
+                        if (stamp != timestamp):
+                            timestamp=stamp #interlock
+                            update_gui("Sending Data to Laser = %.1f%%" %(100.0*float(i)/float(len_data)))
                     else:
                         packets.append(packet)
-                        update_gui("Calculating CRC data and Generate Packets: %.1f%%" %(100.0*float(i)/float(len_data)))
+                        if (stamp != timestamp):
+                            timestamp=stamp #interlock
+                            update_gui("Calculating CRC data and Generate Packets: %.1f%%" %(100.0*float(i)/float(len_data)))
                     packet = blank[:]
                     cnt = 2
                     

@@ -154,3 +154,8 @@ Version 0.26:
 
 Version 0.27:
 - Fixed speeds for M2 controller boards.  Higher speeds were inaccurate.
+
+Version 0.28:
+- Added ability to move the laser head to any position on the design.  Use the right mouse button to move the laser head independent of the design location.  Previously could only move to corners and center.)
+- Reduced the number of times the display updates during calculation.
+- Fixed speeds for controller boards (except M2).  Higher speeds were inaccurate.

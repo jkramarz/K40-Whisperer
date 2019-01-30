@@ -2,7 +2,7 @@
 """
     K40 Whisperer
 
-    Copyright (C) <2017-2018>  <Scorch>
+    Copyright (C) <2017-2019>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.27'
+version = '0.28'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -29,6 +29,7 @@ from svg_reader import SVG_READER
 from svg_reader import SVG_TEXT_EXCEPTION
 from g_code_library import G_Code_Rip
 from interpolate import interpolate
+from ecoords import ECoord
 
 import inkex
 import simplestyle
@@ -89,111 +90,7 @@ except:
 
 QUIET = False
 
-class ECoord():
-    def __init__(self):
-        self.reset()
-        
-    def reset(self):
-        self.image      = None
-        self.reset_path()
 
-    def reset_path(self):
-        self.ecoords    = []
-        self.len        = 0
-        self.move       = 0
-        self.sorted     = False
-        self.bounds     = (0,0,0,0)
-        self.gcode_time = 0        
-
-    def make_ecoords(self,coords,scale=1):
-        self.reset()
-        self.len  = 0
-        self.move = 0
-        
-        xmax, ymax = -1e10, -1e10
-        xmin, ymin =  1e10,  1e10
-        self.ecoords=[]
-        Acc=.001
-        oldx = oldy = -99990.0
-        first_stroke = True
-        loop=0
-        for line in coords:
-            XY = line
-            x1 = XY[0]*scale
-            y1 = XY[1]*scale
-            x2 = XY[2]*scale
-            y2 = XY[3]*scale
-            dxline= x2-x1
-            dyline= y2-y1
-            len_line=sqrt(dxline*dxline + dyline*dyline)
-            
-            dx = oldx - x1
-            dy = oldy - y1
-            dist   = sqrt(dx*dx + dy*dy)
-            # check and see if we need to move to a new discontinuous start point
-            if (dist > Acc) or first_stroke:
-                loop = loop+1
-                self.ecoords.append([x1,y1,loop])
-                if not first_stroke:
-                    self.move = self.move + dist
-                first_stroke = False
-                
-            self.len = self.len + len_line
-            self.ecoords.append([x2,y2,loop])
-            oldx, oldy = x2, y2
-            xmax=max(xmax,x1,x2)
-            ymax=max(ymax,y1,y2)
-            xmin=min(xmin,x1,x2)
-            ymin=min(ymin,y1,y2)
-        self.bounds = (xmin,xmax,ymin,ymax)
-
-    def set_ecoords(self,ecoords,data_sorted=False):
-        self.ecoords = ecoords
-        self.computeEcoordsLen()
-        self.data_sorted=data_sorted
-
-    def set_image(self,PIL_image):
-        self.image = PIL_image
-
-    def computeEcoordsLen(self):
-        xmax, ymax = -1e10, -1e10
-        xmin, ymin =  1e10,  1e10
-        
-        if self.ecoords == [] : 
-            return
-        on = 0
-        move = 0
-        time = 0
-        for i in range(2,len(self.ecoords)):
-            x1 = self.ecoords[i-1][0]
-            y1 = self.ecoords[i-1][1]
-            x2 = self.ecoords[i][0]
-            y2 = self.ecoords[i][1]
-            loop      = self.ecoords[i  ][2]
-            loop_last = self.ecoords[i-1][2]
-            
-            xmax=max(xmax,x1,x2)
-            ymax=max(ymax,y1,y2)
-            xmin=min(xmin,x1,x2)
-            ymin=min(ymin,y1,y2)
-            
-            dx = x2-x1
-            dy = y2-y1
-            dist = sqrt(dx*dx + dy*dy)
-            
-            if len(self.ecoords[i]) > 3:
-                feed = self.ecoords[i][3]
-                time = time + dist/feed*60
-                
-            if loop == loop_last:
-                on   = on + dist 
-            else:
-                move = move + dist
-
-        self.bounds = (xmin,xmax,ymin,ymax)
-        self.len = on
-        self.move = move
-        self.gcode_time = time
     
     
 ################################################################################
@@ -467,6 +364,10 @@ class Application(Frame):
         self.PreviewCanvas.tag_bind('LaserTag',"<1>"              , self.mousePanStart)
         self.PreviewCanvas.tag_bind('LaserTag',"<B1-Motion>"      , self.mousePan)
         self.PreviewCanvas.tag_bind('LaserTag',"<ButtonRelease-1>", self.mousePanStop)
+
+        self.PreviewCanvas.tag_bind('LaserDot',"<3>"              , self.right_mousePanStart)
+        self.PreviewCanvas.tag_bind('LaserDot',"<B3-Motion>"      , self.right_mousePan)
+        self.PreviewCanvas.tag_bind('LaserDot',"<ButtonRelease-3>", self.right_mousePanStop)
 
         # Left Column #
         self.separator1 = Frame(self.master, height=2, bd=1, relief=SUNKEN)
@@ -842,7 +743,7 @@ class Application(Frame):
         global Zero
         header = []
         header.append('( K40 Whisperer Settings: '+version+' )')
-        header.append('( by Scorch - 2018 )')
+        header.append('( by Scorch - 2019 )')
         header.append("(=========================================================)")
         # BOOL
         header.append('(k40_whisperer_set include_Reng  %s )'  %( int(self.include_Reng.get())  ))
@@ -949,6 +850,39 @@ class Application(Frame):
         if self.Send_Rapid_Move(DXmils,DYmils):
             self.menu_View_Refresh()
 
+    def right_mousePanStart(self,event):
+        self.s_panx = event.x
+        self.s_pany = event.y
+        self.s_move_start_x = event.x
+        self.s_move_start_y = event.y
+        
+    def right_mousePan(self,event):
+        all = self.PreviewCanvas.find_all()
+        dx = event.x-self.s_panx
+        dy = event.y-self.s_pany
+
+        self.PreviewCanvas.move('LaserDot', dx, dy)
+        self.s_lastx = self.lastx + dx
+        self.s_lasty = self.lasty + dy
+        self.s_panx = event.x
+        self.s_pany = event.y
+        
+    def right_mousePanStop(self,event):
+        Xold = round(self.laserX,3)
+        Yold = round(self.laserY,3)
+        can_dx =   event.x-self.s_move_start_x
+        can_dy = -(event.y-self.s_move_start_y)
+        
+        dx = can_dx*self.PlotScale
+        dy = can_dy*self.PlotScale
+        if self.HomeUR.get():
+            dx = -dx
+            
+        DX =  round(dx*1000)
+        DY =  round(dy*1000)
+        self.Move_Arbitrary(DX,DY)
+        self.menu_View_Refresh()
+
     def LASER_Size(self):
         MINX = 0.0
         MAXY = 0.0
@@ -962,7 +896,7 @@ class Application(Frame):
         return (MAXX-MINX,MAXY-MINY)
 
 
-    def XY_in_bounds(self,dx_inches,dy_inches):
+    def XY_in_bounds(self,dx_inches,dy_inches, no_size=False):
         MINX = 0.0
         MAXY = 0.0
         if self.units.get()=="in":
@@ -972,19 +906,38 @@ class Application(Frame):
             MAXX =  float(self.LaserXsize.get())/25.4
             MINY = -float(self.LaserYsize.get())/25.4
 
-        if self.inputCSYS.get() and self.RengData.image == None:
+        if (self.inputCSYS.get() and self.RengData.image == None) or no_size:
             xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
         else:
             xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
         
         X = self.laserX + dx_inches
-        X = min(MAXX-(xmax-xmin),X)
-        X = max(MINX,X)
-        
         Y = self.laserY + dy_inches
-        Y = max(MINY+(ymax-ymin),Y)
-        Y = min(MAXY,Y)
-        
+        ################
+        dx=xmax-xmin
+        dy=ymax-ymin
+        if X < MINX:
+            X = MINX
+        if X+dx > MAXX:
+            X = MAXX-dx
+            
+        if Y-dy < MINY:
+            Y = MINY+dy
+        if Y > MAXY:
+            Y = MAXY
+        ################
+        if not no_size:
+            XOFF = self.pos_offset[0]/1000.0
+            YOFF = self.pos_offset[1]/1000.0
+            if X+XOFF < MINX:
+                X= X +(MINX-(X+XOFF))
+            if X+XOFF > MAXX:
+                X= X -((X+XOFF)-MAXX)
+            if Y+YOFF < MINY:
+                Y= Y + (MINY-(Y+YOFF))
+            if Y+YOFF > MAXY:
+                Y= Y -((Y+YOFF)-MAXY)
+        ################
         X = round(X,3)
         Y = round(Y,3)
         return X,Y
@@ -1530,6 +1483,8 @@ class Application(Frame):
 
 
     def menu_File_save_EGV(self,operation_type=None,default_name="out.EGV"):
+        if DEBUG:
+            start=time()
         fileName, fileExtension = os.path.splitext(self.DESIGN_FILE)
         init_file=os.path.basename(fileName)
         default_name = init_file+"_"+operation_type
@@ -1560,6 +1515,8 @@ class Application(Frame):
                 
             self.send_data(operation_type=operation_type, output_filename=filename)
             self.EGV_FILE = filename
+        if DEBUG:
+            print("time = %d seconds" %(int(time()-start)))
         
 
 
@@ -1820,8 +1777,11 @@ class Application(Frame):
                 loop=1
                 
                 Raster_step = self.get_raster_step_1000in()
+                timestamp=0
                 for i in range(0,him,Raster_step):
-                    if i%100 ==0:
+                    stamp=int(3*time()) #update every 1/3 of a second
+                    if (stamp != timestamp):
+                        timestamp=stamp #interlock
                         self.statusMessage.set("Raster Engraving: Creating Scan Lines: %.1f %%" %( (100.0*i)/him ) )
                         self.master.update()
                     if self.stop[0]==True:
@@ -1913,9 +1873,13 @@ class Application(Frame):
                 val_out = int(round(interp[val])) # Get the interpolated value at each value
                 val_map.append(val_out)
             # Adjust image
+            timestamp=0
             for y in range(1, y_lim):
-                self.statusMessage.set("Raster Engraving: Adjusting Image Darkness: %.1f %%" %( (100.0*y)/y_lim ) )
-                self.master.update()
+                stamp=int(3*time()) #update every 1/3 of a second
+                if (stamp != timestamp):
+                    timestamp=stamp #interlock
+                    self.statusMessage.set("Raster Engraving: Adjusting Image Darkness: %.1f %%" %( (100.0*y)/y_lim ) )
+                    self.master.update()
                 for x in range(1, x_lim):
                     pixel[x, y] = val_map[ pixel[x, y] ]
 
@@ -2309,6 +2273,15 @@ class Application(Frame):
         else:
             pass
 
+    def Move_Arbitrary(self,MoveX,MoveY,dummy=None):
+        if self.HomeUR.get():
+            DX = -MoveX
+        else:
+            DX = MoveX
+        DY = MoveY
+        NewXpos = self.pos_offset[0]+DX
+        NewYpos = self.pos_offset[1]+DY
+        self.move_head_window_temporary([NewXpos,NewYpos])
 
     def Move_Right(self,dummy=None):
         JOG_STEP = float( self.jog_step.get() )
@@ -3719,8 +3692,14 @@ class Application(Frame):
         self.refreshTime()
         dot_col = "grey50"
         xoff = self.pos_offset[0]/1000.0
-        yoff = self.pos_offset[1]/1000.0    
-        self.Plot_circle(self.laserX+xoff,self.laserY+yoff,x_lft,y_top,self.PlotScale,dot_col,radius=5)
+        yoff = self.pos_offset[1]/1000.0
+
+        if abs(self.pos_offset[0])+abs(self.pos_offset[1]) > 0:
+            head_offset=True
+        else:
+            head_offset=False
+        
+        self.Plot_circle(self.laserX+xoff,self.laserY+yoff,x_lft,y_top,self.PlotScale,dot_col,radius=5,cross_hair=head_offset)
         
     def Plot_Raster(self, XX, YY, Xleft, Ytop, PlotScale, im):
         if (self.HomeUR.get()):
@@ -3735,20 +3714,60 @@ class Application(Frame):
             self.PreviewCanvas.create_image(xplt, yplt, anchor=NW, image=self.UI_image,tags='LaserTag')
             )
         
-    def Plot_circle(self, XX, YY, Xleft, Ytop, PlotScale, col, radius=0):
+    def Plot_circle(self, XX, YY, Xleft, Ytop, PlotScale, col, radius=0, cross_hair=False):
+        circle_tags = ('LaserTag','LaserDot')
         if (self.HomeUR.get()):
             maxx = float(self.LaserXsize.get()) / self.units_scale
             xplt = Xleft + maxx/PlotScale - XX/PlotScale
         else:
             xplt = Xleft + XX/PlotScale
         yplt = Ytop  - YY/PlotScale
-        self.segID.append(
-            self.PreviewCanvas.create_oval(
-                                            xplt-radius,
-                                            yplt-radius,
-                                            xplt+radius,
-                                            yplt+radius,
-                                            fill=col, outline=col, width = 0,tags='LaserTag') )
+
+
+        if cross_hair:
+            radius=radius*2
+            leg = int(radius*.707)
+            self.segID.append(
+                self.PreviewCanvas.create_polygon(
+                                                xplt-radius,
+                                                yplt,
+                                                xplt-leg,
+                                                yplt+leg,
+                                                xplt,
+                                                yplt+radius,
+                                                xplt+leg,
+                                                yplt+leg,
+                                                xplt+radius,
+                                                yplt,
+                                                xplt+leg,
+                                                yplt-leg,
+                                                xplt,
+                                                yplt-radius,
+                                                xplt-leg,
+                                                yplt-leg,
+                                                fill=col,  outline=col, width = 1, stipple='gray12',tags=circle_tags ))
+           
+            self.segID.append(
+                self.PreviewCanvas.create_line( xplt-radius,
+                                                yplt,
+                                                xplt+radius,
+                                                yplt,
+                                                fill=col, capstyle="round", width = 1, tags=circle_tags ))
+            self.segID.append(
+                self.PreviewCanvas.create_line( xplt,
+                                                yplt-radius,
+                                                xplt,
+                                                yplt+radius,
+                                                fill=col, capstyle="round", width = 1, tags=circle_tags ))
+        else:
+            self.segID.append(
+                self.PreviewCanvas.create_oval(
+                                                xplt-radius,
+                                                yplt-radius,
+                                                xplt+radius,
+                                                yplt+radius,
+                                                fill=col,  outline=col, width = 0, stipple='gray50',tags=circle_tags ))
+
 
     def Plot_Line(self, XX1, YY1, XX2, YY2, Xleft, Ytop, XlineShift, YlineShift, PlotScale, col, thick=0):
         xplt1 = Xleft + (XX1 + XlineShift )/PlotScale 
@@ -3767,6 +3786,14 @@ class Application(Frame):
     #                         Temporary Move Window                                #
     ################################################################################
     def move_head_window_temporary(self,new_pos_offset):
+        dx_inches = round(new_pos_offset[0]/1000.0,3)
+        dy_inches = round(new_pos_offset[1]/1000.0,3)
+        Xnew,Ynew = self.XY_in_bounds(dx_inches,dy_inches,no_size=True)
+
+        pos_offset_X = round((Xnew-self.laserX)*1000.0)
+        pos_offset_Y = round((Ynew-self.laserY)*1000.0)
+        new_pos_offset = [pos_offset_X,pos_offset_Y]        
+        
         if self.inputCSYS.get() and self.RengData.image == None:
             new_pos_offset = [0,0]
             xdist = -self.pos_offset[0]
@@ -3774,7 +3801,7 @@ class Application(Frame):
         else:
             xdist = -self.pos_offset[0] + new_pos_offset[0]
             ydist = -self.pos_offset[1] + new_pos_offset[1]
-
+            
         if self.k40 != None:
             if self.Send_Rapid_Move( xdist,ydist ):
                 self.pos_offset = new_pos_offset

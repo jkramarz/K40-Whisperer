@@ -25,6 +25,7 @@ import os
 from shutil import copyfile
 from math import *
 from interpolate import interpolate
+from time import time
 
 ##############################################################################
 class egv:
@@ -237,25 +238,18 @@ class egv:
             if error > 0:
                 raise Exception("egv.py: Error delta =%f" %(error))
 
-
-    def speed_code(self,Feed,B,M,bumps=None):
-        bval = 1
-        V  = B-M/float(Feed)
+    def speed_code(self,Feed,B,M,bumps=[(0,1,0)]):
+        bval=1
+        for b in bumps:
+            if Feed >= b[0]:
+                bval=b[1]
+                sval=b[2]
+                
+        V  = B-M/float(Feed)-sval
         C1 = floor(V)
         C2 = floor((V-C1)*255.0)
-        
-        if (bumps!=None):
-            for b in bumps:
-                if Feed >= b:
-                    bval=bval+1
-            if bval == 3:
-                C1=C1-2
-            elif bval == 4:
-                C1=C1-4
         s_code = "V%03d%03d%d" %(C1,C2,bval)
-        #s_code = "V%03d %03d %d" %(C1,C2,1)
         return s_code
-                    
     
     def make_speed(self,Feed=None,board_name="LASER-M2",Raster_step=0):
         speed=[]
@@ -278,10 +272,10 @@ class egv:
             # this digit has but I have adjusted the speed codes to mimic the
             # 7th digit which helps at higher speeds.  (It might have to do with acceleration,
             # overshoot or both.)
-            if Raster_step==0:
-                bumps = [30 ,61 ,127] # Vector
-            else:
-                bumps = [30 ,130,325] # Raster
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,2.0),(127,4,4.0)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,2.0),(325,4,4.0)]
 
             Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
@@ -307,7 +301,13 @@ class egv:
             else:
                 M = 1202.562
                 B = 236.007
-            Scode = self.speed_code(Feed,B,M)
+
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,2.0),(127,4,4.0)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,2.0),(325,4,4.0)]
+                
+            Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
                 speed_text = "C%s000000000" %(Scode)
             else:
@@ -322,7 +322,13 @@ class egv:
             else:
                 M = 1202.558
                 B = 236.006
-            Scode = self.speed_code(Feed,B,M)
+
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,2.0),(127,4,4.0)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,2.0),(325,4,4.0)]
+                
+            Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
                 speed_text = "C%s" %(Scode)
             else:
@@ -344,7 +350,14 @@ class egv:
             else:
                 M = 2405.008
                 B = 252.944
-            Scode = self.speed_code(Feed,B,M)
+
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,111./255.),(127,4,238.5/255.)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,111./255.),(325,4,238.5/255.)]
+                
+            Scode = self.speed_code(Feed,B,M,bumps)
+            
             if Raster_step==0:
                 speed_text = "C%s000000000" %(Scode)
             else:
@@ -359,7 +372,13 @@ class egv:
             else:
                 M = 198.437
                 B = 252.939
-            Scode = self.speed_code(Feed,B,M)
+
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,111./255.),(127,4,238.5/255.)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,111./255.),(325,4,238.5/255.)]
+                
+            Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
                 speed_text = "C%s000000000" %(Scode)
             else:
@@ -373,7 +392,13 @@ class egv:
             else:
                 M = 198.437
                 B = 252.940
-            Scode = self.speed_code(Feed,B,M)
+
+            if Raster_step==0: # Vector
+                bumps=[(0,1,0),(26,2,0),(61,3,111./255.),(127,4,238.5/255.)] 
+            else: # Raster
+                bumps=[(0,1,0),(30,2,0),(130,3,111./255.),(325,4,238.5/255.)]
+                
+            Scode = self.speed_code(Feed,B,M,bumps)
             if Raster_step==0:
                 speed_text = "C%s" %(Scode)
             else:
@@ -642,12 +667,15 @@ class egv:
             
             if Slow_Rapids:
                 self.rapid_move_slow(lastx-startX,lasty-startY)
-            
+            timestamp=0
             for i in range(1,len(ecoords_in)):
                 e0,e1,e2                = self.ecoord_adj(ecoords_in[i]  ,scale,FlipXoffset)
-                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
-                if stop_calc[0]==True:
-                    raise Exception("Action Stopped by User.")
+                stamp=int(3*time()) #update every 1/3 of a second
+                if (stamp != timestamp):
+                    timestamp=stamp #interlock        
+                    update_gui("Generating EGV Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
+                    if stop_calc[0]==True:
+                        raise Exception("Action Stopped by User.")
             
                 if ( e2  == last_loop) and (not laser):
                     laser = True
@@ -698,9 +726,12 @@ class egv:
                 irange = range(len(ecoords_in))
             else:
                 irange = range(len(ecoords_in)-1,-1,-1)
-                
+            timestamp=0
             for i in irange:
-                if i%1000 == 0:
+                #if i%1000 == 0:
+                stamp=int(3*time()) #update every 1/3 of a second
+                if (stamp != timestamp):
+                    timestamp=stamp #interlock
                     update_gui("Preprocessing Raster Data: %.1f%%" %(100.0*float(i)/float(len(ecoords_in))))
                 y    = ecoords_in[i][1]
                 if y != scanline_y:
@@ -733,14 +764,18 @@ class egv:
 
             sign = -1
             cnt = 1
+            timestamp=0
             for scan_raw in scanline:
                 scan = []
                 for point in scan_raw:
                     e0,e1,e2 = self.ecoord_adj(point,scale,FlipXoffset)
                     scan.append([e0,e1,e2])
-                update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
-                if stop_calc[0]==True:
-                    raise Exception("Action Stopped by User.")
+                stamp=int(3*time()) #update every 1/3 of a second
+                if (stamp != timestamp):
+                    timestamp=stamp #interlock
+                    update_gui("Generating EGV Data: %.1f%%" %(100.0*float(cnt)/float(len(scanline))))
+                    if stop_calc[0]==True:
+                        raise Exception("Action Stopped by User.")
                 cnt = cnt+1
                 ######################################
                 ## Flip direction and reset loop    ##
