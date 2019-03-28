@@ -199,6 +199,7 @@ class K40_CLASS:
             self.send_packet_w_error_checking(packet,update_gui,stop_calc)
         else:
             packets.append(packet)
+            update_gui("CRC data and Packets are Ready")
         packet_cnt = 0
 
         for line in packets:

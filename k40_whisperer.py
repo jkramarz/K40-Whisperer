@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.29'
+version = '0.30'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -78,6 +78,8 @@ import operator
 import webbrowser
 from PIL import Image
 from PIL import ImageOps
+from PIL import ImageFilter
+
 try:
     Image.warnings.simplefilter('ignore', Image.DecompressionBombWarning)
 except:
@@ -173,6 +175,8 @@ class Application(Frame):
         self.init_home    = BooleanVar()
         self.pre_pr_crc   = BooleanVar()
         self.inside_first = BooleanVar()
+        self.rotary       = BooleanVar()
+        
 
         self.ht_size    = StringVar()
         self.Reng_feed  = StringVar()
@@ -196,11 +200,23 @@ class Application(Frame):
         self.bezier_M2     = StringVar()
         self.bezier_weight = StringVar()
 
+##        self.unsharp_flag = BooleanVar()
+##        self.unsharp_r    = StringVar()
+##        self.unsharp_p    = StringVar()
+##        self.unsharp_t    = StringVar()
+##        self.unsharp_flag.set(False)
+##        self.unsharp_r.set("40")
+##        self.unsharp_p.set("350")
+##        self.unsharp_t.set("3")
+
         self.LaserXsize = StringVar()
         self.LaserYsize = StringVar()
 
         self.LaserXscale = StringVar()
         self.LaserYscale = StringVar()
+        self.LaserRscale = StringVar()
+
+        self.rapid_feed = StringVar()
 
         self.gotoX = StringVar()
         self.gotoY = StringVar()
@@ -243,6 +259,7 @@ class Application(Frame):
         self.init_home.set(1)
         self.pre_pr_crc.set(1)
         self.inside_first.set(1)
+        self.rotary.set(0)
         
         self.ht_size.set(500)
 
@@ -297,6 +314,9 @@ class Application(Frame):
         
         self.LaserXscale.set("1.000")
         self.LaserYscale.set("1.000")
+        self.LaserRscale.set("1.000")
+
+        self.rapid_feed.set("0.0")
 
         self.gotoX.set("0.0")
         self.gotoY.set("0.0")
@@ -491,6 +511,8 @@ class Application(Frame):
         self.Checkbutton_Negate_adv.configure(variable=self.negate)
         self.negate.trace_variable("w", self.menu_View_Mirror_Refresh_Callback)
 
+        self.separator_adv2 = Frame(self.master, height=2, bd=1, relief=SUNKEN)  
+
         self.Label_Mirror_adv = Label(self.master,text="Mirror Design")
         self.Checkbutton_Mirror_adv = Checkbutton(self.master,text=" ", anchor=W)
         self.Checkbutton_Mirror_adv.configure(variable=self.mirror)
@@ -500,7 +522,9 @@ class Application(Frame):
         self.Checkbutton_Rotate_adv = Checkbutton(self.master,text=" ", anchor=W)
         self.Checkbutton_Rotate_adv.configure(variable=self.rotate)
         self.rotate.trace_variable("w", self.menu_View_Mirror_Refresh_Callback)
-    
+
+        self.separator_adv3 = Frame(self.master, height=2, bd=1, relief=SUNKEN)
+        
         self.Label_inputCSYS_adv = Label(self.master,text="Use Input CSYS")
         self.Checkbutton_inputCSYS_adv = Checkbutton(self.master,text=" ", anchor=W)
         self.Checkbutton_inputCSYS_adv.configure(variable=self.inputCSYS)
@@ -510,6 +534,16 @@ class Application(Frame):
         self.Checkbutton_Inside_First_adv = Checkbutton(self.master,text=" ", anchor=W)
         self.Checkbutton_Inside_First_adv.configure(variable=self.inside_first)
         self.inside_first.trace_variable("w", self.menu_Inside_First_Callback)
+
+        self.Label_Inside_First_adv = Label(self.master,text="Cut Inside First")
+        self.Checkbutton_Inside_First_adv = Checkbutton(self.master,text=" ", anchor=W)
+        self.Checkbutton_Inside_First_adv.configure(variable=self.inside_first)
+
+        self.Label_Rotary_Enable_adv = Label(self.master,text="Use Rotary Settings")
+        self.Checkbutton_Rotary_Enable_adv = Checkbutton(self.master,text="")
+        self.Checkbutton_Rotary_Enable_adv.configure(variable=self.rotary)
+
+
 
         #####
         self.separator_comb = Frame(self.master, height=2, bd=1, relief=SUNKEN)  
@@ -626,6 +660,7 @@ class Application(Frame):
         top_Settings = Menu(self.menuBar, tearoff=0)
         top_Settings.add("command", label = "General Settings", command = self.GEN_Settings_Window)
         top_Settings.add("command", label = "Raster Settings",  command = self.RASTER_Settings_Window)
+        top_Settings.add("command", label = "Rotary Settings",  command = self.ROTARY_Settings_Window)
         top_Settings.add_separator()
         top_Settings.add_checkbutton(label = "Advanced Settings", variable=self.advanced ,command= self.menu_View_Refresh)
         
@@ -710,15 +745,22 @@ class Application(Frame):
 
 ################################################################################
     def Write_Config_File(self, event):
+        
         config_data = self.WriteConfig()
         config_file = "k40_whisperer.txt"
         configname_full = self.HOME_DIR + "/" + config_file
 
-        win_id=self.grab_current()
+        current_name = event.widget.winfo_parent()
+        win_id = event.widget.nametowidget(current_name)
+
         if ( os.path.isfile(configname_full) ):
+            try:
+                win_id.withdraw()
+            except:
+                pass
+
             if not message_ask_ok_cancel("Replace", "Replace Exiting Configuration File?\n"+configname_full):
                 try:
-                    win_id.withdraw()
                     win_id.deiconify()
                 except:
                     pass
@@ -738,7 +780,6 @@ class Application(Frame):
         self.statusMessage.set("Configuration File Saved: %s" %(configname_full))
         self.statusbar.configure( bg = 'white' )
         try:
-            win_id.withdraw()
             win_id.deiconify()
         except:
             pass
@@ -772,7 +813,8 @@ class Application(Frame):
 
         header.append('(k40_whisperer_set comb_engrave  %s )'  %( int(self.comb_engrave.get())  ))
         header.append('(k40_whisperer_set comb_vector   %s )'  %( int(self.comb_vector.get())   ))
-        header.append('(k40_whisperer_set zoom2image    %s )'  %( int(self.zoom2image.get())   ))
+        header.append('(k40_whisperer_set zoom2image    %s )'  %( int(self.zoom2image.get())    ))
+        header.append('(k40_whisperer_set rotary        %s )'  %( int(self.rotary.get())        ))
 
         # STRING.get()
         header.append('(k40_whisperer_set board_name    %s )'  %( self.board_name.get()     ))
@@ -794,13 +836,20 @@ class Application(Frame):
         header.append('(k40_whisperer_set LaserYsize    %s )'  %( self.LaserYsize.get()     ))
         header.append('(k40_whisperer_set LaserXscale   %s )'  %( self.LaserXscale.get()    ))
         header.append('(k40_whisperer_set LaserYscale   %s )'  %( self.LaserYscale.get()    ))
+        header.append('(k40_whisperer_set LaserRscale   %s )'  %( self.LaserRscale.get()    ))
+        header.append('(k40_whisperer_set rapid_feed   %s )'  %( self.rapid_feed.get()      ))
+        
         header.append('(k40_whisperer_set gotoX         %s )'  %( self.gotoX.get()          ))
         header.append('(k40_whisperer_set gotoY         %s )'  %( self.gotoY.get()          ))
 
         header.append('(k40_whisperer_set bezier_M1     %s )'  %( self.bezier_M1.get()      ))
         header.append('(k40_whisperer_set bezier_M2     %s )'  %( self.bezier_M2.get()      ))
-        
         header.append('(k40_whisperer_set bezier_weight %s )'  %( self.bezier_weight.get()  ))
+        
+##        header.append('(k40_whisperer_set unsharp_flag  %s )'  %( int(self.unsharp_flag.get())  ))
+##        header.append('(k40_whisperer_set unsharp_r     %s )'  %( self.unsharp_r.get()      ))
+##        header.append('(k40_whisperer_set unsharp_p     %s )'  %( self.unsharp_p.get()      ))
+##        header.append('(k40_whisperer_set unsharp_t     %s )'  %( self.unsharp_t.get()      ))
 
         header.append('(k40_whisperer_set t_timeout     %s )'  %( self.t_timeout.get()      ))
         header.append('(k40_whisperer_set n_timeouts    %s )'  %( self.n_timeouts.get()     ))
@@ -1044,8 +1093,9 @@ class Application(Frame):
     def Settings_ReLoad_Click(self, event):
         win_id=self.grab_current()
 
-    def Close_Current_Window_Click(self):
-        win_id=self.grab_current()
+    def Close_Current_Window_Click(self,event=None):
+        current_name = event.widget.winfo_parent()
+        win_id = event.widget.nametowidget(current_name)
         win_id.destroy()
         
     # Left Column #
@@ -1144,6 +1194,49 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_Rstep_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_Rstep, self.Entry_Rstep_Check(), new=1)
+
+##    #############################
+##    def Entry_Unsharp_Radius_Check(self):
+##        try:
+##            value = float(self.unsharp_r.get())
+##            if  value <= 0:
+##                self.statusMessage.set(" Radius should be greater than zero.")
+##                return 2 # Value is invalid number
+##        except:
+##            return 3     # Value not a number
+##        self.menu_View_Refresh_Callback()
+##        return 0         # Value is a valid number
+##    def Entry_Unsharp_Radius_Callback(self, varName, index, mode):
+##        self.entry_set(self.Entry_Unsharp_Radius, self.Entry_Unsharp_Radius_Check(), new=1)
+##        
+##
+##    #############################
+##    def Entry_Unsharp_Percent_Check(self):
+##        try:
+##            value = float(self.unsharp_p.get())
+##            if  value <= 0:
+##                self.statusMessage.set(" Percent should be greater than zero.")
+##                return 2 # Value is invalid number
+##        except:
+##            return 3     # Value not a number
+##        self.menu_View_Refresh_Callback()
+##        return 0         # Value is a valid number
+##    def Entry_Unsharp_Percent_Callback(self, varName, index, mode):
+##        self.entry_set(self.Entry_Unsharp_Percent, self.Entry_Unsharp_Percent_Check(), new=1)
+##        
+##    #############################
+##    def Entry_Unsharp_Threshold_Check(self):
+##        try:
+##            value = float(self.unsharp_t.get())
+##            if  value < 0:
+##                self.statusMessage.set(" Threshold should be greater than or equal to zero.")
+##                return 2 # Value is invalid number
+##        except:
+##            return 3     # Value not a number
+##        self.menu_View_Refresh_Callback()
+##        return 0         # Value is a valid number
+##    def Entry_Unsharp_Threshold_Callback(self, varName, index, mode):
+##        self.entry_set(self.Entry_Unsharp_Threshold, self.Entry_Unsharp_Threshold_Check(), new=1)
  
     #############################
     # End Left Column #
@@ -1242,7 +1335,7 @@ class Application(Frame):
         try:
             value = float(self.LaserXscale.get())
             if  value <= 0.0:
-                self.statusMessage.set(" Scale should be greater than 0 ")
+                self.statusMessage.set(" X scale factor should be greater than 0 ")
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
@@ -1254,13 +1347,39 @@ class Application(Frame):
         try:
             value = float(self.LaserYscale.get())
             if  value <= 0.0:
-                self.statusMessage.set(" Height should be greater than 0 ")
+                self.statusMessage.set(" Y scale factor should be greater than 0 ")
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
         return 0         # Value is a valid number
     def Entry_Laser_Y_Scale_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_Laser_Y_Scale,self.Entry_Laser_Y_Scale_Check(), new=1)
+
+    #############################
+    def Entry_Laser_R_Scale_Check(self):
+        try:
+            value = float(self.LaserRscale.get())
+            if  value <= 0.0:
+                self.statusMessage.set(" Rotary scale factor should be greater than 0 ")
+                return 2 # Value is invalid number
+        except:
+            return 3     # Value not a number
+        return 0         # Value is a valid number
+    def Entry_Laser_R_Scale_Callback(self, varName, index, mode):
+        self.entry_set(self.Entry_Laser_R_Scale,self.Entry_Laser_R_Scale_Check(), new=1)
+        
+    #############################
+    def Entry_Laser_Rapid_Feed_Check(self):
+        try:
+            value = float(self.rapid_feed.get())
+            if  value < 0.0:
+                self.statusMessage.set(" Rapid feed should be greater than 0 (or 0 for default speed) ")
+                return 2 # Value is invalid number
+        except:
+            return 3     # Value not a number
+        return 0         # Value is a valid number
+    def Entry_Laser_Rapid_Feed_Callback(self, varName, index, mode):
+        self.entry_set(self.Entry_Laser_Rapid_Feed,self.Entry_Laser_Rapid_Feed_Check(), new=1)
 
     # Advanced Column #
     #############################
@@ -1434,6 +1553,7 @@ class Application(Frame):
             self.Open_G_Code(filename)
         self.menu_View_Refresh()
         
+        
 
     def menu_File_Open_Design(self,event=None):
         init_dir = os.path.dirname(self.DESIGN_FILE)
@@ -1600,10 +1720,13 @@ class Application(Frame):
         try:
             self.send_egv_data(EGV_data,n_passes)
         except MemoryError as e:
-            #raise StandardError("Memory Error:  Out of Memory.")
-            raise Exception("Memory Error:  Out of Memory.")
+            msg1 = "Memory Error:"
+            msg2 = "Memory Error:  Out of Memory."
+            self.statusMessage.set(msg2)
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
             debug_message(traceback.format_exc())
-        #except StandardError as e:
+            
         except Exception as e:
             msg1 = "Sending Data Stopped: "
             msg2 = "%s" %(e)
@@ -1706,34 +1829,22 @@ class Application(Frame):
             ymin=min(ymin,y1,y2)
         bounds = (xmin,xmax,ymin,ymax)
         return ecoords,bounds
-
-##    def convert_greyscale(self,image):
-##        image = image.convert('RGB')
-##        x_lim, y_lim = image.size
-##        grey = Image.new("L", image.size, color=255)
-##        
-##        pixel = image.load()
-##        grey_pixel = grey.load()
-##        
-##        for y in range(1, y_lim):
-##            self.statusMessage.set("Converting to greyscale: %.1f %%" %( (100.0*y)/y_lim ) )
-##            self.master.update()
-##            for x in range(1, x_lim):
-##                value = pixel[x, y]
-##                grey_pixel[x,y] = int( value[0]*.333 + value[1]*.333 +value[2]*.333 )
-##                #grey_pixel[x,y] = int( value[0]*.210 + value[1]*.720 +value[2]*.007 )
-##                grey_pixel[x,y] = int( value[0]*.299 + value[1]*.587 +value[2]*.114 )
-##
-##        grey.save("adjusted_grey.png","PNG")
-##        return grey
-
     
     #####################################################################
     def make_raster_coords(self):
+        try:
             ecoords=[]
             if (self.RengData.image != None):
                 cutoff=128
                 image_temp = self.RengData.image.convert("L")
+##                if self.unsharp_flag.get():
+##                    from PIL import ImageFilter       
+##                    #image_temp = image_temp.filter(UnsharpMask(radius=self.unsharp_r, percent=self.unsharp_p, threshold=self.unsharp_t))
+##                    filter = ImageFilter.UnsharpMask()
+##                    filter.radius    = float(self.unsharp_r.get())
+##                    filter.percent   = int(self.unsharp_p.get())
+##                    filter.threshold = int(self.unsharp_t.get())
+##                    image_temp = image_temp.filter(filter)
 
                 if self.negate.get():
                     image_temp = ImageOps.invert(image_temp)
@@ -1746,7 +1857,11 @@ class Application(Frame):
                     image_temp = self.rotate_raster(image_temp)
 
                 Xscale = float(self.LaserXscale.get())
-                Yscale = float(self.LaserYscale.get())
+                Yscale = float(self.LaserYscale.get())    
+                if self.rotary.get():
+                    Rscale = float(self.LaserRscale.get())
+                    Yscale = Yscale*Rscale
+
                 if Xscale != 1.0 or Yscale != 1.0:
                     wim,him = image_temp.size
                     nw = int(wim*Xscale)
@@ -1769,6 +1884,10 @@ class Application(Frame):
                     image_temp = self.convert_halftoning(image_temp)
                     image_temp = image_temp.resize((wim,him))
                     #print time()-start
+                else:
+                    image_temp = image_temp.point(lambda x: 0 if x<128 else 255, '1')
+                    #image_temp = image_temp.convert('1',dither=Image.NONE)
+                    
                     
                 if DEBUG:
                     image_name = os.path.expanduser("~")+"/IMAGE.png"
@@ -1776,6 +1895,7 @@ class Application(Frame):
 
                 Reng_np = image_temp.load()
                 wim,him = image_temp.size
+                del image_temp
                 #######################################
                 x=0
                 y=0
@@ -1819,6 +1939,22 @@ class Application(Frame):
                         
             if ecoords!=[]:
                 self.RengData.set_ecoords(ecoords,data_sorted=True)
+                
+        except MemoryError as e:
+            msg1 = "Memory Error:"
+            msg2 = "Memory Error:  Out of Memory."
+            self.statusMessage.set(msg2)
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
+            
+        except Exception as e:
+            msg1 = "Making Raster Coords Stopped: "
+            msg2 = "%s" %(e)
+            self.statusMessage.set((msg1+msg2).split("\n")[0] )
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
     #######################################################################
 
 
@@ -2063,6 +2199,9 @@ class Application(Frame):
                     self.comb_vector.set(line[line.find("comb_vector"):].split()[1])
                 elif "zoom2image"  in line:
                     self.zoom2image.set(line[line.find("zoom2image"):].split()[1])
+
+                elif "rotary"    in line:
+                     self.rotary.set(line[line.find("rotary"):].split()[1])
         
                 # STRING.set()
                 elif "board_name" in line:
@@ -2096,10 +2235,16 @@ class Application(Frame):
                      self.LaserXsize.set(line[line.find("LaserXsize"):].split()[1])
                 elif "LaserYsize"    in line:
                      self.LaserYsize.set(line[line.find("LaserYsize"):].split()[1])
+
                 elif "LaserXscale"    in line:
                      self.LaserXscale.set(line[line.find("LaserXscale"):].split()[1])
                 elif "LaserYscale"    in line:
                      self.LaserYscale.set(line[line.find("LaserYscale"):].split()[1])
+                elif "LaserRscale"    in line:
+                     self.LaserRscale.set(line[line.find("LaserRscale"):].split()[1])
+
+                elif "rapid_feed"    in line:
+                     self.rapid_feed.set(line[line.find("rapid_feed"):].split()[1])
                      
                 elif "gotoX"    in line:
                      self.gotoX.set(line[line.find("gotoX"):].split()[1])
@@ -2112,6 +2257,17 @@ class Application(Frame):
                      self.bezier_M2.set(line[line.find("bezier_M2"):].split()[1])
                 elif "bezier_weight"    in line:
                      self.bezier_weight.set(line[line.find("bezier_weight"):].split()[1])
+
+##                elif "unsharp_flag"    in line:
+##                     self.unsharp_flag.set(line[line.find("unsharp_flag"):].split()[1])
+##                elif "unsharp_r"    in line:
+##                     self.unsharp_r.set(line[line.find("unsharp_r"):].split()[1])
+##                elif "unsharp_p"    in line:
+##                     self.unsharp_p.set(line[line.find("unsharp_p"):].split()[1])
+##                elif "unsharp_t"    in line:
+##                     self.unsharp_t.set(line[line.find("unsharp_t"):].split()[1])
+
+
         
                 elif "t_timeout"    in line:
                      self.t_timeout.set(line[line.find("t_timeout"):].split()[1])
@@ -2359,11 +2515,22 @@ class Application(Frame):
     def Send_Rapid_Move(self,dxmils,dymils):
         try:
             if self.k40 != None:
-                if float(self.LaserXscale.get()) != 1.0 or float(self.LaserYscale.get()) != 1.0:
-                    dxmils = int(round(dxmils *float(self.LaserXscale.get())))
-                    dymils = int(round(dymils *float(self.LaserYscale.get())))
+                Xscale = float(self.LaserXscale.get())
+                Yscale = float(self.LaserYscale.get())
+                if self.rotary.get():
+                    Rscale = float(self.LaserRscale.get())
+                    Yscale = Yscale*Rscale
+                    
+                if Xscale != 1.0 or Yscale != 1.0:    
+                    dxmils = int(round(dxmils *Xscale))
+                    dymils = int(round(dymils *Yscale))
                 self.k40.n_timeouts = 10
-                self.k40.rapid_move(dxmils,dymils)
+                
+                if self.rotary.get() and float(self.rapid_feed.get()):
+                    self.slow_jog(int(dxmils),int(dymils))
+                else:
+                    self.k40.rapid_move(int(dxmils),int(dymils))
+
                 return True
             else:
                 return True
@@ -2376,7 +2543,17 @@ class Application(Frame):
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )
             debug_message(traceback.format_exc())
-            return False       
+            return False
+
+
+    def slow_jog(self,dxmils,dymils):
+        if int(dxmils)==0 and int(dymils)==0:
+            return
+        Rapid_data=[]
+        Rapid_inst = egv(target=lambda s:Rapid_data.append(s))
+        Rapid_inst.make_egv_rapid(dxmils,dymils,Feed=float(self.rapid_feed.get()),board_name=self.board_name.get())
+        self.send_egv_data(Rapid_data, 1, None)
+            
 
     def update_gui(self, message=None, bgcolor='white'):
         if message!=None:
@@ -2441,6 +2618,15 @@ class Application(Frame):
             else:
                 self.statusbar.configure( bg = 'yellow' )
                 self.statusMessage.set("No raster data to engrave")
+
+        except MemoryError as e:
+            msg1 = "Memory Error:"
+            msg2 = "Memory Error:  Out of Memory."
+            self.statusMessage.set(msg2)
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
+            debug_message(traceback.format_exc())
+            
         except Exception as e:
             msg1 = "Making Raster Data Stopped: "
             msg2 = "%s" %(e)
@@ -2738,8 +2924,13 @@ class Application(Frame):
         return coords_rotate_mirror
 
     def scale_vector_coords(self,coords,startx,starty):
+        
         Xscale = float(self.LaserXscale.get())
         Yscale = float(self.LaserYscale.get())
+        if self.rotary.get():
+            Rscale = float(self.LaserRscale.get())
+            Yscale = Yscale*Rscale
+
         coords_scale=[]
         if Xscale != 1.0 or Yscale != 1.0:
             for i in range(len(coords)):
@@ -2786,7 +2977,11 @@ class Application(Frame):
             else:
                 FlipXoffset = 0
 
-            
+            if self.rotary.get():
+                Rapid_Feed = float(self.rapid_feed.get())*feed_factor
+            else:
+                Rapid_Feed = 0.0
+                
             Raster_Eng_data=[]
             Vector_Eng_data=[]
             Vector_Cut_data=[]
@@ -2816,7 +3011,8 @@ class Application(Frame):
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
-                                                FlipXoffset=FlipXoffset
+                                                FlipXoffset=FlipXoffset,          \
+                                                Rapid_Feed_Rate = Rapid_Feed
                                                 )
 
             if (operation_type.find("Vector_Eng") > -1) and  (self.VengData.ecoords!=[]):
@@ -2843,7 +3039,8 @@ class Application(Frame):
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
-                                                FlipXoffset=FlipXoffset
+                                                FlipXoffset=FlipXoffset,          \
+                                                Rapid_Feed_Rate = Rapid_Feed
                                                 )
                 
             if (operation_type.find("Raster_Eng") > -1) and  (self.RengData.ecoords!=[]):
@@ -2853,7 +3050,12 @@ class Application(Frame):
                     Raster_step = -Raster_step
                     
                 raster_startx = 0
-                raster_starty = float(self.LaserYscale.get())*starty
+
+                Yscale = float(self.LaserYscale.get())
+                if self.rotary.get():
+                    Rscale = float(self.LaserRscale.get())
+                    Yscale = Yscale*Rscale
+                raster_starty = Yscale*starty
 
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
@@ -2867,7 +3069,8 @@ class Application(Frame):
                                                 Raster_step = Raster_step,        \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
-                                                FlipXoffset=FlipXoffset
+                                                FlipXoffset=FlipXoffset,          \
+                                                Rapid_Feed_Rate = Rapid_Feed
                                                 )
                 
                 self.Reng=[]
@@ -2890,7 +3093,8 @@ class Application(Frame):
                                                 Raster_step = 0,                  \
                                                 update_gui=self.update_gui,       \
                                                 stop_calc=self.stop,              \
-                                                FlipXoffset=FlipXoffset
+                                                FlipXoffset=FlipXoffset,          \
+                                                Rapid_Feed_Rate = Rapid_Feed
                                                 )
                 
             ### Join Resulting Data together ###
@@ -2931,7 +3135,11 @@ class Application(Frame):
                 self.menu_View_Refresh()
                 
         except MemoryError as e:
-            raise Exception("Memory Error:  Out of Memory.")
+            msg1 = "Memory Error:"
+            msg2 = "Memory Error:  Out of Memory."
+            self.statusMessage.set(msg2)
+            self.statusbar.configure( bg = 'red' )
+            message_box(msg1, msg2)
             debug_message(traceback.format_exc())
         
         except Exception as e:
@@ -3090,7 +3298,7 @@ class Application(Frame):
         self.SCALE = 0
         self.menu_View_Refresh()
 
-    def menu_View_Refresh_Callback(self, varName, index, mode):
+    def menu_View_Refresh_Callback(self, varName=0, index=0, mode=0):
         self.SCALE = 0
         self.menu_View_Refresh()
 
@@ -3352,12 +3560,12 @@ class Application(Frame):
                     self.PreviewCanvas_frame.place(x=220+wadv, y=10)
                     self.separator_vert.place(x=220, y=10,width=2, height=self.h-50)
 
-                    adv_Yloc=15
+                    adv_Yloc=25-10 #15
                     self.Label_Advanced_column.place(x=Xadvanced, y=adv_Yloc, width=wadv_use, height=21)
                     adv_Yloc=adv_Yloc+25
                     self.separator_adv.place(x=Xadvanced, y=adv_Yloc,width=wadv_use, height=2)
 
-                    adv_Yloc=adv_Yloc+15
+                    adv_Yloc=adv_Yloc+25-20 #15
                     self.Label_Halftone_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
                     self.Checkbutton_Halftone_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
                     
@@ -3366,6 +3574,9 @@ class Application(Frame):
                     self.Checkbutton_Negate_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
 
                     adv_Yloc=adv_Yloc+25
+                    self.separator_adv2.place(x=Xadvanced, y=adv_Yloc,width=wadv_use, height=2)
+                    
+                    adv_Yloc=adv_Yloc+25-20
                     self.Label_Mirror_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
                     self.Checkbutton_Mirror_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
 
@@ -3378,9 +3589,18 @@ class Application(Frame):
                     self.Checkbutton_inputCSYS_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
 
                     adv_Yloc=adv_Yloc+25
+                    self.separator_adv3.place(x=Xadvanced, y=adv_Yloc,width=wadv_use, height=2)
+
+                    adv_Yloc=adv_Yloc+25-20
                     self.Label_Inside_First_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
                     self.Checkbutton_Inside_First_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
-                   
+                
+                    adv_Yloc=adv_Yloc+25
+                    self.Label_Rotary_Enable_adv.place(x=Xadvanced, y=adv_Yloc, width=w_label_adv, height=21)
+                    self.Checkbutton_Rotary_Enable_adv.place(x=Xadvanced+w_label_adv+2, y=adv_Yloc, width=25, height=23)
+
+
+
 
                     adv_Yloc = BUinit
                     self.Hide_Adv_Button.place (x=Xadvanced, y=adv_Yloc, width=wadv_use, height=30)
@@ -3438,19 +3658,22 @@ class Application(Frame):
                     self.separator_adv.place_forget() 
                     self.Label_Halftone_adv.place_forget()
                     self.Checkbutton_Halftone_adv.place_forget()
+                    self.Label_Negate_adv.place_forget()
+                    self.Checkbutton_Negate_adv.place_forget()
+                    self.separator_adv2.place_forget()
                     self.Label_Mirror_adv.place_forget()
                     self.Checkbutton_Mirror_adv.place_forget()
                     self.Label_Rotate_adv.place_forget()
-                    self.Label_Negate_adv.place_forget()
-                    self.Checkbutton_Negate_adv.place_forget()
                     self.Checkbutton_Rotate_adv.place_forget()
                     self.Label_inputCSYS_adv.place_forget()
                     self.Checkbutton_inputCSYS_adv.place_forget()
+                    self.separator_adv3.place_forget()
                     self.Label_Inside_First_adv.place_forget()
                     self.Checkbutton_Inside_First_adv.place_forget()
 
+                    self.Label_Rotary_Enable_adv.place_forget()
+                    self.Checkbutton_Rotary_Enable_adv.place_forget()
 
- 
                     self.separator_comb.place_forget()
                     self.Label_Comb_Engrave_adv.place_forget()
                     self.Checkbutton_Comb_Engrave_adv.place_forget()
@@ -3485,7 +3708,7 @@ class Application(Frame):
     def Set_Input_States_Event(self,event):
         self.Set_Input_States()
 
-    def Set_Input_States_RASTER(self):
+    def Set_Input_States_RASTER(self,event=None):
         if self.halftone.get():
             self.Label_Halftone_DPI.configure(state="normal")
             self.Halftone_DPI_OptionMenu.configure(state="normal")
@@ -3507,9 +3730,43 @@ class Application(Frame):
             self.Label_bezier_weight.configure(state="disabled")
             self.bezier_weight_Slider.configure(state="disabled")
 
+##    def Set_Input_States_Unsharp(self,event=None):        
+##        if self.unsharp_flag.get():
+##            self.Label_Unsharp_Radius.configure(state="normal")
+##            self.Label_Unsharp_Radius_u.configure(state="normal")
+##            self.Entry_Unsharp_Radius.configure(state="normal")
+##            self.Label_Unsharp_Percent.configure(state="normal")
+##            self.Label_Unsharp_Percent_u.configure(state="normal")
+##            self.Entry_Unsharp_Percent.configure(state="normal")
+##            self.Label_Unsharp_Threshold.configure(state="normal")
+##            self.Entry_Unsharp_Threshold.configure(state="normal")
+##
+##        else:
+##            self.Label_Unsharp_Radius.configure(state="disabled")
+##            self.Label_Unsharp_Radius_u.configure(state="disabled")
+##            self.Entry_Unsharp_Radius.configure(state="disabled")
+##            self.Label_Unsharp_Percent.configure(state="disabled")
+##            self.Label_Unsharp_Percent_u.configure(state="disabled")
+##            self.Entry_Unsharp_Percent.configure(state="disabled")
+##            self.Label_Unsharp_Threshold.configure(state="disabled")
+##            self.Entry_Unsharp_Threshold.configure(state="disabled")
+
+    def Set_Input_States_Rotary(self,event=None):
+        if self.rotary.get():
+            self.Label_Laser_R_Scale.configure(state="normal")
+            self.Entry_Laser_R_Scale.configure(state="normal")
+            self.Label_Laser_Rapid_Feed.configure(state="normal")
+            self.Label_Laser_Rapid_Feed_u.configure(state="normal")
+            self.Entry_Laser_Rapid_Feed.configure(state="normal")
+        else:
+            self.Label_Laser_R_Scale.configure(state="disabled")
+            self.Entry_Laser_R_Scale.configure(state="disabled")
+            self.Label_Laser_Rapid_Feed.configure(state="disabled")
+            self.Label_Laser_Rapid_Feed_u.configure(state="disabled")
+            self.Entry_Laser_Rapid_Feed.configure(state="disabled")
             
-    def Set_Input_States_RASTER_Event(self,event):
-        self.Set_Input_States_RASTER()
+#    def Set_Input_States_RASTER_Event(self,event):
+#        self.Set_Input_States_RASTER()
 
     def Imaging_Free(self,image_in,bg="#ffffff"):
         image_in = image_in.convert('L')
@@ -3591,7 +3848,15 @@ class Application(Frame):
                         self.SCALE = new_SCALE
                         nw=int(self.SCALE*self.wim)
                         nh=int(self.SCALE*self.him)
-                        plot_im = self.RengData.image.convert("L")
+
+                        plot_im = self.RengData.image.convert("L")                        
+##                        if self.unsharp_flag.get():
+##                            from PIL import ImageFilter
+##                            filter = ImageFilter.UnsharpMask()
+##                            filter.radius    = float(self.unsharp_r.get())
+##                            filter.percent   = int(self.unsharp_p.get())
+##                            filter.threshold = int(self.unsharp_t.get())
+##                            plot_im = plot_im.filter(filter)
                         
                         if self.negate.get():
                             plot_im = ImageOps.invert(plot_im)
@@ -3617,7 +3882,7 @@ class Application(Frame):
                     self.SCALE = 1
                     debug_message(traceback.format_exc())
                     
-                self.Plot_Raster(self.laserX, self.laserY-.0005, x_lft,y_top,self.PlotScale,im=self.UI_image)
+                self.Plot_Raster(self.laserX+.001, self.laserY-.001, x_lft,y_top,self.PlotScale,im=self.UI_image)
         else:
             self.UI_image = None
 
@@ -3849,8 +4114,8 @@ class Application(Frame):
         gen_settings.grab_set() # Use grab_set to prevent user input in the main window
         gen_settings.focus_set()
         gen_settings.resizable(0,0)
-        gen_settings.title('Settings')
-        gen_settings.iconname("Settings")
+        gen_settings.title('General Settings')
+        gen_settings.iconname("General Settings")
 
         try:
             gen_settings.iconbitmap(bitmap="@emblem64")
@@ -3864,9 +4129,10 @@ class Application(Frame):
 
         w_label=150
         w_entry=40
-        w_units=35
+        w_units=45
         xd_entry_L=xd_label_L+w_label+10
         xd_units_L=xd_entry_L+w_entry+5
+        sep_border=10
 
         #Radio Button
         D_Yloc=D_Yloc+D_dY
@@ -3894,7 +4160,6 @@ class Application(Frame):
         self.Checkbutton_Preprocess_CRC = Checkbutton(gen_settings,text="", anchor=W)
         self.Checkbutton_Preprocess_CRC.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
         self.Checkbutton_Preprocess_CRC.configure(variable=self.pre_pr_crc)
-
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Timeout = Label(gen_settings,text="USB Timeout")
@@ -3987,8 +4252,7 @@ class Application(Frame):
         self.Entry_Laser_Y_Scale.configure(textvariable=self.LaserYscale)
         self.LaserYscale.trace_variable("w", self.Entry_Laser_Y_Scale_Callback)
         self.entry_set(self.Entry_Laser_Y_Scale,self.Entry_Laser_Y_Scale_Check(),2)
-        
-
+                
         D_Yloc=D_Yloc+D_dY+10
         self.Label_SaveConfig = Label(gen_settings,text="Configuration File")
         self.Label_SaveConfig.place(x=xd_label_L, y=D_Yloc, width=113, height=21)
@@ -4002,8 +4266,10 @@ class Application(Frame):
         Ybut=int(gen_settings.winfo_height())-30
         Xbut=int(gen_settings.winfo_width()/2)
 
-        self.GEN_Close = Button(gen_settings,text="Close",command=self.Close_Current_Window_Click)
+        self.GEN_Close = Button(gen_settings,text="Close")
         self.GEN_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
+        self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
+
 
     ################################################################################
     #                          Raster Settings Window                              #
@@ -4114,6 +4380,45 @@ class Application(Frame):
         self.Label_bezier_weight.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.bezier_weight.trace_variable("w", self.bezier_weight_Callback)
 
+##        show_unsharp = False
+##        if DEBUG and show_unsharp:
+##            D_Yloc=D_Yloc+D_dY
+##            self.Label_UnsharpMask = Label(raster_settings,text="Unsharp Mask")
+##            self.Label_UnsharpMask.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+##            self.Checkbutton_UnsharpMask = Checkbutton(raster_settings,text=" ", anchor=W, command=self.Set_Input_States_Unsharp)
+##            self.Checkbutton_UnsharpMask.place(x=w_label+22, y=D_Yloc, width=75, height=23)
+##            self.Checkbutton_UnsharpMask.configure(variable=self.unsharp_flag)
+##            self.unsharp_flag.trace_variable("w", self.menu_View_Refresh_Callback)
+##
+##            D_Yloc=D_Yloc+D_dY
+##            self.Label_Unsharp_Radius   = Label(raster_settings,text="Unsharp Mask Radius", anchor=CENTER )
+##            self.Label_Unsharp_Radius.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+##            self.Label_Unsharp_Radius_u = Label(raster_settings,text="Pixels", anchor=W)
+##            self.Label_Unsharp_Radius_u.place(x=xd_units_L, y=D_Yloc, width=w_units, height=21)
+##            self.Entry_Unsharp_Radius   = Entry(raster_settings,width="15")
+##            self.Entry_Unsharp_Radius.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+##            self.Entry_Unsharp_Radius.configure(textvariable=self.unsharp_r)
+##            self.unsharp_r.trace_variable("w", self.Entry_Unsharp_Radius_Callback)
+##
+##            D_Yloc=D_Yloc+D_dY
+##            self.Label_Unsharp_Percent   = Label(raster_settings,text="Unsharp Mask Percent", anchor=CENTER )
+##            self.Label_Unsharp_Percent.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+##            self.Label_Unsharp_Percent_u = Label(raster_settings,text="%", anchor=W)
+##            self.Label_Unsharp_Percent_u.place(x=xd_units_L, y=D_Yloc, width=w_units, height=21)
+##            self.Entry_Unsharp_Percent   = Entry(raster_settings,width="15")
+##            self.Entry_Unsharp_Percent.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+##            self.Entry_Unsharp_Percent.configure(textvariable=self.unsharp_p)
+##            self.unsharp_p.trace_variable("w", self.Entry_Unsharp_Percent_Callback)
+##
+##            D_Yloc=D_Yloc+D_dY
+##            self.Label_Unsharp_Threshold   = Label(raster_settings,text="Unsharp Mask Threshold", anchor=CENTER )
+##            self.Label_Unsharp_Threshold.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+##            #self.Label_Unsharp_Threshold_u = Label(raster_settings,text="Pixels", anchor=W)
+##            #self.Label_Unsharp_Threshold_u.place(x=xd_units_L, y=D_Yloc, width=w_units, height=21)
+##            self.Entry_Unsharp_Threshold   = Entry(raster_settings,width="15")
+##            self.Entry_Unsharp_Threshold.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+##            self.Entry_Unsharp_Threshold.configure(textvariable=self.unsharp_t)
+##            self.unsharp_t.trace_variable("w", self.Entry_Unsharp_Threshold_Callback)        
 
         # Bezier Canvas
         self.Bezier_frame = Frame(raster_settings, bd=1, relief=SUNKEN)
@@ -4138,14 +4443,82 @@ class Application(Frame):
         Ybut=int(raster_settings.winfo_height())-30
         Xbut=int(raster_settings.winfo_width()/2)
 
-        self.RASTER_Close = Button(raster_settings,text="Close",command=self.Close_Current_Window_Click)
+        self.RASTER_Close = Button(raster_settings,text="Close")
         self.RASTER_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
+        self.RASTER_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
         self.bezier_M1_Callback()
         self.Set_Input_States_RASTER()
+        #if DEBUG and show_unsharp:
+        #    self.Set_Input_States_Unsharp()
 
 
+    ################################################################################
+    #                         Rotary Settings Window                               #
+    ################################################################################
+    def ROTARY_Settings_Window(self):
+        rotary_settings = Toplevel(width=350, height=175)
+        rotary_settings.grab_set() # Use grab_set to prevent user input in the main window
+        rotary_settings.focus_set()
+        rotary_settings.resizable(0,0)
+        rotary_settings.title('Rotary Settings')
+        rotary_settings.iconname("Rotary Settings")
 
+        try:
+            rotary_settings.iconbitmap(bitmap="@emblem64")
+        except:
+            debug_message(traceback.format_exc())
+            pass
+
+        D_Yloc  = 6
+        D_dY = 30
+        xd_label_L = 12
+
+        w_label=180
+        w_entry=40
+        w_units=45
+        xd_entry_L=xd_label_L+w_label+10
+        xd_units_L=xd_entry_L+w_entry+5
+        sep_border=10
+        
+
+        D_Yloc=D_Yloc+D_dY-15
+        self.Label_Rotary_Enable = Label(rotary_settings,text="Use Rotary Settings")
+        self.Label_Rotary_Enable.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_Rotary_Enable = Checkbutton(rotary_settings,text="", anchor=W, command=self.Set_Input_States_Rotary)
+        self.Checkbutton_Rotary_Enable.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_Rotary_Enable.configure(variable=self.rotary)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Laser_R_Scale = Label(rotary_settings,text="Rotary Scale Factor (Y axis)")
+        self.Label_Laser_R_Scale.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Laser_R_Scale = Entry(rotary_settings,width="15")
+        self.Entry_Laser_R_Scale.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Laser_R_Scale.configure(textvariable=self.LaserRscale)
+        self.LaserRscale.trace_variable("w", self.Entry_Laser_R_Scale_Callback)
+        self.entry_set(self.Entry_Laser_R_Scale,self.Entry_Laser_R_Scale_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Laser_Rapid_Feed = Label(rotary_settings,text="Rapid Speed (default=0)")
+        self.Label_Laser_Rapid_Feed.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Label_Laser_Rapid_Feed_u = Label(rotary_settings,textvariable=self.funits, anchor=W)
+        self.Label_Laser_Rapid_Feed_u.place(x=xd_units_L, y=D_Yloc, width=w_units, height=21)
+        self.Entry_Laser_Rapid_Feed = Entry(rotary_settings,width="15")
+        self.Entry_Laser_Rapid_Feed.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Laser_Rapid_Feed.configure(textvariable=self.rapid_feed)
+        self.rapid_feed.trace_variable("w", self.Entry_Laser_Rapid_Feed_Callback)
+        self.entry_set(self.Entry_Laser_Rapid_Feed,self.Entry_Laser_Rapid_Feed_Check(),2)
+        
+        ## Buttons ##
+        rotary_settings.update_idletasks()
+        Ybut=int(rotary_settings.winfo_height())-30
+        Xbut=int(rotary_settings.winfo_width()/2)
+
+        self.GEN_Close = Button(rotary_settings,text="Close")
+        self.GEN_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
+        self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
+
+        self.Set_Input_States_Rotary()
 
     ################################################################################
     #                            EGV Send Window                                   #
@@ -4203,9 +4576,9 @@ class Application(Frame):
         Ybut=int(egv_send.winfo_height())-30
         Xbut=int(egv_send.winfo_width()/2)
 
-        self.EGV_Close = Button(egv_send,text="Cancel",command=self.Close_Current_Window_Click)
+        self.EGV_Close = Button(egv_send,text="Cancel")
         self.EGV_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="e")
-
+        self.EGV_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
         def Close_and_Send_Click():
             win_id=self.grab_current()

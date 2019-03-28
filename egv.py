@@ -619,8 +619,9 @@ class egv:
                             update_gui=None,
                             stop_calc=None,
                             FlipXoffset=0,
-                            Slow_Rapids=False):
-
+                            Rapid_Feed_Rate=0):
+        #print("make_egv_data",Rapid_Feed_Rate,len(ecoords_in))
+        #print("Rapid_Feed_Rate=",Rapid_Feed_Rate)
         ########################################################
         if stop_calc == None:
             stop_calc=[]
@@ -646,13 +647,17 @@ class egv:
             
         speed = self.make_speed(Feed,board_name=board_name,Raster_step=Raster_step)
         
-        #self.write(ord("I"))
-        for code in speed:
-            self.write(code)
+        ##self.write(ord("I"))
+        #for code in speed:
+        #    self.write(code)
         
         if Raster_step==0:
+            #self.write(ord("I"))
+            for code in speed:
+                self.write(code)
+
             lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)
-            if not Slow_Rapids:
+            if not Rapid_Feed_Rate:
                 self.make_dir_dist(lastx-startX,lasty-startY)
             self.flush(laser_on=False)
             self.write(ord("N"))
@@ -665,8 +670,8 @@ class egv:
             ###########################################################
             laser   = False
             
-            if Slow_Rapids:
-                self.rapid_move_slow(lastx-startX,lasty-startY)
+            if Rapid_Feed_Rate:
+                self.rapid_move_slow(lastx-startX,lasty-startY,Rapid_Feed_Rate,Feed,board_name)
             timestamp=0
             for i in range(1,len(ecoords_in)):
                 e0,e1,e2                = self.ecoord_adj(ecoords_in[i]  ,scale,FlipXoffset)
@@ -696,8 +701,8 @@ class egv:
                                 self.change_speed(Feed,board_name,laser_on=Spindle)
                         self.make_cut_line(dx,dy,Spindle)
                     else:
-                        if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)):
-                            self.rapid_move_slow(dx,dy)
+                        if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)) or Rapid_Feed_Rate:
+                            self.rapid_move_slow(dx,dy,Rapid_Feed_Rate,Feed,board_name)
                         else:
                             self.rapid_move_fast(dx,dy)
                         
@@ -710,8 +715,8 @@ class egv:
                 
             dx = startX-lastx
             dy = startY-lasty
-            if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)) or Slow_Rapids:
-                self.rapid_move_slow(dx,dy)
+            if ((abs(dx) < min_rapid) and (abs(dy) < min_rapid)) or Rapid_Feed_Rate:
+                self.rapid_move_slow(dx,dy,Rapid_Feed_Rate,Feed,board_name)
             else:
                 self.rapid_move_fast(dx,dy)
 
@@ -742,12 +747,23 @@ class egv:
                         scanline[-1].insert(0,ecoords_in[i])
                     else:
                         scanline[-1].append(ecoords_in[i])
+            update_gui("Raster Data Ready")
             ###################################################
             lastx,lasty,last_loop = self.ecoord_adj(scanline[0][0],scale,FlipXoffset)
             
             DXstart = lastx-startX
             DYstart = lasty-startY
-            self.make_dir_dist(DXstart,DYstart)
+
+            if Rapid_Feed_Rate:
+                self.make_egv_rapid(DXstart,DYstart,Rapid_Feed_Rate,board_name,finish=False)
+
+            ##self.write(ord("I"))
+            for code in speed:
+                self.write(code)
+
+            if not Rapid_Feed_Rate:
+                self.make_dir_dist(DXstart,DYstart)
+
             #insert "NRB"
             self.flush(laser_on=False)
             self.write(ord("N"))
@@ -792,7 +808,8 @@ class egv:
                 ######################################
                 ## Make Rapid move if needed        ##
                 ######################################
-                if abs(dy-Raster_step) != 0 and not Rapid_flag:
+                if abs(dy-Raster_step) != 0 and not Rapid_flag: 
+                    
                     if dxr*sign < 0:
                         yoffset = -Raster_step*3
                     else:
@@ -800,11 +817,18 @@ class egv:
                         
                     if (dy+yoffset)*(abs(yoffset)/yoffset) < 0:
                         self.flush(laser_on=False)
-                        self.write(ord("N"))
-                        self.make_dir_dist(0,dy+yoffset)
-                        self.flush(laser_on=False)
-                        self.write(ord("S"))
-                        self.write(ord("E"))
+
+                        if not Rapid_Feed_Rate:
+                            self.write(ord("N"))
+                            self.make_dir_dist(0,dy+yoffset)
+                            self.flush(laser_on=False)
+                            self.write(ord("S"))
+                            self.write(ord("E"))
+                        else:
+                            DX=0
+                            DY=dy+yoffset
+                            self.raster_rapid_move_slow(DX,DY,Raster_step,Rapid_Feed_Rate,Feed,board_name)
+
                         Rapid_flag=True
                     else:
                         adj_steps = int(dy/Raster_step)
@@ -820,8 +844,9 @@ class egv:
                             else:
                                 xr = scan[-1][0]
                             dxr = xr - lastx
-
                     lasty = y
+
+                        
                 ######################################
                 if sign == 1:
                     rng = range(0,len(scan),1)
@@ -866,32 +891,88 @@ class egv:
 
             self.flush(laser_on=False)
 
-            max_return_feed = 50.0
-            if Feed > max_return_feed:
-                self.change_speed(max_return_feed,board_name,laser_on=False)
-                
-            self.write(ord("N"))
+
             dx_final = (startX - lastx)
             if Raster_step < 0:
                 dy_final = (startY - lasty) + Raster_step
             else:
                 dy_final = (startY - lasty) - Raster_step
-            self.make_dir_dist(dx_final,dy_final)
-            self.flush(laser_on=False)
-            self.write(ord("S"))
-            self.write(ord("E"))
+           
+            max_return_feed = 50.0
+            if not Rapid_Feed_Rate:
+                if Feed > max_return_feed:
+                    self.change_speed(max_return_feed,board_name,laser_on=False)
+                self.write(ord("N"))
+                self.make_dir_dist(dx_final,dy_final)
+                self.flush(laser_on=False)
+                self.write(ord("S"))
+                self.write(ord("E"))
+            else:
+                #if Raster_step:
+                #    self.raster_rapid_move_slow(dx_final,dy_final,Raster_step,Rapid_Feed_Rate,Rapid_Feed_Rate,board_name)
+                #else:
+                self.rapid_move_slow(dx_final,dy_final,Rapid_Feed_Rate,5,board_name)
             ###########################################################
-                        
+           
         # Append Footer
         self.flush(laser_on=False)
         self.write(ord("F"))
         self.write(ord("N"))
         self.write(ord("S"))
         self.write(ord("E"))
+        update_gui("EGV Data Complete")
         return
 
-    def rapid_move_slow(self,dx,dy):
-        self.make_dir_dist(dx,dy)
+    def make_egv_rapid(self, DX,DY,Feed = None,board_name="LASER-M2",finish=True):
+        speed = self.make_speed(Feed,board_name=board_name,Raster_step=0)
+        if finish:
+            self.write(ord("I"))
+        for code in speed:
+            self.write(code)
+        self.flush(laser_on=False)
+        self.write(ord("N"))
+        self.write(ord("R"))
+        self.write(ord("B"))
+        # Insert "S1E"
+        self.write(ord("S"))
+        self.write(ord("1"))
+        self.write(ord("E"))
+        ###########################################################
+        # Move Distance
+        self.make_cut_line(DX,DY,Spindle=0)
+        ###########################################################   
+        # Append Footer
+        self.flush(laser_on=False)
+        if finish:
+            self.write(ord("F"))
+        else:
+            self.write(ord("@"))
+        self.write(ord("N"))
+        self.write(ord("S"))
+        self.write(ord("E"))
+        return
+
+    def rapid_move_slow(self,dx,dy,Rapid_Feed_Rate,Feed,board_name):
+        if Rapid_Feed_Rate:
+            self.change_speed(Rapid_Feed_Rate,board_name,laser_on=False)
+            self.make_dir_dist(dx,dy)
+            self.change_speed(Feed,board_name,laser_on=False)
+        else:
+            self.make_dir_dist(dx,dy)
+
+    def raster_rapid_move_slow(self,DX,DY,Raster_step,Rapid_Feed_Rate,Feed,board_name):
+        tiny_step = Raster_step/abs(Raster_step)
+        self.change_speed(Rapid_Feed_Rate,board_name,laser_on=False)
+        self.make_dir_dist(DX,DY-tiny_step)
+        self.flush(laser_on=False)
+        self.change_speed(Feed,board_name,laser_on=False,Raster_step=Raster_step)
+        #Tiny Rapid
+        self.write(ord("N"))
+        self.make_dir_dist(0,tiny_step)
+        self.flush(laser_on=False)
+        self.write(ord("S"))
+        self.write(ord("E"))
+
 
     def rapid_move_fast(self,dx,dy):
         pad = 3
@@ -912,7 +993,7 @@ class egv:
         self.write(ord("E"))
 
 
-    def change_speed(self,Feed,board_name,laser_on=False):
+    def change_speed(self,Feed,board_name,laser_on=False,Raster_step=0):
         #cspad = 5
         if laser_on:
             self.write(self.OFF)
@@ -924,7 +1005,7 @@ class egv:
         self.write(ord("N"))
         self.write(ord("S"))
         self.write(ord("E"))
-        speed = self.make_speed(Feed,board_name)
+        speed = self.make_speed(Feed,board_name,Raster_step=Raster_step)
         #print Feed,speed
         for code in speed:
             self.write(code)

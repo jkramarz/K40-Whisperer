@@ -43,14 +43,16 @@ class WindowsInhibitor:
 
             
 if __name__ == "__main__":
-    import time
+    # Running this will prevent the computer from going to sleep
+    # until you press a key to end the program
     osSleep = WindowsInhibitor()
     print("no sleep = ",osSleep.inhibit())
-    t_init=time.time()
-    d_time=0
-    while d_time < 20:
-        time.sleep(5)
-        d_time = time.time()-t_init
-        print d_time
+    ####
+    try:
+        raw_input("Press Enter to continue...")
+    except:
+        input("Press Enter to continue...")
+        
     if osSleep:
         print("stop no sleep = ",osSleep.uninhibit())
+    ####

@@ -165,3 +165,10 @@ Version 0.29:
 - Added command to stop windows computers from going to sleep while the laser is running.
 - Changed the SVG reader so it ignores CSS entry without data instead of throwing an error.
 - Added key binding for alt-control-(arrow keys) for moving the laser head independent of the design.
+
+Version 0.30:
+- Added check box to enable/disable the settings typically used for a rotary fixture.  
+- Added option to set rapid speeds in the general settings.  (zero uses the default controller rapid speed.)
+- Fixed SVG reader so hidden layers are hidden. (In some cases they were being shown.)
+- Fixed problem that caused excessive memory use when dithering was disabled.
+

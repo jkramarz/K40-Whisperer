@@ -455,10 +455,13 @@ class SVG_READER(inkex.Effect):
             for i,decl in enumerate(declarations):
                 parts = decl.split(':', 2)
                 if len(parts) == 2:
-                    (prop, col) = parts
+                    (prop, val) = parts
                     prop = prop.strip().lower()
                     if prop == 'stroke':
-                        stroke_group = col.strip()
+                        stroke_group = val.strip()
+                    if prop == 'display' and val == "none":
+                        #group display is 'none' return without processing group
+                        return
         ##############################################
         
         if group.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
@@ -467,6 +470,7 @@ class SVG_READER(inkex.Effect):
                 style = simplestyle.parseStyle(style)
                 if 'display' in style:   
                     if style['display'] == 'none':
+                        #layer display is 'none' return without processing layer
                         return
             layer = group.get(inkex.addNS('label', 'inkscape'))
               
@@ -591,7 +595,7 @@ class SVG_READER(inkex.Effect):
                 txt2path_file = os.path.join(tmp_dir, "txt2path.svg")         
                 self.document.write(svg_temp_file)
                 cmd = [ self.inscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, svg_temp_file ]
-                run_external(cmd, self.timout)
+                run_external(cmd, self.timout)                
                 p = etree.XMLParser(huge_tree=True, recover=True)
                 self.document.parse(txt2path_file, parser=p)
             except Exception as e:
