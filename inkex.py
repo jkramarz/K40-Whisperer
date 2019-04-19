@@ -160,7 +160,7 @@ class Effect:
         """Collect command line arguments"""
         self.options, self.args = self.OptionParser.parse_args(args)
 
-    def parse(self, filename=None):
+    def parse(self, filename=None, encoding=None):
         """Parse document in specified file or on stdin"""
 
         # First try to open the file from the function argument
@@ -184,8 +184,12 @@ class Effect:
         # standard input stream
         else:
             stream = sys.stdin
+            
+        if encoding == None:
+            p = etree.XMLParser(huge_tree=True, recover=True)
+        else:
+            p = etree.XMLParser(huge_tree=True, recover=True, encoding=encoding)
 
-        p = etree.XMLParser(huge_tree=True, recover=True)
         self.document = etree.parse(stream, parser=p)
         self.original_document = copy.deepcopy(self.document)
         stream.close()

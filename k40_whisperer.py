@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.30'
+version = '0.31'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -27,6 +27,7 @@ from nano_library import K40_CLASS
 from dxf import DXF_CLASS
 from svg_reader import SVG_READER
 from svg_reader import SVG_TEXT_EXCEPTION
+from svg_reader import SVG_PXPI_EXCEPTION
 from g_code_library import G_Code_Rip
 from interpolate import interpolate
 from ecoords import ECoord
@@ -683,6 +684,7 @@ class Application(Frame):
             self.Open_Settings_File(config_file)
         elif ( os.path.isfile(home_config1) ):
             self.Open_Settings_File(home_config1)
+
 
         opts, args = None, None
         try:
@@ -1753,14 +1755,32 @@ class Application(Frame):
         svg_reader.image_dpi = self.input_dpi
         try:
             try:
-                svg_reader.parse(self.SVG_FILE)
-                svg_reader.make_paths()
+                try:
+                    svg_reader.parse_svg(self.SVG_FILE)
+                    svg_reader.make_paths()
+                except SVG_PXPI_EXCEPTION as e:
+                    pxpi_dialog = pxpiDialog(root,
+                                           self.units.get(),
+                                           svg_reader.SVG_Size,
+                                           svg_reader.SVG_ViewBox,
+                                           svg_reader.SVG_inkscape_version)
+                    
+                    svg_reader = SVG_READER()
+                    svg_reader.set_inkscape_path(self.inkscape_path.get())
+                    if pxpi_dialog.result == None:
+                        return
+                    
+                    pxpi,viewbox = pxpi_dialog.result
+                    svg_reader.parse_svg(self.SVG_FILE)
+                    svg_reader.set_size(pxpi,viewbox)
+                    svg_reader.make_paths()
+                    
             except SVG_TEXT_EXCEPTION as e:
                 svg_reader = SVG_READER()
                 svg_reader.set_inkscape_path(self.inkscape_path.get())
                 self.statusMessage.set("Converting TEXT to PATHS.")
                 self.master.update()
-                svg_reader.parse(self.SVG_FILE)
+                svg_reader.parse_svg(self.SVG_FILE)
                 svg_reader.make_paths(txt2paths=True)
                 
         except Exception as e:
@@ -2159,125 +2179,127 @@ class Application(Frame):
         text_codes=[]
         ident = "k40_whisperer_set"
         for line in fin:
-            if ident in line:
-                # BOOL
-                if "include_Reng"  in line:
-                    self.include_Reng.set(line[line.find("include_Reng"):].split()[1])
-                elif "include_Veng"  in line:
-                    self.include_Veng.set(line[line.find("include_Veng"):].split()[1])
-                elif "include_Vcut"  in line:
-                    self.include_Vcut.set(line[line.find("include_Vcut"):].split()[1])
-                elif "include_Gcde"  in line:
-                    self.include_Gcde.set(line[line.find("include_Gcde"):].split()[1])
-                elif "include_Time"  in line:
-                    self.include_Time.set(line[line.find("include_Time"):].split()[1])
-                elif "halftone"  in line:
-                    self.halftone.set(line[line.find("halftone"):].split()[1])
-                elif "negate"  in line:
-                    self.negate.set(line[line.find("negate"):].split()[1])
-                elif "HomeUR"  in line:
-                    self.HomeUR.set(line[line.find("HomeUR"):].split()[1])                    
-                elif "inputCSYS"  in line:
-                    self.inputCSYS.set(line[line.find("inputCSYS"):].split()[1])
-                elif "advanced"  in line:
-                    self.advanced.set(line[line.find("advanced"):].split()[1])
-                elif "mirror"  in line:
-                    self.mirror.set(line[line.find("mirror"):].split()[1])
-                elif "rotate"  in line:
-                    self.rotate.set(line[line.find("rotate"):].split()[1])
-                elif "engraveUP"  in line:
-                    self.engraveUP.set(line[line.find("engraveUP"):].split()[1])
-                elif "init_home"  in line:
-                    self.init_home.set(line[line.find("init_home"):].split()[1])
-                elif "pre_pr_crc"  in line:
-                    self.pre_pr_crc.set(line[line.find("pre_pr_crc"):].split()[1])
-                elif "inside_first"  in line:
-                    self.inside_first.set(line[line.find("inside_first"):].split()[1])
-                elif "comb_engrave"  in line:
-                    self.comb_engrave.set(line[line.find("comb_engrave"):].split()[1])
-                elif "comb_vector"  in line:
-                    self.comb_vector.set(line[line.find("comb_vector"):].split()[1])
-                elif "zoom2image"  in line:
-                    self.zoom2image.set(line[line.find("zoom2image"):].split()[1])
+            try:
+                if ident in line:
+                    # BOOL
+                    if "include_Reng"  in line:
+                        self.include_Reng.set(line[line.find("include_Reng"):].split()[1])
+                    elif "include_Veng"  in line:
+                        self.include_Veng.set(line[line.find("include_Veng"):].split()[1])
+                    elif "include_Vcut"  in line:
+                        self.include_Vcut.set(line[line.find("include_Vcut"):].split()[1])
+                    elif "include_Gcde"  in line:
+                        self.include_Gcde.set(line[line.find("include_Gcde"):].split()[1])
+                    elif "include_Time"  in line:
+                        self.include_Time.set(line[line.find("include_Time"):].split()[1])
+                    elif "halftone"  in line:
+                        self.halftone.set(line[line.find("halftone"):].split()[1])
+                    elif "negate"  in line:
+                        self.negate.set(line[line.find("negate"):].split()[1])
+                    elif "HomeUR"  in line:
+                        self.HomeUR.set(line[line.find("HomeUR"):].split()[1])                    
+                    elif "inputCSYS"  in line:
+                        self.inputCSYS.set(line[line.find("inputCSYS"):].split()[1])
+                    elif "advanced"  in line:
+                        self.advanced.set(line[line.find("advanced"):].split()[1])
+                    elif "mirror"  in line:
+                        self.mirror.set(line[line.find("mirror"):].split()[1])
+                    elif "rotate"  in line:
+                        self.rotate.set(line[line.find("rotate"):].split()[1])
+                    elif "engraveUP"  in line:
+                        self.engraveUP.set(line[line.find("engraveUP"):].split()[1])
+                    elif "init_home"  in line:
+                        self.init_home.set(line[line.find("init_home"):].split()[1])
+                    elif "pre_pr_crc"  in line:
+                        self.pre_pr_crc.set(line[line.find("pre_pr_crc"):].split()[1])
+                    elif "inside_first"  in line:
+                        self.inside_first.set(line[line.find("inside_first"):].split()[1])
+                    elif "comb_engrave"  in line:
+                        self.comb_engrave.set(line[line.find("comb_engrave"):].split()[1])
+                    elif "comb_vector"  in line:
+                        self.comb_vector.set(line[line.find("comb_vector"):].split()[1])
+                    elif "zoom2image"  in line:
+                        self.zoom2image.set(line[line.find("zoom2image"):].split()[1])
 
-                elif "rotary"    in line:
-                     self.rotary.set(line[line.find("rotary"):].split()[1])
-        
-                # STRING.set()
-                elif "board_name" in line:
-                    self.board_name.set(line[line.find("board_name"):].split()[1])
-                elif "units"    in line:
-                    self.units.set(line[line.find("units"):].split()[1])
-                elif "Reng_feed"    in line:
-                     self.Reng_feed .set(line[line.find("Reng_feed"):].split()[1])
-                elif "Veng_feed"    in line:
-                     self.Veng_feed .set(line[line.find("Veng_feed"):].split()[1])  
-                elif "Vcut_feed"    in line:
-                     self.Vcut_feed.set(line[line.find("Vcut_feed"):].split()[1])
-                elif "jog_step"    in line:
-                     self.jog_step.set(line[line.find("jog_step"):].split()[1])
-                     
-                elif "Reng_passes"    in line:
-                     self.Reng_passes.set(line[line.find("Reng_passes"):].split()[1])
-                elif "Veng_passes"    in line:
-                     self.Veng_passes.set(line[line.find("Veng_passes"):].split()[1])
-                elif "Vcut_passes"    in line:
-                     self.Vcut_passes.set(line[line.find("Vcut_passes"):].split()[1])
-                elif "Gcde_passes"    in line:
-                     self.Gcde_passes.set(line[line.find("Gcde_passes"):].split()[1])
+                    elif "rotary"    in line:
+                         self.rotary.set(line[line.find("rotary"):].split()[1])
+            
+                    # STRING.set()
+                    elif "board_name" in line:
+                        self.board_name.set(line[line.find("board_name"):].split()[1])
+                    elif "units"    in line:
+                        self.units.set(line[line.find("units"):].split()[1])
+                    elif "Reng_feed"    in line:
+                         self.Reng_feed .set(line[line.find("Reng_feed"):].split()[1])
+                    elif "Veng_feed"    in line:
+                         self.Veng_feed .set(line[line.find("Veng_feed"):].split()[1])  
+                    elif "Vcut_feed"    in line:
+                         self.Vcut_feed.set(line[line.find("Vcut_feed"):].split()[1])
+                    elif "jog_step"    in line:
+                         self.jog_step.set(line[line.find("jog_step"):].split()[1])
+                         
+                    elif "Reng_passes"    in line:
+                         self.Reng_passes.set(line[line.find("Reng_passes"):].split()[1])
+                    elif "Veng_passes"    in line:
+                         self.Veng_passes.set(line[line.find("Veng_passes"):].split()[1])
+                    elif "Vcut_passes"    in line:
+                         self.Vcut_passes.set(line[line.find("Vcut_passes"):].split()[1])
+                    elif "Gcde_passes"    in line:
+                         self.Gcde_passes.set(line[line.find("Gcde_passes"):].split()[1])
 
-                elif "rast_step"    in line:
-                     self.rast_step.set(line[line.find("rast_step"):].split()[1])
-                elif "ht_size"    in line:
-                     self.ht_size.set(line[line.find("ht_size"):].split()[1])
+                    elif "rast_step"    in line:
+                         self.rast_step.set(line[line.find("rast_step"):].split()[1])
+                    elif "ht_size"    in line:
+                         self.ht_size.set(line[line.find("ht_size"):].split()[1])
 
-                elif "LaserXsize"    in line:
-                     self.LaserXsize.set(line[line.find("LaserXsize"):].split()[1])
-                elif "LaserYsize"    in line:
-                     self.LaserYsize.set(line[line.find("LaserYsize"):].split()[1])
+                    elif "LaserXsize"    in line:
+                         self.LaserXsize.set(line[line.find("LaserXsize"):].split()[1])
+                    elif "LaserYsize"    in line:
+                         self.LaserYsize.set(line[line.find("LaserYsize"):].split()[1])
 
-                elif "LaserXscale"    in line:
-                     self.LaserXscale.set(line[line.find("LaserXscale"):].split()[1])
-                elif "LaserYscale"    in line:
-                     self.LaserYscale.set(line[line.find("LaserYscale"):].split()[1])
-                elif "LaserRscale"    in line:
-                     self.LaserRscale.set(line[line.find("LaserRscale"):].split()[1])
+                    elif "LaserXscale"    in line:
+                         self.LaserXscale.set(line[line.find("LaserXscale"):].split()[1])
+                    elif "LaserYscale"    in line:
+                         self.LaserYscale.set(line[line.find("LaserYscale"):].split()[1])
+                    elif "LaserRscale"    in line:
+                         self.LaserRscale.set(line[line.find("LaserRscale"):].split()[1])
 
-                elif "rapid_feed"    in line:
-                     self.rapid_feed.set(line[line.find("rapid_feed"):].split()[1])
-                     
-                elif "gotoX"    in line:
-                     self.gotoX.set(line[line.find("gotoX"):].split()[1])
-                elif "gotoY"    in line:
-                     self.gotoY.set(line[line.find("gotoY"):].split()[1])
+                    elif "rapid_feed"    in line:
+                         self.rapid_feed.set(line[line.find("rapid_feed"):].split()[1])
+                         
+                    elif "gotoX"    in line:
+                         self.gotoX.set(line[line.find("gotoX"):].split()[1])
+                    elif "gotoY"    in line:
+                         self.gotoY.set(line[line.find("gotoY"):].split()[1])
 
-                elif "bezier_M1"    in line:
-                     self.bezier_M1.set(line[line.find("bezier_M1"):].split()[1])
-                elif "bezier_M2"    in line:
-                     self.bezier_M2.set(line[line.find("bezier_M2"):].split()[1])
-                elif "bezier_weight"    in line:
-                     self.bezier_weight.set(line[line.find("bezier_weight"):].split()[1])
+                    elif "bezier_M1"    in line:
+                         self.bezier_M1.set(line[line.find("bezier_M1"):].split()[1])
+                    elif "bezier_M2"    in line:
+                         self.bezier_M2.set(line[line.find("bezier_M2"):].split()[1])
+                    elif "bezier_weight"    in line:
+                         self.bezier_weight.set(line[line.find("bezier_weight"):].split()[1])
 
-##                elif "unsharp_flag"    in line:
-##                     self.unsharp_flag.set(line[line.find("unsharp_flag"):].split()[1])
-##                elif "unsharp_r"    in line:
-##                     self.unsharp_r.set(line[line.find("unsharp_r"):].split()[1])
-##                elif "unsharp_p"    in line:
-##                     self.unsharp_p.set(line[line.find("unsharp_p"):].split()[1])
-##                elif "unsharp_t"    in line:
-##                     self.unsharp_t.set(line[line.find("unsharp_t"):].split()[1])
+    ##                elif "unsharp_flag"    in line:
+    ##                     self.unsharp_flag.set(line[line.find("unsharp_flag"):].split()[1])
+    ##                elif "unsharp_r"    in line:
+    ##                     self.unsharp_r.set(line[line.find("unsharp_r"):].split()[1])
+    ##                elif "unsharp_p"    in line:
+    ##                     self.unsharp_p.set(line[line.find("unsharp_p"):].split()[1])
+    ##                elif "unsharp_t"    in line:
+    ##                     self.unsharp_t.set(line[line.find("unsharp_t"):].split()[1])
+            
+                    elif "t_timeout"    in line:
+                         self.t_timeout.set(line[line.find("t_timeout"):].split()[1])
+                    elif "n_timeouts"    in line:
+                         self.n_timeouts.set(line[line.find("n_timeouts"):].split()[1]) 
 
-
-        
-                elif "t_timeout"    in line:
-                     self.t_timeout.set(line[line.find("t_timeout"):].split()[1])
-                elif "n_timeouts"    in line:
-                     self.n_timeouts.set(line[line.find("n_timeouts"):].split()[1]) 
-
-                elif "designfile"    in line:
-                       self.DESIGN_FILE=(line[line.find("designfile"):].split("\042")[1])
-                elif "inkscape_path"    in line:
-                     self.inkscape_path.set(line[line.find("inkscape_path"):].split("\042")[1])
+                    elif "designfile"    in line:
+                           self.DESIGN_FILE=(line[line.find("designfile"):].split("\042")[1])
+                    elif "inkscape_path"    in line:
+                         self.inkscape_path.set(line[line.find("inkscape_path"):].split("\042")[1])
+            except:
+                #Ignoring exeptions during reading data from line 
+                pass
                      
         fin.close()
 
@@ -4688,6 +4710,281 @@ class UnitsDialog(tkSimpleDialog.Dialog):
 
 
 
+class pxpiDialog(tkSimpleDialog.Dialog):
+        
+    def __init__(self,
+                 parent,
+                 units = "mm",
+                 SVG_Size            =None,
+                 SVG_ViewBox         =None,
+                 SVG_inkscape_version=None):
+
+        self.result = None
+        self.svg_pxpi   = StringVar()
+        self.other      = StringVar()
+        self.svg_width  = StringVar()
+        self.svg_height = StringVar()
+        self.svg_units  = StringVar()
+        self.fixed_size = False
+        self.svg_units.set(units)
+        if units=="mm":
+            self.scale=1.0
+        else:
+            self.scale=1/25.4
+
+        
+        ###################################
+        ##       Set initial pxpi          #
+        ###################################
+        pxpi = 72.0
+        if SVG_inkscape_version != None:
+            if SVG_inkscape_version >=.92:
+                pxpi = 96.0
+            else:
+                pxpi = 90.0
+  
+        self.svg_pxpi.set("%d"%(pxpi))
+        self.other.set("%d"%(pxpi))
+
+        ###################################
+        ##       Set minx/miny            #
+        ###################################
+        if SVG_ViewBox!=None and SVG_ViewBox[0]!=None and SVG_ViewBox[1]!=None:
+            self.minx_pixels = SVG_ViewBox[0]
+            self.miny_pixels = SVG_ViewBox[1]
+        else:
+            self.minx_pixels = 0.0
+            self.miny_pixels = 0.0
+            
+        ###################################
+        ##       Set Initial Size         #
+        ###################################
+        if SVG_Size!=None and SVG_Size[2]!=None and SVG_Size[3]!=None:
+            self.width_pixels = SVG_Size[2]
+            self.height_pixels = SVG_Size[3]
+        elif SVG_ViewBox!=None and SVG_ViewBox[2]!=None and SVG_ViewBox[3]!=None:
+            self.width_pixels = SVG_ViewBox[2]
+            self.height_pixels = SVG_ViewBox[3]
+        else:
+            self.width_pixels  = 500.0 
+            self.height_pixels = 500.0
+        ###################################
+        ##       Set Initial Size         #
+        ###################################
+        if SVG_Size[0]!=None and SVG_Size[1]!=None:
+            width  = SVG_Size[0] 
+            height = SVG_Size[1]
+            self.fixed_size=True
+        else:
+            width  = self.width_pixels/float(self.svg_pxpi.get())*25.4
+            height = self.height_pixels/float(self.svg_pxpi.get())*25.4
+            
+        self.svg_width.set("%f" %(width*self.scale))
+        self.svg_height.set("%f" %(height*self.scale))
+        ###################################
+        tkSimpleDialog.Dialog.__init__(self, parent) 
+
+
+    def body(self, master):
+        self.resizable(0,0)
+        self.title('SVG Import Scale:')
+        self.iconname("SVG Scale")
+        try:
+            self.iconbitmap(bitmap="@emblem64")
+        except:
+            pass
+        
+        ###########################################################################
+        def Entry_custom_Check():
+            try:
+                value = float(self.other.get())
+                if  value <= 0.0:
+                    return 2 # Value is invalid number
+            except:
+                return 3     # Value not a number
+            return 0         # Value is a valid number
+        def Entry_custom_Callback(varName, index, mode):
+            if Entry_custom_Check() > 0:
+                Entry_Custom_pxpi.configure( bg = 'red' )
+            else:
+                Entry_Custom_pxpi.configure( bg = 'white' )
+                pxpi = float(self.other.get())
+                width  = self.width_pixels/pxpi*25.4
+                height = self.height_pixels/pxpi*25.4
+                if self.fixed_size:
+                    pass
+                else:
+                    Set_Value(width=width*self.scale,height=height*self.scale)
+                self.svg_pxpi.set("custom")
+        ###################################################
+        def Entry_Width_Check():
+            try:
+                value = float(self.svg_width.get())/self.scale
+                if  value <= 0.0:
+                    return 2 # Value is invalid number
+            except:
+                return 3     # Value not a number
+            return 0         # Value is a valid number
+        def Entry_Width_Callback(varName, index, mode):
+            if Entry_Width_Check() > 0:
+                Entry_Custom_Width.configure( bg = 'red' )
+            else:
+                Entry_Custom_Width.configure( bg = 'white' )
+                width = float(self.svg_width.get())/self.scale
+                pxpi = self.width_pixels*25.4/width
+                height = self.height_pixels/pxpi*25.4
+                Set_Value(other=pxpi,height=height*self.scale)
+                self.svg_pxpi.set("custom")
+        ###################################################
+        def Entry_Height_Check():
+            try:
+                value = float(self.svg_height.get())
+                if  value <= 0.0:
+                    return 2 # Value is invalid number
+            except:
+                return 3     # Value not a number
+            return 0         # Value is a valid number
+        def Entry_Height_Callback(varName, index, mode):
+            if Entry_Height_Check() > 0:
+                Entry_Custom_Height.configure( bg = 'red' )
+            else:
+                Entry_Custom_Height.configure( bg = 'white' )
+                height = float(self.svg_height.get())/self.scale
+                pxpi = self.height_pixels*25.4/height
+                width = self.width_pixels/pxpi*25.4
+                Set_Value(other=pxpi,width=width*self.scale)
+                self.svg_pxpi.set("custom")
+        ###################################################       
+        def SVG_pxpi_callback(varName, index, mode):
+            if self.svg_pxpi.get() == "custom":
+                try:
+                    pxpi=float(self.other.get())
+                except:
+                    pass
+            else:
+                pxpi=float(self.svg_pxpi.get())
+                width  = self.width_pixels/pxpi*25.4
+                height = self.height_pixels/pxpi*25.4
+                if self.fixed_size:
+                    Set_Value(other=pxpi)
+                else:
+                    Set_Value(other=pxpi,width=width*self.scale,height=height*self.scale)
+                
+        ###########################################################################
+                    
+        def Set_Value(other=None,width=None,height=None):
+            self.svg_pxpi.trace_vdelete("w",self.trace_id_svg_pxpi)
+            self.other.trace_vdelete("w",self.trace_id_pxpi)
+            self.svg_width.trace_vdelete("w",self.trace_id_width)
+            self.svg_height.trace_vdelete("w",self.trace_id_height)
+            self.update_idletasks()
+            
+            if other != None:
+                self.other.set("%f" %(other))
+            if width != None:
+                self.svg_width.set("%f" %(width))
+            if height != None:
+                self.svg_height.set("%f" %(height))
+            
+            self.trace_id_svg_pxpi = self.svg_pxpi.trace_variable("w", SVG_pxpi_callback)
+            self.trace_id_pxpi     = self.other.trace_variable("w", Entry_custom_Callback)
+            self.trace_id_width   = self.svg_width.trace_variable("w", Entry_Width_Callback)
+            self.trace_id_height  = self.svg_height.trace_variable("w", Entry_Height_Callback)
+            self.update_idletasks()
+            
+        ###########################################################################
+        t0="This dialog opens if the SVG file you are opening\n"
+        t1="does not contain enough information to determine\n"
+        t2="the intended physical size of the design.\n"
+        t3="Select an SVG Import Scale:\n"
+        Title_Text0 = Label(master, text=t0+t1+t2, anchor=W)
+        Title_Text1 = Label(master, text=t3, anchor=W)
+        
+        Radio_SVG_pxpi_96   = Radiobutton(master,text=" 96 px/in", value="96")
+        Label_SVG_pxpi_96   = Label(master,text="(File saved with Inkscape v0.92 or newer)", anchor=W)
+        
+        Radio_SVG_pxpi_90   = Radiobutton(master,text=" 90 px/in", value="90")
+        Label_SVG_pxpi_90   = Label(master,text="(File saved with Inkscape v0.91 or older)", anchor=W)
+        
+        Radio_SVG_pxpi_72   = Radiobutton(master,text=" 72 px/in", value="72")
+        Label_SVG_pxpi_72   = Label(master,text="(File saved with Adobe Illustrator)", anchor=W)
+
+        Radio_Res_Custom = Radiobutton(master,text=" Custom:", value="custom")
+        Bottom_row       = Label(master, text=" ")
+        
+
+        Entry_Custom_pxpi   = Entry(master,width="10")
+        Entry_Custom_pxpi.configure(textvariable=self.other)
+        Label_pxpi_units =  Label(master,text="px/in", anchor=W)
+        self.trace_id_pxpi = self.other.trace_variable("w", Entry_custom_Callback)
+
+        Label_Width =  Label(master,text="Width", anchor=W)
+        Entry_Custom_Width   = Entry(master,width="10")
+        Entry_Custom_Width.configure(textvariable=self.svg_width)
+        Label_Width_units =  Label(master,textvariable=self.svg_units, anchor=W)
+        self.trace_id_width = self.svg_width.trace_variable("w", Entry_Width_Callback)
+
+        Label_Height =  Label(master,text="Height", anchor=W)
+        Entry_Custom_Height   = Entry(master,width="10")
+        Entry_Custom_Height.configure(textvariable=self.svg_height)
+        Label_Height_units =  Label(master,textvariable=self.svg_units, anchor=W)
+        self.trace_id_height = self.svg_height.trace_variable("w", Entry_Height_Callback)
+
+        if self.fixed_size == True:
+             Entry_Custom_Width.configure(state="disabled")
+             Entry_Custom_Height.configure(state="disabled")
+        ###########################################################################
+        rn=0
+        Title_Text0.grid(row=rn,column=0,columnspan=5, sticky=W)
+        
+        rn=rn+1
+        Title_Text1.grid(row=rn,column=0,columnspan=5, sticky=W)
+
+        rn=rn+1
+        Radio_SVG_pxpi_96.grid(    row=rn, sticky=W)
+        Label_SVG_pxpi_96.grid(    row=rn, column=1,columnspan=50, sticky=W)
+
+        rn=rn+1
+        Radio_SVG_pxpi_90.grid(    row=rn, sticky=W)
+        Label_SVG_pxpi_90.grid(    row=rn, column=1,columnspan=50, sticky=W)
+        
+        rn=rn+1
+        Radio_SVG_pxpi_72.grid(    row=rn, column=0, sticky=W)
+        Label_SVG_pxpi_72.grid(    row=rn, column=1,columnspan=50, sticky=W)
+        
+        rn=rn+1
+        Radio_Res_Custom.grid(    row=rn, column=0, sticky=W)
+        Entry_Custom_pxpi.grid(    row=rn, column=1, sticky=E)
+        Label_pxpi_units.grid(     row=rn, column=2, sticky=W)
+        
+        rn=rn+1
+        Label_Width.grid(         row=rn, column=0, sticky=E)
+        Entry_Custom_Width.grid(  row=rn, column=1, sticky=E)
+        Label_Width_units.grid(   row=rn, column=2, sticky=W)
+
+        rn=rn+1
+        Label_Height.grid(        row=rn, column=0, sticky=E)
+        Entry_Custom_Height.grid( row=rn, column=1, sticky=E)
+        Label_Height_units.grid(  row=rn, column=2, sticky=W)
+
+        rn=rn+1
+        Bottom_row.grid(row=rn,columnspan=50)
+
+        Radio_SVG_pxpi_96.configure  (variable=self.svg_pxpi)
+        Radio_SVG_pxpi_90.configure  (variable=self.svg_pxpi)
+        Radio_SVG_pxpi_72.configure  (variable=self.svg_pxpi)
+        Radio_Res_Custom.configure  (variable=self.svg_pxpi)
+        self.trace_id_svg_pxpi = self.svg_pxpi.trace_variable("w", SVG_pxpi_callback)
+        ###########################################################################
+    
+    def apply(self):
+        width  = float(self.svg_width.get())/self.scale
+        height = float(self.svg_height.get())/self.scale
+        pxpi    = float(self.other.get())
+        viewbox = [self.minx_pixels, self.miny_pixels, width/25.4*pxpi, height/25.4*pxpi]
+        self.result = pxpi,viewbox
+        return 
+            
 ################################################################################
 #                          Startup Application                                 #
 ################################################################################
