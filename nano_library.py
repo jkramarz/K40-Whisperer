@@ -234,6 +234,14 @@ class K40_CLASS:
                     if not gui_active:
                         msg = "The laser cutter is not responding after %d attempts." %(timeout_cnt)
                         raise Exception(msg)
+
+                if timeout_cnt > 20:
+                   # try reconnect to laser
+                   try:
+                       self.initialize_device()
+                   except:
+                       pass
+
                 continue
             ######################################
             response = self.say_hello()
