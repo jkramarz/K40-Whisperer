@@ -698,7 +698,7 @@ class DXF_CLASS:
                     y0     = y1
                     bulge0 = bulge1
 
-            if (e.data["70"]!=0):
+            if (e.data["70"] & 1): #check if bit-code 1 is set for closed polygon
                 try:
                     x1 = e.data["10"][0]
                     y1 = e.data["20"][0]

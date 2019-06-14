@@ -165,7 +165,6 @@ class K40_CLASS:
                 istart = 0
             else:
                 istart = 1
-                data[-4]
             if passes > 1:
                 if j == passes-1:
                     data[-4]=ord("F")
@@ -191,7 +190,8 @@ class K40_CLASS:
                     
                     if stop_calc[0]==True:
                         NoSleep.uninhibit()
-                        raise Exception("Action Stopped by User.")
+                        self.stop_sending_data()
+                        #raise Exception("Action Stopped by User.")
                 packet[cnt]=data[i]
                 cnt=cnt+1
         packet[-1]=self.OneWireCRC(packet[1:len(packet)-2])
@@ -218,9 +218,15 @@ class K40_CLASS:
         crc_cnt     = 1
         while True:
             if stop_calc[0]:
-                msg="Action Stopped by User."
-                update_gui(msg,bgcolor='red')
-                raise Exception(msg)
+                self.stop_sending_data()
+                
+            response = self.say_hello()                    
+            if response == self.BUFFER_FULL:
+                while response == self.BUFFER_FULL:
+                    response = self.say_hello()
+                    update_gui()
+                    if stop_calc[0]:
+                        self.stop_sending_data()
             try:
                 self.send_packet(line)
             except:
@@ -245,13 +251,8 @@ class K40_CLASS:
                 continue
             ######################################
             response = self.say_hello()
-                            
-            if response == self.BUFFER_FULL:
-                while response == self.BUFFER_FULL:
-                    response = self.say_hello()
-                break #break and move on to next packet
 
-            elif response == self.CRC_ERROR:
+            if response == self.CRC_ERROR:
                 crc_cnt=crc_cnt+1
                 if crc_cnt < self.n_timeouts:
                     msg = "Data transmission (CRC) error #%d" %(crc_cnt)               
@@ -280,16 +281,20 @@ class K40_CLASS:
                 FINISHED = True
                 break
             elif response == None:
-                msg = "The laser cutter stopped responding after sending data was complete."
-                raise Exception(msg)
+		msg = "Laser stopped responding after operation was complete."
+                update_gui(msg)
+		#raise Exception(msg)
+		FINISHED = True
             else: #assume: response == self.OK:
                 msg = "Waiting for the laser to finish."
                 update_gui(msg)
             if stop_calc[0]:
-                msg="Action Stopped by User."
-                update_gui(msg,bgcolor='red')
-                raise Exception(msg)
+                self.stop_sending_data()
 
+
+    def stop_sending_data(self):
+        self.e_stop()
+        raise Exception("Action Stopped by User.")
 
     def send_packet(self,line):
         self.dev.write(self.write_addr,line,self.timeout)

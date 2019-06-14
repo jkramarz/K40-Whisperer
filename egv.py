@@ -659,11 +659,11 @@ class egv:
 
 
     def change_speed(self,Feed,board_name,laser_on=False,Raster_step=0):
-        #cspad = 5
+        cspad = 5
         if laser_on:
             self.write(self.OFF)
 
-        #self.make_dir_dist(-cspad,-cspad)
+        self.make_dir_dist(-cspad,-cspad)
         self.flush(laser_on=False)
         
         self.write(ord("@"))
@@ -682,7 +682,7 @@ class egv:
         self.write(ord("1"))
         self.write(ord("E"))
 
-        #self.make_dir_dist(cspad,cspad)
+        self.make_dir_dist(cspad,cspad)
         self.flush(laser_on=False)
         
         if laser_on:    

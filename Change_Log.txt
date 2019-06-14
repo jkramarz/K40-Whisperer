@@ -172,3 +172,23 @@ Version 0.30:
 - Fixed SVG reader so hidden layers are hidden. (In some cases they were being shown.)
 - Fixed problem that caused excessive memory use when dithering was disabled.
 
+Changes in Version 0.31
+- Improved speed codes (again) now uses library from the K40Nano project on Github 
+- Added workaround for non UTF-8 characters in SVG files (Files from Adobe Illustrator sometimes have these). 
+- Fixed SVG reader so cloned objects work now. 
+- Added dialog box to manually set scale for SVG files that do not have physical scale fully defined. You should be able to bring in files without setting the units and view box in Inkscape. (Users will need to verify scale is correct for there designs.) 
+- Improved cascading style sheet interpretation for style information. (Some colors could being missed before the improvement.) 
+- Fixed crash on startup if data in settings file is incorrect. 
+- Changed writing location for error log files to avoid attempting to write to folders that are write protected. 
+- Added clarification to the installer script to specify the laser needs to be on when installing the driver. 
+- Fixed a cannot convert string to float error for SVG files that define circles as ellipses.
+
+Changes in Version 0.32
+- Added fix for timeout issues.
+
+Version 0.33:
+- Fixed potential error when decimal points are added to integer input values.
+- Fixed erroneous closing of loops in some DXF files
+- Fixed potential cause of lost data during sending data to the laser
+- Fixed bug that caused laser to move in the wrong direction for certain cases while running g-code.
+- Made the "Stop" button respond faster and after clicking "OK" the laser will stop motion faster.
