@@ -338,14 +338,23 @@ class SVG_READER(inkex.Effect):
         ### If vector data was found save the path data   ###
         #####################################################
         if changed:
+            if node.get('display')=='none':
+                return
             if node.tag == inkex.addNS('path','svg'):
                 d = node.get('d')
                 if not d:
                     return
                 p = cubicsuperpath.parsePath(d)
-            elif node.tag == inkex.addNS('rect','svg'):
-                x = float(node.get('x'))
-                y = float(node.get('y'))
+            elif node.tag == inkex.addNS('rect','svg'):                
+                if node.get('x'):
+                    x = float(node.get('x'))
+                else:
+                    x=0.0
+                if node.get('y'):
+                    y = float(node.get('y'))
+                else:
+                    y=0.0
+                
                 width = float(node.get('width'))
                 height = float(node.get('height'))
                 rx = 0.0

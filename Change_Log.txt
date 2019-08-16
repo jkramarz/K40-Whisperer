@@ -192,3 +192,7 @@ Version 0.33:
 - Fixed potential cause of lost data during sending data to the laser
 - Fixed bug that caused laser to move in the wrong direction for certain cases while running g-code.
 - Made the "Stop" button respond faster and after clicking "OK" the laser will stop motion faster.
+
+Version 0.34:
+- Fixed "float() argument must be a string or number error" for some SVG files.
+- Now respects display='none' for vecor engrav/cut items in svg files.
