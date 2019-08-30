@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.34'
+version = '0.35'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -2573,11 +2573,12 @@ class Application(Frame):
     def slow_jog(self,dxmils,dymils):
         if int(dxmils)==0 and int(dymils)==0:
             return
+        self.stop[0]=False
         Rapid_data=[]
         Rapid_inst = egv(target=lambda s:Rapid_data.append(s))
         Rapid_inst.make_egv_rapid(dxmils,dymils,Feed=float(self.rapid_feed.get()),board_name=self.board_name.get())
         self.send_egv_data(Rapid_data, 1, None)
-            
+        self.stop[0]=True
 
     def update_gui(self, message=None, bgcolor='white'):
         if message!=None:
@@ -2838,7 +2839,7 @@ class Application(Frame):
 
         return inside
 
-    def optimize_paths(self,ecoords):
+    def optimize_paths(self,ecoords,inside_check=True):
         order_out = self.Sort_Paths(ecoords)
         lastx=-999
         lasty=-999
@@ -2872,46 +2873,57 @@ class Application(Frame):
                 lastx = x1
                 lasty = y1
                 loop_old = loop
-        #####################################################
-        # For each loop determine if other loops are inside #
-        #####################################################
-        Nloops=len(cuts)
-        self.LoopTree=[]
-        for iloop in range(Nloops):
-            self.LoopTree.append([])
-##            CUR_PCT=float(iloop)/Nloops*100.0
-##            if (not self.batch.get()):
-##                self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
-##                self.master.update()
-            ipoly = cuts[iloop]
-            ## Check points in other loops (could just check one) ##
-            if ipoly != []:
-                for jloop in range(Nloops):
-                    if jloop != iloop:
-                        inside = 0
-                        inside = inside + self.point_inside_polygon(cuts[jloop][0][0],cuts[jloop][0][1],ipoly)
-                        if inside > 0:
-                            self.LoopTree[iloop].append(jloop)
-        #####################################################
-        for i in range(Nloops):
-            lns=[]
-            lns.append(i)
-            self.remove_self_references(lns,self.LoopTree[i])
 
-        self.order=[]
-        self.loops = list(range(Nloops))
-        for i in range(Nloops):
-            if self.LoopTree[i]!=[]:
-                self.addlist(self.LoopTree[i])
-                self.LoopTree[i]=[]
-            if self.loops[i]!=[]:
-                self.order.append(self.loops[i])
-                self.loops[i]=[]
-        ecoords_out = []
-        for i in self.order:
-            line = cuts[i]
-            for coord in line:
-                ecoords_out.append([coord[0],coord[1],i])
+        if inside_check:
+            #####################################################
+            # For each loop determine if other loops are inside #
+            #####################################################
+            Nloops=len(cuts)
+            self.LoopTree=[]
+            for iloop in range(Nloops):
+                self.LoopTree.append([])
+    ##            CUR_PCT=float(iloop)/Nloops*100.0
+    ##            if (not self.batch.get()):
+    ##                self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
+    ##                self.master.update()
+                ipoly = cuts[iloop]
+                ## Check points in other loops (could just check one) ##
+                if ipoly != []:
+                    for jloop in range(Nloops):
+                        if jloop != iloop:
+                            inside = 0
+                            inside = inside + self.point_inside_polygon(cuts[jloop][0][0],cuts[jloop][0][1],ipoly)
+                            if inside > 0:
+                                self.LoopTree[iloop].append(jloop)
+            #####################################################
+            for i in range(Nloops):
+                lns=[]
+                lns.append(i)
+                self.remove_self_references(lns,self.LoopTree[i])
+
+            self.order=[]
+            self.loops = list(range(Nloops))
+            for i in range(Nloops):
+                if self.LoopTree[i]!=[]:
+                    self.addlist(self.LoopTree[i])
+                    self.LoopTree[i]=[]
+                if self.loops[i]!=[]:
+                    self.order.append(self.loops[i])
+                    self.loops[i]=[]
+        #END inside_check
+            ecoords_out = []
+            for i in self.order:
+                line = cuts[i]
+                for coord in line:
+                    ecoords_out.append([coord[0],coord[1],i])
+        #END inside_check
+        else:
+            ecoords_out = []
+            for i in range(len(cuts)):
+                line = cuts[i]
+                for coord in line:
+                    ecoords_out.append([coord[0],coord[1],i])
+                    
         return ecoords_out
             
     def remove_self_references(self,loop_numbers,loops):
@@ -3051,7 +3063,7 @@ class Application(Frame):
                 self.statusMessage.set("Vector Engrave: Determining Cut Order....")
                 self.master.update()
                 if not self.VengData.sorted and self.inside_first.get():
-                    self.VengData.set_ecoords(self.optimize_paths(self.VengData.ecoords),data_sorted=True)
+                    self.VengData.set_ecoords(self.optimize_paths(self.VengData.ecoords,inside_check=False),data_sorted=True)
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
 

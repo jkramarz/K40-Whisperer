@@ -195,4 +195,9 @@ Version 0.33:
 
 Version 0.34:
 - Fixed "float() argument must be a string or number error" for some SVG files.
-- Now respects display='none' for vecor engrav/cut items in svg files.
+- Now respects display='none' for vector engrave/cut items in SVG files.
+
+Version 0.35:
+- Fixed arrow button, center and corner button functions when using rotary settings. (These functions where broken in a previous version.)
+- Changed vector engrave function so that it does not try to cut inside first.  This greatly speeds up processing for complex designs.
+ 
