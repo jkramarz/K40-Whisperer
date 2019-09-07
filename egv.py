@@ -285,6 +285,7 @@ class egv:
                             stop_calc=None,
                             FlipXoffset=0,
                             Rapid_Feed_Rate=0):
+
         #print("make_egv_data",Rapid_Feed_Rate,len(ecoords_in))
         #print("Rapid_Feed_Rate=",Rapid_Feed_Rate)
         ########################################################
@@ -563,21 +564,26 @@ class egv:
             else:
                 dy_final = (startY - lasty) - Raster_step
            
+            ##############################################################
             max_return_feed = 50.0
-            if not Rapid_Feed_Rate:
-                if Feed > max_return_feed:
-                    self.change_speed(max_return_feed,board_name,laser_on=False)
+            final_feed = 0
+            if Rapid_Feed_Rate:
+                final_feed = Rapid_Feed_Rate
+            elif Feed > max_return_feed:
+                final_feed = max_return_feed
+
+            if final_feed:
+                self.change_speed(final_feed,board_name,laser_on=False,pad=False)
+                dy_final = dy_final + abs(Raster_step)
+                self.make_dir_dist(dx_final,dy_final)
+            else:
                 self.write(ord("N"))
                 self.make_dir_dist(dx_final,dy_final)
                 self.flush(laser_on=False)
                 self.write(ord("S"))
                 self.write(ord("E"))
-            else:
-                #if Raster_step:
-                #    self.raster_rapid_move_slow(dx_final,dy_final,Raster_step,Rapid_Feed_Rate,Rapid_Feed_Rate,board_name)
-                #else:
-                self.rapid_move_slow(dx_final,dy_final,Rapid_Feed_Rate,5,board_name)
-            ###########################################################
+            ##############################################################
+            
            
         # Append Footer
         self.flush(laser_on=False)
@@ -627,10 +633,10 @@ class egv:
 
     def raster_rapid_move_slow(self,DX,DY,Raster_step,Rapid_Feed_Rate,Feed,board_name):
         tiny_step = Raster_step/abs(Raster_step)
-        self.change_speed(Rapid_Feed_Rate,board_name,laser_on=False)
+        self.change_speed(Rapid_Feed_Rate,board_name,laser_on=False,pad=False)
         self.make_dir_dist(DX,DY-tiny_step)
         self.flush(laser_on=False)
-        self.change_speed(Feed,board_name,laser_on=False,Raster_step=Raster_step)
+        self.change_speed(Feed,board_name,laser_on=False,Raster_step=Raster_step,pad=False)
         #Tiny Rapid
         self.write(ord("N"))
         self.make_dir_dist(0,tiny_step)
@@ -658,12 +664,13 @@ class egv:
         self.write(ord("E"))
 
 
-    def change_speed(self,Feed,board_name,laser_on=False,Raster_step=0):
+    def change_speed(self,Feed,board_name,laser_on=False,Raster_step=0,pad=True):
         cspad = 5
         if laser_on:
             self.write(self.OFF)
 
-        self.make_dir_dist(-cspad,-cspad)
+        if pad:
+            self.make_dir_dist(-cspad,-cspad)
         self.flush(laser_on=False)
         
         self.write(ord("@"))
@@ -682,7 +689,8 @@ class egv:
         self.write(ord("1"))
         self.write(ord("E"))
 
-        self.make_dir_dist(cspad,cspad)
+        if pad:
+            self.make_dir_dist(cspad,cspad)
         self.flush(laser_on=False)
         
         if laser_on:    

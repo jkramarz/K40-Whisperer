@@ -281,10 +281,10 @@ class K40_CLASS:
                 FINISHED = True
                 break
             elif response == None:
-		msg = "Laser stopped responding after operation was complete."
+                msg = "Laser stopped responding after operation was complete."
                 update_gui(msg)
-		#raise Exception(msg)
-		FINISHED = True
+                #raise Exception(msg)
+                FINISHED = True
             else: #assume: response == self.OK:
                 msg = "Waiting for the laser to finish."
                 update_gui(msg)

@@ -200,4 +200,7 @@ Version 0.34:
 Version 0.35:
 - Fixed arrow button, center and corner button functions when using rotary settings. (These functions where broken in a previous version.)
 - Changed vector engrave function so that it does not try to cut inside first.  This greatly speeds up processing for complex designs.
- 
+
+Version 0.36:
+- Fixed rapid motion problems during and at end of raster engraving with certain settings. (Especially when raster engraving bottom up.)
+
