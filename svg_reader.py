@@ -345,15 +345,13 @@ class SVG_READER(inkex.Effect):
                 if not d:
                     return
                 p = cubicsuperpath.parsePath(d)
-            elif node.tag == inkex.addNS('rect','svg'):                
+            elif node.tag == inkex.addNS('rect','svg'):
+                x = 0.0
+                y = 0.0
                 if node.get('x'):
-                    x = float(node.get('x'))
-                else:
-                    x=0.0
+                    x=float(node.get('x'))
                 if node.get('y'):
-                    y = float(node.get('y'))
-                else:
-                    y=0.0
+                    y=float(node.get('y'))
                 
                 width = float(node.get('width'))
                 height = float(node.get('height'))
@@ -386,15 +384,23 @@ class SVG_READER(inkex.Effect):
                 p = cubicsuperpath.parsePath(d)
                 
             elif node.tag == inkex.addNS('circle','svg'):
-                cx = float(node.get('cx') )
-                cy = float(node.get('cy'))
+                cx = 0.0
+                cy = 0.0
+                if node.get('cx'):
+                    cx=float(node.get('cx'))
+                if node.get('cy'):
+                    cy=float(node.get('cy'))
                 r  = float(node.get('r'))
                 d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+r,cy, r,r,cx,cy+r,  r,r,cx-r,cy,  r,r,cx,cy-r, r,r,cx+r,cy)
                 p = cubicsuperpath.parsePath(d)
             
             elif node.tag == inkex.addNS('ellipse','svg'):
-                cx = float(node.get('cx')) 
-                cy = float(node.get('cy'))
+                cx = 0.0
+                cy = 0.0
+                if node.get('cx'):
+                    cx=float(node.get('cx'))
+                if node.get('cy'):
+                    cy=float(node.get('cy'))
                 if node.get('r'):
                     r = float(node.get('r'))
                     rx = r
