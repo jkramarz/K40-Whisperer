@@ -284,7 +284,8 @@ class egv:
                             update_gui=None,
                             stop_calc=None,
                             FlipXoffset=0,
-                            Rapid_Feed_Rate=0):
+                            Rapid_Feed_Rate=0,
+                            use_laser=True):
 
         #print("make_egv_data",Rapid_Feed_Rate,len(ecoords_in))
         #print("Rapid_Feed_Rate=",Rapid_Feed_Rate)
@@ -305,7 +306,7 @@ class egv:
 
         ########################################################
         variable_feed_scale=None
-        Spindle = True
+        Spindle = True and use_laser
         if Feed==None:
             variable_feed_scale = 25.4/60.0
             Feed = round(ecoords_in[0][3]*variable_feed_scale,2)
@@ -360,7 +361,7 @@ class egv:
                     if laser:
                         if variable_feed_scale!=None:
                             Feed_current    = round(ecoords_in[i][3]*variable_feed_scale,2)
-                            Spindle = ecoords_in[i][4] > 0
+                            Spindle = ecoords_in[i][4] > 0 and use_laser
                             if Feed != Feed_current:
                                 Feed = Feed_current
                                 self.flush()

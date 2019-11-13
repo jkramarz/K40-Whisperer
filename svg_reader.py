@@ -46,20 +46,25 @@ except:
 from subprocess import Popen, PIPE
 from threading import Timer
 def run_external(cmd, timeout_sec):
+    stdout=None
+    stderr=None
     FLAG=[True]
     try:
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
     except Exception as e:
         raise Exception("\n%s\n\nExecutable Path:\n%s" %(e,cmd[0]))
-    kill_proc = lambda p: kill_sub_process(p,timeout_sec, FLAG)
-    timer = Timer(timeout_sec, kill_proc, [proc])
-    try:
-        timer.start()
-        stdout,stderr = proc.communicate()
-    finally:
-        timer.cancel()
-    if not FLAG[0]:
-        raise Exception("\nInkscape sub-process terminated after %d seconds." %(timeout_sec))
+    if timeout_sec > 0:
+        kill_proc = lambda p: kill_sub_process(p,timeout_sec, FLAG)
+    
+        timer = Timer(timeout_sec, kill_proc, [proc])
+        try:
+            timer.start()
+            stdout,stderr = proc.communicate()
+        finally:
+            timer.cancel()
+        if not FLAG[0]:
+            raise Exception("\nInkscape sub-process terminated after %d seconds." %(timeout_sec))
+        return (stdout,stderr)
         
 def kill_sub_process(p,timeout_sec, FLAG):
     FLAG[0]=False
@@ -649,18 +654,32 @@ class SVG_READER(inkex.Effect):
         tmp_dir = tempfile.mkdtemp()
         
         if self.inkscape_exe != None:
-            try:
+            try:                
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 png_temp_file = os.path.join(tmp_dir, "k40w_image.png")
                 dpi = "%d" %(self.image_dpi)           
                 self.document.write(svg_temp_file)
-                cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
-                        "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
-                        "255" ,"--export-png", png_temp_file, svg_temp_file ]
+
+                # Check Version of Inkscape
+                cmd = [ self.inkscape_exe, "-V"]
+                (stdout,stderr)=run_external(cmd, self.timout)
+                if stdout.find(b'Inkscape 1.')==-1:
+                    cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
+                            "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
+                            "255" ,"--export-png", png_temp_file, svg_temp_file ]
+                else:
+                    cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
+                            "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
+                            "255" ,"--export-type=png", "--export-file", png_temp_file, svg_temp_file ]
+
                 run_external(cmd, self.timout)
                 self.raster_PIL = Image.open(png_temp_file)
                 self.raster_PIL = self.raster_PIL.convert("L")
             except Exception as e:
+                try:
+                    shutil.rmtree(tmp_dir) 
+                except:
+                    pass
                 error_text = "%s" %(e)
                 raise Exception("Inkscape Execution Failed (while making raster data).\n%s" %(error_text))
         else:
@@ -768,57 +787,8 @@ class SVG_READER(inkex.Effect):
 
         if h_mm==None or w_mm==None or self.SVG_ViewBox==None:
             line1  = "Cannot determine SVG size. Viewbox missing or Units not set."
-            raise SVG_PXPI_EXCEPTION("%s\n" %(line1))                            
-##
-##        ###############################    
-##        try:
-##            h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0])
-##            w_mm = self.unit2mm(self.document.getroot().xpath('@width', namespaces=inkex.NSS)[0])
-##            self.SVG_size_mm=[w_mm,h_mm]
-##        except:
-##            if self.SVG_dpi != None:
-##                h_mm = self.unit2mm(self.document.getroot().xpath('@height', namespaces=inkex.NSS)[0],dpi=self.SVG_dpi)
-##                w_mm = self.unit2mm(self.document.getroot().xpath('@width' , namespaces=inkex.NSS)[0],dpi=self.SVG_dpi)
-##                self.document.getroot().set('width', '%fmm' %(w_mm))
-##                self.document.getroot().set('height','%fmm' %(h_mm))
-##                self.SVG_size_mm=[w_mm,h_mm]
-##            else:
-##                try:
-##                    Inkscape_Version = self.document.getroot().xpath('@inkscape:version', namespaces=inkex.NSS)[0].split(" ")[0]
-##                    V = Inkscape_Version.split(".")
-##                    self.SVG_inkscape_version = float(V[0])+float(V[1])*0.01
-##                except:
-##                    pass
-##                line1 = "Units not set in SVG File.\n"
-##                line2 = "Inkscape v0.90 or higher makes SVG files with units data.\n"
-##                line3 = "1.) In Inkscape (v0.90 or higher) select 'File'-'Document Properties'."
-##                line4 = "2.) In the 'Custom Size' region on the 'Page' tab set the 'Units' to 'mm' or 'in'."
-##                raise SVG_DPI_EXCEPTION("%s\n%s\n%s\n%s" %(line1,line2,line3,line4))
-##            
-##        try:
-##            view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
-##        except:
-##            if self.SVG_dpi != None:
-##                print("No viewbox setting the vector scale based on assumed %d dpi" %(self.SVG_dpi))
-##                self.document.getroot().set('viewBox', '%f %f %f %f' %(0,0,w_mm/25.4*self.SVG_dpi,h_mm/25.4*self.SVG_dpi))
-##                view_box_str = self.document.getroot().xpath('@viewBox', namespaces=inkex.NSS)[0]
-##                #self.document.write("Z:\\no_viewbox.svg")
-##            else:
-##                line1 = "Cannot determine SVG scale (SVG Viewox Missing).\n"
-##                line2 = "In Inkscape (v0.92) select 'File'-'Document Properties'."
-##                line3 = "In the 'Scale' region on the 'Page' tab change the 'Scale x:' value"
-##                line4 = "and press enter. Changing the value will add the Viewbox attribute."
-##                line5 = "The 'Scale x:' can then be changed back to the original value."
-##                raise SVG_DPI_EXCEPTION("%s\n%s\n%s\n%s\n%s" %(line1,line2,line3,line4,line5))
-##
-##            
-##        view_box_list = view_box_str.split(' ')
-##        DXpix= float(view_box_list[0])
-##        DYpix= float(view_box_list[1])
-##        Wpix = float(view_box_list[2])
-##        Hpix = float(view_box_list[3])
-##        self.SVG_ViewBox = [DXpix, DYpix, Wpix, Hpix]
-                                    
+            raise SVG_PXPI_EXCEPTION("%s\n" %(line1))
+        
         scale_h = h_mm/Hpix
         scale_w = w_mm/Wpix
         Dx = DXpix * scale_w
@@ -845,25 +815,6 @@ class SVG_READER(inkex.Effect):
 
         
         #################################################
-        #msg = msg + "Height(mm)= %f\n" %(h_mm)
-        #msg = msg + "Width (mm)= %f\n" %(w_mm)
-        #inkex.errormsg(_(msg))
-        
-##        if not self.raster: 
-##            xmin= self.lines[0][0]+0.0
-##            xmax= self.lines[0][0]+0.0
-##            ymin= self.lines[0][1]+0.0
-##            ymax= self.lines[0][1]+0.0
-##            for line in self.lines:
-##                x1= line[0]
-##                y1= line[1]
-##                x2= line[2]
-##                y2= line[3]
-##                xmin = min(min(xmin,x1),x2)
-##                ymin = min(min(ymin,y1),y2)
-##                xmax = max(max(xmax,x1),x2)
-##                ymax = max(max(ymax,y1),y2)
-##        else:
         xmin= 0.0
         xmax=  w_mm 
         ymin= -h_mm 

@@ -27,11 +27,14 @@ class ECoord:
 
     def reset_path(self):
         self.ecoords    = []
-        self.len        = 0
+        self.len        = None
         self.move       = 0
         self.sorted     = False
+        self.rpaths     = False 
         self.bounds     = (0,0,0,0)
-        self.gcode_time = 0        
+        self.gcode_time = 0
+        self.hull_coords= []
+        self.n_scanlines= 0
 
     def make_ecoords(self,coords,scale=1):
         self.reset()
@@ -82,12 +85,14 @@ class ECoord:
 
     def set_image(self,PIL_image):
         self.image = PIL_image
+        self.reset_path()
 
-    def computeEcoordsLen(self):
+    def computeEcoordsLen(self):  
         xmax, ymax = -1e10, -1e10
         xmin, ymin =  1e10,  1e10
         
-        if self.ecoords == [] : 
+        if self.ecoords == [] :
+            self.len=0
             return
         on = 0
         move = 0

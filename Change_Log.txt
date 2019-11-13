@@ -206,3 +206,13 @@ Version 0.36:
 
 Version 0.37:
 - Fixed another occurrence of "float() argument must be a string or number error" for some SVG files.
+
+Version 0.38:
+- Fixed call to Inkscape so it works with Inkscape Version 1.0 Beta
+- Replaced USB menu with Tools menu and added additional tools (trace and compute raster time) 
+- Added Trace boundary option to Tools menu (traces around convex hull of the design)
+- Added shortcut keys so that number pad can be used to control laser head position
+- Added post run options in General settings (home, beep, display report, execute batch file)
+- Improved time estimates for raster engraving (Now uses actual laser path data.)
+- Added option to control timeout time for Inkscape subprocess execution
+- Added command line option for smaller display (-p or --pi)
