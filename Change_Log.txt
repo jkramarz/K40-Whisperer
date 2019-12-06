@@ -219,3 +219,6 @@ Version 0.38:
 
 Version 0.39:
 - Fixed problem that prevented the main screen from being disabled while the laser is running or calculations are being performed.
+
+Version 0.40:
+- Fixed problem reading some style data from SVG files. 

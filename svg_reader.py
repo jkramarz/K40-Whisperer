@@ -116,7 +116,7 @@ class CSS_values_class():
         for entry in self.CSS_value_list:
             if entry.object_type == "":
                 if entry.value_name  == class_val:
-                    value = entry.data_string
+                    value = value + entry.data_string
             if entry.object_type == tag_type:
                 if entry.value_name  == class_val:
                     value = entry.data_string
@@ -581,6 +581,13 @@ class SVG_READER(inkex.Effect):
         i=0
         while i < len(css_string):
             c=css_string[i]
+            if c==",":
+                i=i+1
+                name_list.append(name)
+                value_list.append(value)
+                name=""
+                value=""
+                continue
             if c=="{":
                 i=i+1
                 while i < len(css_string):
@@ -590,6 +597,12 @@ class SVG_READER(inkex.Effect):
                         break
                     else:
                         value = value+c
+
+                if len(value_list)>0:
+                    k=-1
+                    while value_list[k]=="":
+                        value_list[k]=value
+                        k=k-1
                 name_list.append(name)
                 value_list.append(value)
                 name=""
