@@ -216,3 +216,6 @@ Version 0.38:
 - Improved time estimates for raster engraving (Now uses actual laser path data.)
 - Added option to control timeout time for Inkscape subprocess execution
 - Added command line option for smaller display (-p or --pi)
+
+Version 0.39:
+- Fixed problem that prevented the main screen from being disabled while the laser is running or calculations are being performed.

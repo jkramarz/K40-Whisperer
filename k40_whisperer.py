@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.38'
+version = '0.39'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -2785,7 +2785,7 @@ class Application(Frame):
         try:
             self.menuBar.entryconfigure("File"    , state=new_state)
             self.menuBar.entryconfigure("View"    , state=new_state)
-            self.menuBar.entryconfigure("USB"     , state=new_state)
+            self.menuBar.entryconfigure("Tools"     , state=new_state)
             self.menuBar.entryconfigure("Settings", state=new_state)
             self.menuBar.entryconfigure("Help"    , state=new_state)
             self.PreviewCanvas.configure(state=new_state)
@@ -2799,7 +2799,8 @@ class Application(Frame):
             self.statusbar.configure(state="normal")
             self.master.update()
         except:
-            pass
+            if DEBUG:
+                debug_message(traceback.format_exc())
 
     def Vector_Cut(self, output_filename=None):
         self.stop[0]=False
