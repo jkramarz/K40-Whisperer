@@ -599,8 +599,9 @@ class SVG_READER(inkex.Effect):
                         value = value+c
 
                 if len(value_list)>0:
+                    len_value_list = len(value_list)
                     k=-1
-                    while value_list[k]=="":
+                    while abs(k) <= len_value_list and value_list[k]=="":
                         value_list[k]=value
                         k=k-1
                 name_list.append(name)
@@ -800,7 +801,7 @@ class SVG_READER(inkex.Effect):
 
         if h_mm==None or w_mm==None or self.SVG_ViewBox==None:
             line1  = "Cannot determine SVG size. Viewbox missing or Units not set."
-            raise SVG_PXPI_EXCEPTION("%s\n" %(line1))
+            raise SVG_PXPI_EXCEPTION("%s" %(line1))
         
         scale_h = h_mm/Hpix
         scale_w = w_mm/Wpix

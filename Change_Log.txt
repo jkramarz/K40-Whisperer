@@ -222,3 +222,7 @@ Version 0.39:
 
 Version 0.40:
 - Fixed problem reading some style data from SVG files. 
+
+Version 0.41:
+- Fixed more minor issues reading certain SVG files.
+
