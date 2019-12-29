@@ -135,6 +135,7 @@ class SVG_READER(inkex.Effect):
         self.inkscape_exe_list.append("/usr/bin/inkscape")
         self.inkscape_exe_list.append("/usr/local/bin/inkscape")
         self.inkscape_exe_list.append("/Applications/Inkscape.app/Contents/Resources/bin/inkscape")
+        self.inkscape_exe_list.append("/Applications/Inkscape.app/Contents/MacOS/Inkscape")
         self.inkscape_exe = None
         self.lines =[]
         self.Cut_Type = {}
@@ -503,11 +504,13 @@ class SVG_READER(inkex.Effect):
             self.groupmat.append(simpletransform.composeTransform(self.groupmat[-1], mat))
         # get referenced node
         refid = node.get(inkex.addNS('href','xlink'))
+        #print(refid,node.get('id'),node.get('layer'))
         refnode = self.getElementById(refid[1:])
         if refnode is not None:
             if refnode.tag == inkex.addNS('g','svg') or refnode.tag == inkex.addNS('switch','svg'):
                 self.process_group(refnode)
             elif refnode.tag == inkex.addNS('use', 'svg'):
+                #print(refnode,'1')
                 self.process_clone(refnode)
             else:
                 self.process_shape(refnode, self.groupmat[-1])
@@ -556,6 +559,7 @@ class SVG_READER(inkex.Effect):
             if node.tag == inkex.addNS('g','svg') or  node.tag == inkex.addNS('switch','svg'):
                 self.process_group(node)
             elif node.tag == inkex.addNS('use', 'svg'):
+                #print(node.get('id'),'2',node.get('href'))
                 self.process_clone(node)
 
             elif node.tag == inkex.addNS('style', 'svg'):

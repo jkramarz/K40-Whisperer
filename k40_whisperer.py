@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.41'
+version = '0.42'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -428,6 +428,9 @@ class Application(Frame):
         self.Veng_time.set("0")
         self.Vcut_time.set("0")
         self.Gcde_time.set("0")
+
+        self.min_vector_speed = 1.1 #in/min
+        self.min_raster_speed = 12  #in/min
         
         ##########################################################################
         ###                     END INITILIZING VARIABLES                      ###
@@ -1222,11 +1225,8 @@ class Application(Frame):
     def Entry_Reng_feed_Check(self):
         try:
             value = float(self.Reng_feed.get())
-            if self.units.get() == 'mm':
-                vfactor = 25.4/60.0
-            else:
-                vfactor = 1.0
-            low_limit = 12*vfactor
+            vfactor=(25.4/60.0)/self.feed_factor()
+            low_limit = self.min_raster_speed*vfactor
             if  value < low_limit:
                 self.statusMessage.set(" Feed Rate should be greater than or equal to %f " %(low_limit))
                 return 2 # Value is invalid number
@@ -1240,8 +1240,10 @@ class Application(Frame):
     def Entry_Veng_feed_Check(self):
         try:
             value = float(self.Veng_feed.get())
-            if  value <= 0.0:
-                self.statusMessage.set(" Feed Rate should be greater than 0.0 ")
+            vfactor=(25.4/60.0)/self.feed_factor()
+            low_limit = self.min_vector_speed*vfactor
+            if  value < low_limit:
+                self.statusMessage.set(" Feed Rate should be greater than or equal to %f " %(low_limit))
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
@@ -1253,8 +1255,10 @@ class Application(Frame):
     def Entry_Vcut_feed_Check(self):
         try:
             value = float(self.Vcut_feed.get())
-            if  value <= 0.0:
-                self.statusMessage.set(" Feed Rate should be greater than 0.0 ")
+            vfactor=(25.4/60.0)/self.feed_factor()
+            low_limit = self.min_vector_speed*vfactor
+            if  value < low_limit:
+                self.statusMessage.set(" Feed Rate should be greater than or equal to %f " %(low_limit))
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
@@ -1519,8 +1523,10 @@ class Application(Frame):
     def Entry_Laser_Rapid_Feed_Check(self):
         try:
             value = float(self.rapid_feed.get())
-            if  value < 0.0:
-                self.statusMessage.set(" Rapid feed should be greater than 0 (or 0 for default speed) ")
+            vfactor=(25.4/60.0)/self.feed_factor()
+            low_limit = 1.0*vfactor
+            if  value !=0 and value < low_limit:
+                self.statusMessage.set(" Rapid feed should be greater than or equal to %f (or 0 for default speed) " %(low_limit))
                 return 2 # Value is invalid number
         except:
             return 3     # Value not a number
@@ -1600,6 +1606,11 @@ class Application(Frame):
     def Entry_Trace_Speed_Check(self):
         try:
             value = float(self.trace_speed.get())
+            vfactor=(25.4/60.0)/self.feed_factor()
+            low_limit = self.min_vector_speed*vfactor
+            if  value < low_limit:
+                self.statusMessage.set(" Feed Rate should be greater than or equal to %f " %(low_limit))
+                return 2 # Value is invalid number
         except:
             return 3     # Value not a number
         self.refreshTime()
@@ -1615,7 +1626,10 @@ class Application(Frame):
                                                 ("All Files","*")],\
                                                  initialdir=self.inkscape_path.get())
         if newfontdir != "" and newfontdir != ():
-            self.inkscape_path.set(newfontdir.encode("utf-8"))
+            if type(newfontdir) is not str:
+                newfontdir = newfontdir.encode("utf-8")
+            self.inkscape_path.set(newfontdir)
+            
         try:
             win_id.withdraw()
             win_id.deiconify()
@@ -1650,15 +1664,16 @@ class Application(Frame):
             self.units_scale = 25.4
         else:
             return
-        self.LaserXsize.set( self.Scale_Text_Value('%.2f',self.LaserXsize.get(),factor) )
-        self.LaserYsize.set( self.Scale_Text_Value('%.2f',self.LaserYsize.get(),factor) )
-        self.jog_step.set  ( self.Scale_Text_Value('%.3f',self.jog_step.get()  ,factor) )
-        self.gotoX.set     ( self.Scale_Text_Value('%.3f',self.gotoX.get()     ,factor) )
-        self.gotoY.set     ( self.Scale_Text_Value('%.3f',self.gotoY.get()     ,factor) )
-        self.Reng_feed.set ( self.Scale_Text_Value('%.1f',self.Reng_feed.get() ,vfactor) )
-        self.Veng_feed.set ( self.Scale_Text_Value('%.1f',self.Veng_feed.get() ,vfactor) )
-        self.Vcut_feed.set ( self.Scale_Text_Value('%.1f',self.Vcut_feed.get() ,vfactor) )
-        self.trace_speed.set ( self.Scale_Text_Value('%.1f',self.trace_speed.get() ,vfactor) )
+        self.LaserXsize.set ( self.Scale_Text_Value('%.2f',self.LaserXsize.get()  ,factor ) )
+        self.LaserYsize.set ( self.Scale_Text_Value('%.2f',self.LaserYsize.get()  ,factor ) )
+        self.jog_step.set   ( self.Scale_Text_Value('%.3f',self.jog_step.get()    ,factor ) )
+        self.gotoX.set      ( self.Scale_Text_Value('%.3f',self.gotoX.get()       ,factor ) )
+        self.gotoY.set      ( self.Scale_Text_Value('%.3f',self.gotoY.get()       ,factor ) )
+        self.Reng_feed.set  ( self.Scale_Text_Value('%.1f',self.Reng_feed.get()   ,vfactor) )
+        self.Veng_feed.set  ( self.Scale_Text_Value('%.1f',self.Veng_feed.get()   ,vfactor) )
+        self.Vcut_feed.set  ( self.Scale_Text_Value('%.1f',self.Vcut_feed.get()   ,vfactor) )
+        self.trace_speed.set( self.Scale_Text_Value('%.1f',self.trace_speed.get() ,vfactor) )
+        self.rapid_feed.set ( self.Scale_Text_Value('%.1f',self.rapid_feed.get()  ,vfactor) )
 
     def Scale_Text_Value(self,format_txt,Text_Value,factor):
         try:
@@ -2770,7 +2785,8 @@ class Application(Frame):
         self.stop[0]=False
         Rapid_data=[]
         Rapid_inst = egv(target=lambda s:Rapid_data.append(s))
-        Rapid_inst.make_egv_rapid(dxmils,dymils,Feed=float(self.rapid_feed.get()),board_name=self.board_name.get())
+        Rapid_feed = float(self.rapid_feed.get())*self.feed_factor()
+        Rapid_inst.make_egv_rapid(dxmils,dymils,Feed=Rapid_feed,board_name=self.board_name.get())
         self.send_egv_data(Rapid_data, 1, None)
         self.stop[0]=True
 
@@ -3017,9 +3033,6 @@ class Application(Frame):
             Veng_coords = self.mirror_rotate_vector_coords(Veng_coords)
             Gcode_coords= self.mirror_rotate_vector_coords(Gcode_coords)
 
-        Vcut_coords,startx,starty = self.scale_vector_coords(Vcut_coords,startx,starty)
-        Veng_coords,startx,starty = self.scale_vector_coords(Veng_coords,startx,starty)
-        Gcode_coords,startx,starty= self.scale_vector_coords(Gcode_coords,startx,starty)
         #######################################
         if self.RengData.ecoords==[]:
             if self.stop[0] == True:
@@ -3050,6 +3063,8 @@ class Application(Frame):
             trace_coords = my_hull.convexHullecoords(all_coords)
             gap = float(self.trace_gap.get())/self.units_scale
             trace_coords = self.offset_eccords(trace_coords,gap)
+
+        trace_coords,startx,starty = self.scale_vector_coords(trace_coords,startx,starty)
         return trace_coords
 
             
@@ -3151,7 +3166,7 @@ class Application(Frame):
         return inside
 
     def optimize_paths(self,ecoords,inside_check=True):
-        order_out = self.Sort_Paths(ecoords)
+        order_out = self.Sort_Paths(ecoords)    
         lastx=-999
         lasty=-999
         Acc=0.004
@@ -3301,6 +3316,14 @@ class Application(Frame):
             scaled_starty = starty
 
         return coords_scale,scaled_startx,scaled_starty
+
+
+    def feed_factor(self):
+        if self.units.get()=='in':
+            feed_factor = 25.4/60.0
+        else:
+            feed_factor = 1.0
+        return feed_factor
   
     def send_data(self,operation_type=None, output_filename=None):
         num_passes=0
@@ -3309,11 +3332,8 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' ) 
             return
         try:
-            if self.units.get()=='in':
-                feed_factor = 25.4/60.0
-            else:
-                feed_factor = 1.0
-                
+            feed_factor=self.feed_factor()
+            
             if self.inputCSYS.get() and self.RengData.image == None:
                 xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
             else:
@@ -3348,6 +3368,30 @@ class Application(Frame):
                 self.master.update()
                 if not self.VcutData.sorted and self.inside_first.get():
                     self.VcutData.set_ecoords(self.optimize_paths(self.VcutData.ecoords),data_sorted=True)
+
+
+##                DEBUG_PLOT=False
+##                test_ecoords=self.VcutData.ecoords
+##                if DEBUG_PLOT:
+##                    import matplotlib.pyplot as plt
+##                    plt.ion()
+##                    plt.clf()         
+##                    X=[]
+##                    Y=[]
+##                    LOOP_OLD = test_ecoords[0][2]
+##                    for i in range(len(test_ecoords)):
+##                        LOOP = test_ecoords[i][2]
+##                        if LOOP != LOOP_OLD:
+##                            plt.plot(X,Y)
+##                            plt.pause(.5)
+##                            X=[]
+##                            Y=[]
+##                            LOOP_OLD=LOOP
+##                        X.append(test_ecoords[i][0])
+##                        Y.append(test_ecoords[i][1])
+##                    plt.plot(X,Y)
+
+
                 self.statusMessage.set("Generating EGV data...")
                 self.master.update()
 
@@ -3767,16 +3811,17 @@ class Application(Frame):
 
     def menu_Help_About(self):
         
-        about = "K40 Whisperer by Scorch.\n"
+        about = "K40 Whisperer Version %s\n\n" %(version)
+        about = about + "By Scorch.\n"
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
         about = about + "https://www.scorchworks.com/\n\n"
         try:
-            version = "%d.%d.%d" %(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
+            python_version = "%d.%d.%d" %(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
         except:
-            version = ""
-        about = about + "Python "+version+" (%d bit)" %(struct.calcsize("P") * 8)
-        message_box("About k40_whisperer",about)
+            python_version = ""
+        about = about + "Python "+python_version+" (%d bit)" %(struct.calcsize("P") * 8)
+        message_box("About k40 Whisperer",about)
 
     def menu_Help_Web(self):
         webbrowser.open_new(r"https://www.scorchworks.com/K40whisperer/k40whisperer.html")

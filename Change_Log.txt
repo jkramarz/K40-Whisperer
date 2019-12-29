@@ -226,3 +226,9 @@ Version 0.40:
 Version 0.41:
 - Fixed more minor issues reading certain SVG files.
 
+Version 0.42:
+- Minor update to DXF reading to include color by layer
+- Fix for Inkscape Executable location button.  Auto generated text made bu the button did not work for some version of Python
+- Fixed trace boundary when X and Y scaling is used
+- Limited minimum speed entries to prevent unexpected laser movements.
+- Fixed trace boundary space so that it scales with units change.
