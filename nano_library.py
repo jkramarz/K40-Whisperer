@@ -2,7 +2,7 @@
 '''
 This script comunicated with the K40 Laser Cutter.
 
-Copyright (C) 2017-2019 Scorch www.scorchworks.com
+Copyright (C) 2017-2020 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 try:
     import usb.core
     import usb.util
+    import usb.backend.libusb0
 except:
     print("Unable to load USB library (Sending data to Laser will not work.)")
 import sys
@@ -123,6 +124,9 @@ class K40_CLASS:
     def release_usb(self):
         usb.util.dispose_resources(self.dev)
         self.dev = None
+
+    def pause_un_pause(self):
+        self.send_data([ord('P'),ord('N')])
     
     #######################################################################
     #  The one wire CRC algorithm is derived from the OneWire.cpp Library
@@ -311,10 +315,16 @@ class K40_CLASS:
             self.release_usb()
         except:
             pass
+
+        backend  = usb.backend.libusb0.get_backend()
+        if backend==None and os.name == 'nt':
+            exedir = os.path.dirname(sys.executable)
+            os.environ['PATH'] = exedir + os.pathsep + os.environ['PATH']
+            
         # find the device
         self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512)
         if self.dev is None:
-            raise Exception("Laser USB Device not found.")
+            raise Exception("Laser USB Device not found. (libUSB driver may not be installed)")
             #return "Laser USB Device not found."
 
         if verbose:

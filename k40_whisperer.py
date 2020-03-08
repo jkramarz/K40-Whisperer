@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.43'
+version = '0.44'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -3653,8 +3653,14 @@ class Application(Frame):
         line1 = "Sending data to the laser from K40 Whisperer is currently Paused."
         line2 = "Press \"OK\" to abort any jobs currently running."
         line3 = "Press \"Cancel\" to resume."
+        if self.k40 != None:
+            self.k40.pause_un_pause()
+            
         if message_ask_ok_cancel("Stop Laser Job.", "%s\n\n%s\n%s" %(line1,line2,line3)):
             self.stop[0]=True
+        else:
+            if self.k40 != None:
+                self.k40.pause_un_pause()
 
     def Hide_Advanced(self,event=None):
         self.advanced.set(0)
@@ -5583,13 +5589,13 @@ class pxpiDialog(tkSimpleDialog.Dialog):
         Title_Text0 = Label(master, text=t0+t1+t2, anchor=W)
         Title_Text1 = Label(master, text=t3, anchor=W)
         
-        Radio_SVG_pxpi_96   = Radiobutton(master,text=" 96 px/in", value="96")
+        Radio_SVG_pxpi_96   = Radiobutton(master,text=" 96 units/in", value="96")
         Label_SVG_pxpi_96   = Label(master,text="(File saved with Inkscape v0.92 or newer)", anchor=W)
         
-        Radio_SVG_pxpi_90   = Radiobutton(master,text=" 90 px/in", value="90")
+        Radio_SVG_pxpi_90   = Radiobutton(master,text=" 90 units/in", value="90")
         Label_SVG_pxpi_90   = Label(master,text="(File saved with Inkscape v0.91 or older)", anchor=W)
         
-        Radio_SVG_pxpi_72   = Radiobutton(master,text=" 72 px/in", value="72")
+        Radio_SVG_pxpi_72   = Radiobutton(master,text=" 72 units/in", value="72")
         Label_SVG_pxpi_72   = Label(master,text="(File saved with Adobe Illustrator)", anchor=W)
 
         Radio_Res_Custom = Radiobutton(master,text=" Custom:", value="custom")
@@ -5598,7 +5604,7 @@ class pxpiDialog(tkSimpleDialog.Dialog):
 
         Entry_Custom_pxpi   = Entry(master,width="10")
         Entry_Custom_pxpi.configure(textvariable=self.other)
-        Label_pxpi_units =  Label(master,text="px/in", anchor=W)
+        Label_pxpi_units =  Label(master,text="units/in", anchor=W)
         self.trace_id_pxpi = self.other.trace_variable("w", Entry_custom_Callback)
 
         Label_Width =  Label(master,text="Width", anchor=W)

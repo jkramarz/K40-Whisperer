@@ -235,3 +235,8 @@ Version 0.42:
 
 Version 0.43:
 - Fixed problem that prevented properly sending EGV file to the laser.
+
+Version 0.44:
+- Removed necessary commands from data sent to laser.  Reduced volume of data sent to laser.
+- Improved pause function.  Laser not stops immediately rather than waiting for buffer to empty.
+- Added code to get around "Backend not found" error in some cases.
