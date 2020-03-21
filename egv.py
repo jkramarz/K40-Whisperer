@@ -2,7 +2,7 @@
 '''
 This script reads/writes egv format
 
-Copyright (C) 2017-2020 Scorch www.scorchworks.com
+Copyright (C) 2017-2019 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -56,8 +56,6 @@ class egv:
 
     def move(self,direction,distance,laser_on=False,angle_dirs=None):
 
-        if distance <=0:
-            raise Exception('distance <=0')
         if angle_dirs==None:
             angle_dirs = [self.Modal_AX,self.Modal_AY]
             
@@ -68,11 +66,7 @@ class egv:
             self.Modal_dist = self.Modal_dist + distance
 
         else:
-            if direction == self.Modal_dir:
-                self.flush(write_direction=False)
-            else:
-                self.flush(write_direction=False)
-
+            self.flush()
             if laser_on != self.Modal_on:
                 if laser_on:
                     self.write(self.ON)
@@ -87,13 +81,8 @@ class egv:
                 if angle_dirs[1]!=self.Modal_AY:
                     self.write(angle_dirs[1])
                     self.Modal_AY = angle_dirs[1]
-
-
-            if direction != self.Modal_dir and distance > 0:
-                #self.write(ord("\n"))
-                self.write(direction)
                 
-            self.Modal_dir  = direction    
+            self.Modal_dir  = direction
             self.Modal_dist = distance
 
             if direction == self.RIGHT or direction == self.LEFT:
@@ -102,16 +91,9 @@ class egv:
                 self.Modal_AY = direction
                 
         
-    def flush(self,laser_on=None, write_direction=False):
+    def flush(self,laser_on=None):
         if self.Modal_dist > 0:
-            if write_direction==True:
-                self.write(self.Modal_dir)
-            else:
-                #self.write(ord("'"))
-                #self.write(self.Modal_dir)
-                #self.write(ord("'"))
-                pass
-                
+            self.write(self.Modal_dir)
             for code in self.make_distance(self.Modal_dist):
                 self.write(code)
         if (laser_on!=None) and (laser_on!=self.Modal_on):
@@ -674,10 +656,8 @@ class egv:
 
         if dx+pad < 0.0:
             self.write(ord("B"))
-            #self.Modal_dir = ord("B")
         else:
             self.write(ord("T"))
-            #self.Modal_dir = ord("T")
         self.write(ord("N"))
         self.make_dir_dist(dx+pad,dy-pad)
         self.flush(laser_on=False)
@@ -721,15 +701,15 @@ class egv:
 if __name__ == "__main__":
     EGV=egv()
     bname = "LASER-M2"
-    values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100,200,240,241,300,400,600]
-    step=0
+    values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]
+    step=2
     for value_in in values:
         #print ("% 8.2f" %(value_in),": ",end='')
         val=EGV.make_speed(value_in,board_name=bname,Raster_step=step)
         txt=""
         for c in val:
             txt=txt+chr(c)
-        print('%04d %s' %(value_in,txt))
+        print(txt)
     print("DONE")
 
 
