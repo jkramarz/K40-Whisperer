@@ -244,3 +244,8 @@ Version 0.44:
 Version 0.45:
 - Reverted back to egv.py file from Version 0.43 fixing problem with movements introduced in Version 0.44
 
+Version 0.46:
+- Fixed error in positioning when using g-code input and the input coordinate system
+- Improved display of g-code errors and warnings
+- Changed file selection default to g-code if the last file opened was g-code
+

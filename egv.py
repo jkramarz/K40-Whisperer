@@ -2,7 +2,7 @@
 '''
 This script reads/writes egv format
 
-Copyright (C) 2017-2019 Scorch www.scorchworks.com
+Copyright (C) 2017-2020 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -326,10 +326,19 @@ class egv:
             lastx,lasty,last_loop = self.ecoord_adj(ecoords_in[0],scale,FlipXoffset)
             if not Rapid_Feed_Rate:
                 self.make_dir_dist(lastx-startX,lasty-startY)
+
             self.flush(laser_on=False)
             self.write(ord("N"))
-            self.write(ord("R"))
-            self.write(ord("B"))
+            if lasty-startY <= 0:
+                self.write(self.DOWN)
+            else:
+                self.write(self.UP)
+                
+            if lastx-startX >= 0:
+                self.write(self.RIGHT)
+            else:
+                self.write(self.LEFT)
+                
             # Insert "S1E"
             self.write(ord("S"))
             self.write(ord("1"))

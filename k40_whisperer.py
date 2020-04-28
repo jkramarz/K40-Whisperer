@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.45'
+version = '0.46'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -100,7 +100,12 @@ try:
 except:
     print("Unable to load Pyclipper library (Offset trace outline will not work without it)")
     PYCLIPPER = False
- 
+
+try:
+    os.chdir(os.path.dirname(__file__))
+except:
+    pass
+
 QUIET = False
    
 ################################################################################
@@ -1725,11 +1730,21 @@ class Application(Frame):
         if ( not os.path.isdir(init_dir) ):
             init_dir = self.HOME_DIR
 
-        fileselect = askopenfilename(filetypes=[("Design Files", ("*.svg","*.dxf")),
-                                            ("G-Code Files", ("*.ngc","*.gcode","*.g","*.tap")),\
-                                            ("DXF Files","*.dxf"),\
-                                            ("SVG Files","*.svg"),\
-                                            ("All Files","*"),\
+        design_types = ("Design Files", ("*.svg","*.dxf"))
+        gcode_types  = ("G-Code Files", ("*.ngc","*.gcode","*.g","*.tap"))
+        
+        Name, fileExtension = os.path.splitext(self.DESIGN_FILE)
+        TYPE=fileExtension.upper()
+        if TYPE != '.DXF' and TYPE!='.SVG' and TYPE!='.EGV':
+            default_types = gcode_types
+        else:
+            default_types = design_types
+        
+        fileselect = askopenfilename(filetypes=[default_types,
+                                            ("G-Code Files ", ("*.ngc","*.gcode","*.g","*.tap")),\
+                                            ("DXF Files ","*.dxf"),\
+                                            ("SVG Files ","*.svg"),\
+                                            ("All Files ","*"),\
                                             ("Design Files ", ("*.svg","*.dxf"))],\
                                             initialdir=init_dir)
 
@@ -2241,6 +2256,46 @@ class Application(Frame):
 
     #######################################################################
 
+    def gcode_error_message(self,message):
+        error_report = Toplevel(width=525,height=60)
+        error_report.title("G-Code Reading Errors/Warnings")
+        error_report.iconname("G-Code Errors")
+        error_report.grab_set()
+        return_value =  StringVar()
+        return_value.set("none")
+
+        try:
+            error_report.iconbitmap(bitmap="@emblem64")
+        except:
+            debug_message(traceback.format_exc())
+            pass
+
+        def Close_Click(event):
+            return_value.set("close")
+            error_report.destroy()
+            
+        #Text Box
+        Error_Frame = Frame(error_report)
+        scrollbar = Scrollbar(Error_Frame, orient=VERTICAL)
+        Error_Text = Text(Error_Frame, width="80", height="20",yscrollcommand=scrollbar.set,bg='white')
+        for line in message:
+            Error_Text.insert(END,line+"\n")
+        scrollbar.config(command=Error_Text.yview)
+        scrollbar.pack(side=RIGHT,fill=Y)
+        #End Text Box
+
+        Button_Frame = Frame(error_report)
+        close_button = Button(Button_Frame,text=" Close ")
+        close_button.bind("<ButtonRelease-1>", Close_Click)
+        close_button.pack(side=RIGHT,fill=X)
+        
+        Error_Text.pack(side=LEFT,fill=BOTH,expand=1)
+        Button_Frame.pack(side=BOTTOM)
+        Error_Frame.pack(side=LEFT,fill=BOTH,expand=1)
+        
+        root.wait_window(error_report)
+        return return_value.get()
+
     def Open_G_Code(self,filename):
         self.resetPath()
         
@@ -2249,9 +2304,8 @@ class Application(Frame):
             MSG = g_rip.Read_G_Code(filename, XYarc2line = True, arc_angle=2, units="in", Accuracy="")
             Error_Text = ""
             if MSG!=[]:
-                for line in MSG:
-                    Error_Text = Error_Text + line + "\n"
-                    message_box("G-Code Messages", Error_Text)
+                self.gcode_error_message(MSG)
+
         #except StandardError as e:
         except Exception as e:
             msg1 = "G-Code Load Failed:  "
