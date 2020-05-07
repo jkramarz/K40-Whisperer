@@ -249,3 +249,6 @@ Version 0.46:
 - Improved display of g-code errors and warnings
 - Changed file selection default to g-code if the last file opened was g-code
 
+Version 0.47:
+- Updated to work with Inkscape 1.0
+- Fixed mirroring when using input axes

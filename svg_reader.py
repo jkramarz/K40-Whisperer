@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 '''
-Copyright (C) 2017-2019 Scorch www.scorchworks.com
+Copyright (C) 2017-2020 Scorch www.scorchworks.com
 Derived from dxf_outlines.py by Aaron Spike and Alvin Penner
 
 This program is free software; you can redistribute it and/or modify
@@ -688,7 +688,7 @@ class SVG_READER(inkex.Effect):
                 else:
                     cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
                             "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
-                            "255" ,"--export-type=png", "--export-file", png_temp_file, svg_temp_file ]
+                            "255" ,"--export-type=png", "--export-filename=%s" %(png_temp_file), svg_temp_file ]
 
                 run_external(cmd, self.timout)
                 self.raster_PIL = Image.open(png_temp_file)
@@ -737,8 +737,8 @@ class SVG_READER(inkex.Effect):
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 txt2path_file = os.path.join(tmp_dir, "txt2path.svg")         
                 self.document.write(svg_temp_file)
-                cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, svg_temp_file ]
-                run_external(cmd, self.timout)
+                cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", "--export-filename=%s" %(txt2path_file), svg_temp_file ]
+                (stdout,stderr)=run_external(cmd, self.timout)
                 self.parse_svg(txt2path_file)
             except Exception as e:
                 raise Exception("Inkscape Execution Failed (while converting text to paths).\n\n"+str(e))

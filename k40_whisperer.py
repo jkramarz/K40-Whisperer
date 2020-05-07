@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.46'
+version = '0.47'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -3335,7 +3335,12 @@ class Application(Frame):
         for i in range(len(coords)):
             coords_rotate_mirror.append(coords[i][:])
             if self.mirror.get():
-                coords_rotate_mirror[i][0]=xmin+xmax-coords_rotate_mirror[i][0]
+                if self.inputCSYS.get() and self.RengData.image == None:
+                    coords_rotate_mirror[i][0]=-coords_rotate_mirror[i][0]
+                else:
+                    coords_rotate_mirror[i][0]=xmin+xmax-coords_rotate_mirror[i][0]
+                
+                
             if self.rotate.get():
                 x = coords_rotate_mirror[i][0]
                 y = coords_rotate_mirror[i][1]
