@@ -1,3 +1,4 @@
 lxml
 pyusb
 pillow
+pyclipper

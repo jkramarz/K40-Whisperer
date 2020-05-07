@@ -737,7 +737,17 @@ class SVG_READER(inkex.Effect):
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 txt2path_file = os.path.join(tmp_dir, "txt2path.svg")         
                 self.document.write(svg_temp_file)
-                cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", "--export-filename=%s" %(txt2path_file), svg_temp_file ]
+
+                # Check Version of Inkscape
+                cmd = [ self.inkscape_exe, "-V"]
+                (stdout,stderr)=run_external(cmd, self.timout)
+                if stdout.find(b'Inkscape 1.')==-1:
+                    cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", \
+                            txt2path_file, svg_temp_file,  ]
+                else:
+                    cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", \
+                            "--export-filename=%s" %(txt2path_file), svg_temp_file,  ]
+                
                 (stdout,stderr)=run_external(cmd, self.timout)
                 self.parse_svg(txt2path_file)
             except Exception as e:
