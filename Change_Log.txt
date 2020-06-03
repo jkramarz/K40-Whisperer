@@ -254,4 +254,7 @@ Version 0.47:
 - Fixed mirroring when using input axes
 
 Version 0.48:
-- Fixed auto convert text to path when using Inkscape 1.0
+- Fixed auto convert text to path when using older versions of Inkscape
+
+Version 0.49:
+- Added new default Inkscape executable path to the search list. So users don't need to specify the Inkscape location in the settings.

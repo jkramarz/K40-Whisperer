@@ -130,6 +130,8 @@ class SVG_READER(inkex.Effect):
         self.flatness = 0.01
         self.image_dpi = 1000
         self.inkscape_exe_list = []
+        self.inkscape_exe_list.append("C:\\Program Files\\Inkscape\\bin\\inkscape.exe")
+        self.inkscape_exe_list.append("C:\\Program Files (x86)\\Inkscape\\bin\\inkscape.exe")
         self.inkscape_exe_list.append("C:\\Program Files\\Inkscape\\inkscape.exe")
         self.inkscape_exe_list.append("C:\\Program Files (x86)\\Inkscape\\inkscape.exe")
         self.inkscape_exe_list.append("/usr/bin/inkscape")
