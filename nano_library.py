@@ -55,6 +55,7 @@ class K40_CLASS:
         self.unlock  = [166,0,73,83,50,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,15]
         self.home    = [166,0,73,80,80,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,228]
         self.estop  =  [166,0,73,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,130]
+        self.USB_Location = None
 
 
     def say_hello(self):
@@ -124,6 +125,7 @@ class K40_CLASS:
     def release_usb(self):
         usb.util.dispose_resources(self.dev)
         self.dev = None
+        self.USB_Location = None
 
     def pause_un_pause(self):
         self.send_data([ord('P'),ord('N')])
@@ -248,7 +250,7 @@ class K40_CLASS:
                 if timeout_cnt > 20:
                    # try reconnect to laser
                    try:
-                       self.initialize_device()
+                       self.initialize_device(self.USB_Location)
                    except:
                        pass
 
@@ -310,7 +312,7 @@ class K40_CLASS:
             egv_inst.make_move_data(dxmils,dymils)
             self.send_data(data, wait_for_laser=False)
     
-    def initialize_device(self,verbose=False):
+    def initialize_device(self,USB_Location=None,verbose=False):
         try:
             self.release_usb()
         except:
@@ -321,11 +323,24 @@ class K40_CLASS:
             exedir = os.path.dirname(sys.executable)
             os.environ['PATH'] = exedir + os.pathsep + os.environ['PATH']
             
-        # find the device
-        self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512)
+        # Find a laser device
+        self.dev = None
+        laser_cnt=0
+        if USB_Location == None:
+            for device in usb.core.find(idVendor=0x1a86, idProduct=0x5512, find_all=True):
+                self.dev=device
+                try:
+                    self.dev.set_configuration()
+                    self.USB_Location = (self.dev.bus,self.dev.address)
+                    break
+                except:
+                    pass
+        else:
+            self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512, bus=USB_Location[0], address=USB_Location[1])
+            self.USB_Location = (self.dev.bus,self.dev.address)
+        
         if self.dev is None:
             raise Exception("Laser USB Device not found. (libUSB driver may not be installed)")
-            #return "Laser USB Device not found."
 
         if verbose:
             print("-------------- dev --------------")
@@ -335,7 +350,6 @@ class K40_CLASS:
         try:
             self.dev.set_configuration()
         except:
-            #return "Unable to set USB Device configuration."
             raise Exception("Unable to set USB Device configuration.")
 
         # get an endpoint instance
@@ -367,30 +381,32 @@ class K40_CLASS:
             print ("---------- ctrlxfer ------------")
             print (ctrlxfer)
 
-        #return True
-        
+        return self.USB_Location
+    
     def hex2dec(self,hex_in):
         #format of "hex_in" is ["40","e7"]
         dec_out=[]
         for a in hex_in:
             dec_out.append(int(a,16))
         return dec_out
-    
 
 if __name__ == "__main__":
     k40=K40_CLASS()
     run_laser = False
 
     try:
-        k40.initialize_device(verbose=True)
+        USB_LOCATION=k40.initialize_device(verbose=False)
+        
     # the following does not work for python 2.5
     except RuntimeError as e: #(RuntimeError, TypeError, NameError, StandardError):
         print(e)    
         print("Exiting...")
         os._exit(0) 
+    
+    print('initialize with location=',USB_LOCATION)
+    k40.initialize_device(k40.USB_Location,verbose=False)
 
-    #k40.initialize_device()
-    print (k40.say_hello())
+    print('hello',k40.say_hello())
     #print k40.reset_position()
     #print k40.unlock_rail()
     print ("DONE")

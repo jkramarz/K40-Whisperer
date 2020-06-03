@@ -258,3 +258,7 @@ Version 0.48:
 
 Version 0.49:
 - Added new default Inkscape executable path to the search list. So users don't need to specify the Inkscape location in the settings.
+
+Version 0.50:
+- Added support for running two of more lasers by opening more K40 Whisperer windows on a single machine.
+- Added protection to prevent the user from disrupting a running laser job by typing shortcut keys.
