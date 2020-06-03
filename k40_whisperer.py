@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.50'
+version = '0.51'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -2887,42 +2887,25 @@ class Application(Frame):
                 debug_message(traceback.format_exc())
 
     def Vector_Cut(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Vector Cut: Processing Vector Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Vector Cut: Processing Vector Data.")
         if self.VcutData.ecoords!=[]:
             self.send_data("Vector_Cut", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to cut")
         self.Finish_Job()
-        #self.set_gui("normal")
-        #self.stop[0]=True
         
     def Vector_Eng(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Vector Engrave: Processing Vector Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Vector Engrave: Processing Vector Data.")
         if self.VengData.ecoords!=[]:
             self.send_data("Vector_Eng", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to engrave")
         self.Finish_Job()
-        #self.set_gui("normal")
-        #self.stop[0]=True
 
     def Trace_Eng(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Boundary Trace: Processing Data.")
-        self.master.update()
-
+        self.Prepare_for_laser_run("Boundary Trace: Processing Data.")
         self.trace_coords = self.make_trace_path()
 
         if self.trace_coords!=[]:
@@ -2931,15 +2914,9 @@ class Application(Frame):
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No trace data to follow")
         self.Finish_Job()
-        #self.set_gui("normal")
-        #self.stop[0]=True
 
     def Raster_Eng(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Raster Engraving: Processing Image Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Raster Engraving: Processing Image Data.")
         try:
             self.make_raster_coords()
             if self.RengData.ecoords!=[]:
@@ -2963,16 +2940,10 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
-        #self.set_gui("normal")
-        #self.stop[0]=True
         self.Finish_Job()
 
     def Raster_Vector_Eng(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Raster Engraving: Processing Image and Vector Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Raster Engraving: Processing Image and Vector Data.")
         try:
             self.make_raster_coords()
             if self.RengData.ecoords!=[] or self.VengData.ecoords!=[]:
@@ -2988,32 +2959,18 @@ class Application(Frame):
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
         self.Finish_Job()
-        #self.set_gui("normal")
-        #self.stop[0]=True
-
 
     def Vector_Eng_Cut(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Vector Cut: Processing Vector Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Vector Cut: Processing Vector Data.")
         if self.VcutData.ecoords!=[] or self.VengData.ecoords!=[]:
             self.send_data("Vector_Eng+Vector_Cut", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data.")
         self.Finish_Job()
-        #self.set_gui("normal")
-        #self.stop[0]=True
-
         
     def Raster_Vector_Cut(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("Raster Engraving: Processing Image and Vector Data.")
-        self.master.update()
+        self.Prepare_for_laser_run("Raster Engraving: Processing Image and Vector Data.")
         try:
             self.make_raster_coords()
             if self.RengData.ecoords!=[] or self.VengData.ecoords!=[] or self.VcutData.ecoords!=[]:
@@ -3028,25 +2985,24 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
-        #self.set_gui("normal")
-        #self.stop[0]=True
         self.Finish_Job()
         
-        
     def Gcode_Cut(self, output_filename=None):
-        self.stop[0]=False
-        self.set_gui("disabled")
-        self.statusbar.configure( bg = 'green' )
-        self.statusMessage.set("G Code Cutting.")
-        self.master.update()
+        self.Prepare_for_laser_run("G Code Cutting.")
         if self.GcodeData.ecoords!=[]:
             self.send_data("Gcode_Cut", output_filename)
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No g-code data to cut")
-        #self.set_gui("normal")
-        #self.stop[0]=True
         self.Finish_Job()
+
+    def Prepare_for_laser_run(self,msg):
+        self.stop[0]=False
+        self.move_head_window_temporary([0,0])
+        self.set_gui("disabled")
+        self.statusbar.configure( bg = 'green' )
+        self.statusMessage.set(msg)
+        self.master.update()
 
     def Finish_Job(self, event=None):
         self.set_gui("normal")
@@ -3407,8 +3363,6 @@ class Application(Frame):
                 xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
             else:
                 xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
-                
-            self.move_head_window_temporary([0,0])
                         
             startx = xmin
             starty = ymax
