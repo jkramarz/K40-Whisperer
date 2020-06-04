@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 '''
-Copyright (C) 2017-2019 Scorch www.scorchworks.com
+Copyright (C) 2017-2020 Scorch www.scorchworks.com
 Derived from dxf_outlines.py by Aaron Spike and Alvin Penner
 
 This program is free software; you can redistribute it and/or modify
@@ -130,11 +130,14 @@ class SVG_READER(inkex.Effect):
         self.flatness = 0.01
         self.image_dpi = 1000
         self.inkscape_exe_list = []
+        self.inkscape_exe_list.append("C:\\Program Files\\Inkscape\\bin\\inkscape.exe")
+        self.inkscape_exe_list.append("C:\\Program Files (x86)\\Inkscape\\bin\\inkscape.exe")
         self.inkscape_exe_list.append("C:\\Program Files\\Inkscape\\inkscape.exe")
         self.inkscape_exe_list.append("C:\\Program Files (x86)\\Inkscape\\inkscape.exe")
         self.inkscape_exe_list.append("/usr/bin/inkscape")
         self.inkscape_exe_list.append("/usr/local/bin/inkscape")
         self.inkscape_exe_list.append("/Applications/Inkscape.app/Contents/Resources/bin/inkscape")
+        self.inkscape_exe_list.append("/Applications/Inkscape.app/Contents/MacOS/Inkscape")
         self.inkscape_exe = None
         self.lines =[]
         self.Cut_Type = {}
@@ -503,11 +506,13 @@ class SVG_READER(inkex.Effect):
             self.groupmat.append(simpletransform.composeTransform(self.groupmat[-1], mat))
         # get referenced node
         refid = node.get(inkex.addNS('href','xlink'))
+        #print(refid,node.get('id'),node.get('layer'))
         refnode = self.getElementById(refid[1:])
         if refnode is not None:
             if refnode.tag == inkex.addNS('g','svg') or refnode.tag == inkex.addNS('switch','svg'):
                 self.process_group(refnode)
             elif refnode.tag == inkex.addNS('use', 'svg'):
+                #print(refnode,'1')
                 self.process_clone(refnode)
             else:
                 self.process_shape(refnode, self.groupmat[-1])
@@ -556,6 +561,7 @@ class SVG_READER(inkex.Effect):
             if node.tag == inkex.addNS('g','svg') or  node.tag == inkex.addNS('switch','svg'):
                 self.process_group(node)
             elif node.tag == inkex.addNS('use', 'svg'):
+                #print(node.get('id'),'2',node.get('href'))
                 self.process_clone(node)
 
             elif node.tag == inkex.addNS('style', 'svg'):
@@ -684,7 +690,7 @@ class SVG_READER(inkex.Effect):
                 else:
                     cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
                             "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
-                            "255" ,"--export-type=png", "--export-file", png_temp_file, svg_temp_file ]
+                            "255" ,"--export-type=png", "--export-filename=%s" %(png_temp_file), svg_temp_file ]
 
                 run_external(cmd, self.timout)
                 self.raster_PIL = Image.open(png_temp_file)
@@ -733,8 +739,18 @@ class SVG_READER(inkex.Effect):
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 txt2path_file = os.path.join(tmp_dir, "txt2path.svg")         
                 self.document.write(svg_temp_file)
-                cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg",txt2path_file, svg_temp_file ]
-                run_external(cmd, self.timout)
+
+                # Check Version of Inkscape
+                cmd = [ self.inkscape_exe, "-V"]
+                (stdout,stderr)=run_external(cmd, self.timout)
+                if stdout.find(b'Inkscape 1.')==-1:
+                    cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", \
+                            txt2path_file, svg_temp_file,  ]
+                else:
+                    cmd = [ self.inkscape_exe, "--export-text-to-path","--export-plain-svg", \
+                            "--export-filename=%s" %(txt2path_file), svg_temp_file,  ]
+                
+                (stdout,stderr)=run_external(cmd, self.timout)
                 self.parse_svg(txt2path_file)
             except Exception as e:
                 raise Exception("Inkscape Execution Failed (while converting text to paths).\n\n"+str(e))
