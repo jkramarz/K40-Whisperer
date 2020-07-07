@@ -265,3 +265,8 @@ Version 0.50:
 
 Version 0.51:
 - Fixed problem in 0.50 that resulted in origin shifting if laser was not in upper left corner when a job was started.
+
+Version 0.52:
+- Added margin to prevent warning about out of bounds vector features when they are really close to the page boundary.
+- Added explicit font definition for GUI
+
