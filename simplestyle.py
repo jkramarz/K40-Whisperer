@@ -187,9 +187,10 @@ def isColor(c):
     if c.startswith('#') and (len(c)==4 or len(c)==7):
         return True
     if c.lower() in svgcolors.keys():
+        return True    
+    if c.startswith('rgb('): #however, rgb() shouldnt occur at this point?
         return True
-    #might be "none" or some undefined color constant or rgb()
-    #however, rgb() shouldnt occur at this point
+    #might be "none" or some undefined color constant
     return False
 
 def parseColor(c):

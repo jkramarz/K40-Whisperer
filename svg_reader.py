@@ -258,7 +258,7 @@ class SVG_READER(inkex.Effect):
         line2 = "Automatic conversion to paths failed: Try upgrading to Inkscape .90 or later"
         line3 = "To convert manually in Inkscape: select the text then select \"Path\"-\"Object to Path\" in the menu bar."
         text_message_fatal  = "%s\n\n%s\n\n%s" %(line1,line2,line3)
-        
+
         ##############################################
         ### Handle 'style' data outside of style   ###
         ##############################################
@@ -309,6 +309,10 @@ class SVG_READER(inkex.Effect):
                 if len(parts) == 2:
                     (prop, col) = parts
                     prop = prop.strip().lower()
+
+                    if prop == 'display' and col == "none":
+                        # display is 'none' return without processing group
+                        return
                     
                     if prop == 'k40_action':
                         changed = True
@@ -524,8 +528,10 @@ class SVG_READER(inkex.Effect):
         ##############################################
         ### Get color set at group level
         stroke_group = group.get('stroke')
+        if group.get('display')=='none':
+            return
         ##############################################
-        ### Handle 'style' data                   
+        ### Handle 'style' data                  
         style = group.get('style')
         if style:
             declarations = style.split(';')
@@ -540,7 +546,6 @@ class SVG_READER(inkex.Effect):
                         #group display is 'none' return without processing group
                         return
         ##############################################
-        
         if group.get(inkex.addNS('groupmode', 'inkscape')) == 'layer':
             style = group.get('style')
             if style:
@@ -550,7 +555,7 @@ class SVG_READER(inkex.Effect):
                         #layer display is 'none' return without processing layer
                         return
             layer = group.get(inkex.addNS('label', 'inkscape'))
-              
+            
             layer = layer.replace(' ', '_')
             if layer in self.layers:
                 self.layer = layer

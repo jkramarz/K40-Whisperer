@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.52'
+version = '0.54'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -189,6 +189,17 @@ class Application(Frame):
         self.master.bind('<Alt-Control-6>'    , self.Move_Arb_Right)
         self.master.bind('<Alt-Control-8>'    , self.Move_Arb_Up)
         self.master.bind('<Alt-Control-Key-2>', self.Move_Arb_Down)
+
+
+        self.master.bind('<Alt-Left>' , self.Move_Arb_Left)
+        self.master.bind('<Alt-Right>', self.Move_Arb_Right)
+        self.master.bind('<Alt-Up>'   , self.Move_Arb_Up)
+        self.master.bind('<Alt-Down>' , self.Move_Arb_Down)
+
+        self.master.bind('<Alt-Key-4>', self.Move_Arb_Left)
+        self.master.bind('<Alt-6>'    , self.Move_Arb_Right)
+        self.master.bind('<Alt-8>'    , self.Move_Arb_Up)
+        self.master.bind('<Alt-Key-2>', self.Move_Arb_Down)
 
         #####
         self.master.bind('<Control-i>' , self.Initialize_Laser)
@@ -1973,7 +1984,7 @@ class Application(Frame):
                 svg_reader.make_paths(txt2paths=True)
                 
         except Exception as e:
-            msg1 = "SVG file load failed: "
+            msg1 = "SVG Error: "
             msg2 = "%s" %(e)
             self.statusMessage.set((msg1+msg2).split("\n")[0] )
             self.statusbar.configure( bg = 'red' )

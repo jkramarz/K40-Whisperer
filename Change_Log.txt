@@ -270,3 +270,10 @@ Version 0.52:
 - Added margin to prevent warning about out of bounds vector features when they are really close to the page boundary.
 - Added explicit font definition for GUI
 
+Version 0.53:
+- Fixed handling of some hidden layers/objects
+- Fixed handling of a less common color specification format
+- Brought back removal of unnecessary commands from data sent to laser (from V0.43 with a correction).  This Reduced volume of data sent to laser.
+
+Version 0.54:
+- Reverted back to egv.py file from Version 0.52 fixing problem with movements introduced in Version 0.53
