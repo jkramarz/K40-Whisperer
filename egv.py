@@ -711,7 +711,7 @@ if __name__ == "__main__":
     EGV=egv()
     bname = "LASER-M2"
     values  = [.1,.2,.3,.4,.5,.6,.7,.8,.9,1,2,3,4,5,6,7,8,9,10,20,30,40,50,70,90,100]
-    step=2
+    step=0
     for value_in in values:
         #print ("% 8.2f" %(value_in),": ",end='')
         val=EGV.make_speed(value_in,board_name=bname,Raster_step=step)

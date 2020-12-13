@@ -330,13 +330,17 @@ class K40_CLASS:
             for device in usb.core.find(idVendor=0x1a86, idProduct=0x5512, find_all=True):
                 self.dev=device
                 try:
+                    # set the active configuration. With no arguments, the first
+                    # configuration will be the active one
                     self.dev.set_configuration()
-                    self.USB_Location = (self.dev.bus,self.dev.address)
-                    break
+                    if (self.say_hello()!=None):
+                        self.USB_Location = (self.dev.bus,self.dev.address)
+                        break
                 except:
-                    pass
+                    self.dev = None
         else:
             self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512, bus=USB_Location[0], address=USB_Location[1])
+            self.dev.set_configuration()
             self.USB_Location = (self.dev.bus,self.dev.address)
         
         if self.dev is None:
@@ -347,10 +351,10 @@ class K40_CLASS:
             print(self.dev)
         # set the active configuration. With no arguments, the first
         # configuration will be the active one
-        try:
-            self.dev.set_configuration()
-        except:
-            raise Exception("Unable to set USB Device configuration.")
+        #try:
+        #    self.dev.set_configuration()
+        #except:
+        #    raise Exception("Unable to set USB Device configuration.")
 
         # get an endpoint instance
         cfg = self.dev.get_active_configuration()

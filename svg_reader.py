@@ -402,8 +402,15 @@ class SVG_READER(inkex.Effect):
                     cx=float(node.get('cx'))
                 if node.get('cy'):
                     cy=float(node.get('cy'))
-                r  = float(node.get('r'))
-                d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+r,cy, r,r,cx,cy+r,  r,r,cx-r,cy,  r,r,cx,cy-r, r,r,cx+r,cy)
+                if node.get('r'):
+                    r  = float(node.get('r'))
+                    d  = "M %f,%f A   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f   %f,%f 0 0 1 %f,%f Z" %(cx+r,cy, r,r,cx,cy+r,  r,r,cx-r,cy,  r,r,cx,cy-r, r,r,cx+r,cy)
+                else: #if there is no radius assume it is a path
+                    if node.get('d'):
+                        d = node.get('d')
+                        p = cubicsuperpath.parsePath(d)
+                    else:
+                        raise Exception("Radius of SVG circle is not defined.")
                 p = cubicsuperpath.parsePath(d)
             
             elif node.tag == inkex.addNS('ellipse','svg'):

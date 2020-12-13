@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.54'
+version = '0.55'
 title_text = "K40 Whisperer V"+version
 
 import sys

@@ -277,3 +277,7 @@ Version 0.53:
 
 Version 0.54:
 - Reverted back to egv.py file from Version 0.52 fixing problem with movements introduced in Version 0.53
+
+Version 0.55:
+- Fixed multi-machine operation under Windows 10
+- Fixed an occurrence of "float argument must be a string or a number" error for some SVG files.
