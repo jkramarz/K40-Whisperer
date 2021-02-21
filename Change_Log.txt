@@ -281,3 +281,7 @@ Version 0.54:
 Version 0.55:
 - Fixed multi-machine operation under Windows 10
 - Fixed an occurrence of "float argument must be a string or a number" error for some SVG files.
+
+Version 0.56:
+- Added code to fix driver conflict new drivers added to Linux
+- Changed default file type to svg/dxf

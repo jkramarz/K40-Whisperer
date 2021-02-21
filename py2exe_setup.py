@@ -8,7 +8,8 @@ setup(
 		"py2exe": 
 		{
             "dll_excludes": ["crypt32.dll","MSVCP90.dll"],
-			"compressed": 1, "optimize": 0,
+			"excludes":  ["numpy"],
+            "compressed": 1, "optimize": 0,
 			"includes": ["lxml.etree", "lxml._elementpath", "gzip"],
 		} 
 	},

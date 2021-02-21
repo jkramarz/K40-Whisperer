@@ -311,6 +311,15 @@ class K40_CLASS:
             egv_inst = egv(target=lambda s:data.append(s))
             egv_inst.make_move_data(dxmils,dymils)
             self.send_data(data, wait_for_laser=False)
+
+    def detach_ch341_kernel_driver(self, device=None):
+        if sys.platform.startswith('linux') and device is not None:
+            if device.is_kernel_driver_active(0):
+                try:
+                    device.detach_kernel_driver(0)
+                    print('Device detached from ch341 linux driver')
+                except usb.core.USBError as e:
+                    print ("Could not detatch from ch341 linux driver: %s" % str(e))
     
     def initialize_device(self,USB_Location=None,verbose=False):
         try:
@@ -330,6 +339,8 @@ class K40_CLASS:
             for device in usb.core.find(idVendor=0x1a86, idProduct=0x5512, find_all=True):
                 self.dev=device
                 try:
+                    # detach device from linux kernel driver
+                    self.detach_ch341_kernel_driver(device=self.dev)
                     # set the active configuration. With no arguments, the first
                     # configuration will be the active one
                     self.dev.set_configuration()
@@ -340,6 +351,8 @@ class K40_CLASS:
                     self.dev = None
         else:
             self.dev = usb.core.find(idVendor=0x1a86, idProduct=0x5512, bus=USB_Location[0], address=USB_Location[1])
+            #  detach device from linux kernel driver
+            self.detach_ch341_kernel_driver(device=self.dev)
             self.dev.set_configuration()
             self.USB_Location = (self.dev.bus,self.dev.address)
         
