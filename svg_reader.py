@@ -1,6 +1,6 @@
 #!/usr/bin/env python 
 '''
-Copyright (C) 2017-2020 Scorch www.scorchworks.com
+Copyright (C) 2017-2021 Scorch www.scorchworks.com
 Derived from dxf_outlines.py by Aaron Spike and Alvin Penner
 
 This program is free software; you can redistribute it and/or modify
@@ -50,7 +50,7 @@ def run_external(cmd, timeout_sec):
     stderr=None
     FLAG=[True]
     try:
-        proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        proc = Popen(cmd, shell=False, stdout=PIPE, stderr=PIPE, stdin=PIPE, startupinfo=None)
     except Exception as e:
         raise Exception("\n%s\n\nExecutable Path:\n%s" %(e,cmd[0]))
     if timeout_sec > 0:
@@ -168,6 +168,7 @@ class SVG_READER(inkex.Effect):
     def parse_svg(self,filename):
         try:
             self.parse(filename)
+            #self.parse(filename, encoding='utf-8')
         except Exception as e:
             exception_msg = "%s" %(e)
             if exception_msg.find("encoding"):
@@ -691,6 +692,7 @@ class SVG_READER(inkex.Effect):
                 png_temp_file = os.path.join(tmp_dir, "k40w_image.png")
                 dpi = "%d" %(self.image_dpi)           
                 self.document.write(svg_temp_file)
+                #self.document.write("svg_temp_file.svg", encoding='utf-8')
 
                 # Check Version of Inkscape
                 cmd = [ self.inkscape_exe, "-V"]

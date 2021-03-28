@@ -285,3 +285,9 @@ Version 0.55:
 Version 0.56:
 - Added code to fix driver conflict new drivers added to Linux
 - Changed default file type to svg/dxf
+
+
+Version 0.57:
+- Fixed problem with start position (only occurred when using a custom "x scale" factor and "home in upper right")
+- Added Command line option to enable debug mode
+- Some other minor change to the way icons and internal images are handled (no change for user)

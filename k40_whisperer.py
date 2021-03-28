@@ -2,7 +2,7 @@
 """
     K40 Whisperer
 
-    Copyright (C) <2017-2020>  <Scorch>
+    Copyright (C) <2017-2021>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.56'
+version = '0.57'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -32,6 +32,7 @@ from g_code_library import G_Code_Rip
 from interpolate import interpolate
 from ecoords import ECoord
 from convex_hull import hull2D
+from embedded_images import K40_Whisperer_Images
 
 import inkex
 import simplestyle
@@ -42,6 +43,7 @@ import traceback
 import struct
 
 DEBUG = False
+
 if DEBUG:
     import inspect
     
@@ -520,23 +522,23 @@ class Application(Frame):
         self.UnLock_Button     = Button(self.master,text="Unlock Rail",     command=self.Unlock)
         self.Stop_Button       = Button(self.master,text="Pause/Stop",      command=self.Stop)
 
-        try:
-            self.left_image  = self.Imaging_Free(Image.open("left.png"),bg=None)
-            self.right_image = self.Imaging_Free(Image.open("right.png"),bg=None)
-            self.up_image    = self.Imaging_Free(Image.open("up.png"),bg=None)
-            self.down_image  = self.Imaging_Free(Image.open("down.png"),bg=None)
+        try:            
+            self.left_image  = PhotoImage(data=K40_Whisperer_Images.left_B64,  format='gif')
+            self.right_image = PhotoImage(data=K40_Whisperer_Images.right_B64, format='gif')
+            self.up_image    = PhotoImage(data=K40_Whisperer_Images.up_B64,    format='gif')
+            self.down_image  = PhotoImage(data=K40_Whisperer_Images.down_B64,  format='gif')
             
             self.Right_Button   = Button(self.master,image=self.right_image, command=self.Move_Right)
             self.Left_Button    = Button(self.master,image=self.left_image,  command=self.Move_Left)
             self.Up_Button      = Button(self.master,image=self.up_image,    command=self.Move_Up)
             self.Down_Button    = Button(self.master,image=self.down_image,  command=self.Move_Down)
 
-            self.UL_image  = self.Imaging_Free(Image.open("UL.png"),bg=None)
-            self.UR_image  = self.Imaging_Free(Image.open("UR.png"),bg=None)
-            self.LR_image  = self.Imaging_Free(Image.open("LR.png"),bg=None)
-            self.LL_image  = self.Imaging_Free(Image.open("LL.png"),bg=None)
-            self.CC_image  = self.Imaging_Free(Image.open("CC.png"),bg=None)
-            
+            self.UL_image  = PhotoImage(data=K40_Whisperer_Images.UL_B64, format='gif')
+            self.UR_image  = PhotoImage(data=K40_Whisperer_Images.UR_B64, format='gif')
+            self.LR_image  = PhotoImage(data=K40_Whisperer_Images.LR_B64, format='gif')
+            self.LL_image  = PhotoImage(data=K40_Whisperer_Images.LL_B64, format='gif')
+            self.CC_image  = PhotoImage(data=K40_Whisperer_Images.CC_B64, format='gif')
+
             self.UL_Button = Button(self.master,image=self.UL_image, command=self.Move_UL)
             self.UR_Button = Button(self.master,image=self.UR_image, command=self.Move_UR)
             self.LR_Button = Button(self.master,image=self.LR_image, command=self.Move_LR)
@@ -2280,11 +2282,6 @@ class Application(Frame):
         return_value =  StringVar()
         return_value.set("none")
 
-        try:
-            error_report.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
 
         def Close_Click(event):
             return_value.set("close")
@@ -3029,7 +3026,8 @@ class Application(Frame):
         if self.post_exec.get():
             cmd = [self.batch_path.get()]
             from subprocess import Popen, PIPE
-            proc = Popen(cmd, shell=True, stdin=None, stdout=PIPE, stderr=PIPE)
+            startupinfo=None
+            proc = Popen(cmd, shell=False, stdout=PIPE, stderr=PIPE, stdin=PIPE, startupinfo=startupinfo)
             stdout,stderr = proc.communicate()
 
         if self.post_disp.get() or stderr != '':
@@ -3379,7 +3377,8 @@ class Application(Frame):
             starty = ymax
 
             if self.HomeUR.get():
-                FlipXoffset = abs(xmax-xmin)
+                Xscale = float(self.LaserXscale.get())
+                FlipXoffset = Xscale*abs(xmax-xmin)
                 if self.rotate.get():
                     startx = -xmin
             else:
@@ -3855,8 +3854,8 @@ class Application(Frame):
         
 
     def menu_Help_About(self):
-        
-        about = "K40 Whisperer Version %s\n\n" %(version)
+        application="K40 Whisperer"
+        about = "%s Version %s\n\n" %(application,version)
         about = about + "By Scorch.\n"
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
@@ -3866,7 +3865,7 @@ class Application(Frame):
         except:
             python_version = ""
         about = about + "Python "+python_version+" (%d bit)" %(struct.calcsize("P") * 8)
-        message_box("About k40 Whisperer",about)
+        message_box("About %s" %(application),about)
 
     def menu_Help_Web(self):
         webbrowser.open_new(r"https://www.scorchworks.com/K40whisperer/k40whisperer.html")
@@ -4739,12 +4738,6 @@ class Application(Frame):
         gen_settings.title('General Settings')
         gen_settings.iconname("General Settings")
 
-        try:
-            gen_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
-
         D_Yloc  = 6
         D_dY = 26
         xd_label_L = 12
@@ -4964,12 +4957,6 @@ class Application(Frame):
         raster_settings.title('Raster Settings')
         raster_settings.iconname("Raster Settings")
 
-        try:
-            raster_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
-
         D_Yloc  = 6
         D_dY = 24
         xd_label_L = 12
@@ -4979,8 +4966,6 @@ class Application(Frame):
         w_units=35
         xd_entry_L=xd_label_L+w_label+10
         xd_units_L=xd_entry_L+w_entry+5
-
-
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Rstep   = Label(raster_settings,text="Scanline Step", anchor=CENTER )
@@ -5144,12 +5129,6 @@ class Application(Frame):
         rotary_settings.title('Rotary Settings')
         rotary_settings.iconname("Rotary Settings")
 
-        try:
-            rotary_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
-
         D_Yloc  = 6
         D_dY = 30
         xd_label_L = 12
@@ -5213,11 +5192,6 @@ class Application(Frame):
         trace_window.resizable(0,0)
         trace_window.title('Trace Boundary')
         trace_window.iconname("Trace Boundary")
-        try:
-            trace_window.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
 
         def Close_Click():
             win_id=self.grab_current()
@@ -5295,11 +5269,6 @@ class Application(Frame):
         egv_send.resizable(0,0)
         egv_send.title('EGV Send')
         egv_send.iconname("EGV Send")
-        try:
-            egv_send.iconbitmap(bitmap="@emblem64")
-        except:
-            debug_message(traceback.format_exc())
-            pass
 
         D_Yloc  = 0
         D_dY = 28
@@ -5425,11 +5394,6 @@ class UnitsDialog(tkSimpleDialog.Dialog):
         self.resizable(0,0)
         self.title('Units')
         self.iconname("Units")
-
-        try:
-            self.iconbitmap(bitmap="@emblem64")
-        except:
-            pass
         
         self.uom = StringVar()
         self.uom.set("Millimeters")
@@ -5535,10 +5499,6 @@ class pxpiDialog(tkSimpleDialog.Dialog):
         self.resizable(0,0)
         self.title('SVG Import Scale:')
         self.iconname("SVG Scale")
-        try:
-            self.iconbitmap(bitmap="@emblem64")
-        except:
-            pass
         
         ###########################################################################
         def Entry_custom_Check():
@@ -5730,7 +5690,7 @@ class pxpiDialog(tkSimpleDialog.Dialog):
         viewbox = [self.minx_pixels, self.miny_pixels, width/25.4*pxpi, height/25.4*pxpi]
         self.result = pxpi,viewbox
         return 
-            
+        
 ################################################################################
 #                          Startup Application                                 #
 ################################################################################
@@ -5756,29 +5716,52 @@ try:
 except:
     debug_message("Font Set Failed.")
 
+################################## Set Icon  ########################################
+Icon_Set=False
+
 try:
-    try:
-        app.master.iconbitmap(r'emblem')
-    except:
-        app.master.iconbitmap(bitmap="@emblem64")
+    debug_message("Icon set %s" %(sys.argv[0]))
+    root.iconbitmap(default="emblem")
+    debug_message("Icon set worked %s" %(sys.argv[0]))
+    Icon_Set=True
 except:
-    pass
+    debug_message(traceback.format_exc())
+    Icon_Set=False
+        
+if not Icon_Set:
+    try:
+        scorch_ico_B64=b'R0lGODlhEAAQAIYAAA\
+        AAABAQEBYWFhcXFxsbGyUlJSYmJikpKSwsLC4uLi8vLzExMTMzMzc3Nzg4ODk5OTs7Oz4+PkJCQkRERE\
+        VFRUtLS0xMTE5OTlNTU1dXV1xcXGBgYGVlZWhoaGtra3FxcXR0dHh4eICAgISEhI+Pj5mZmZ2dnaKioq\
+        Ojo62tra6urrS0tLi4uLm5ub29vcLCwsbGxsjIyMzMzM/Pz9PT09XV1dbW1tjY2Nzc3OHh4eLi4uXl5e\
+        fn5+jo6Ovr6+/v7/Hx8fLy8vT09PX19fn5+fv7+/z8/P7+/v///wAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEKAEkALAAAAAAQABAAQAj/AJMIFBhBQYAACRIkWbgwAA\
+        4kEFEECACAxBAkGH8ESEKgBZIiAIQECBAjAA8kNwIkScKgQhAkRggAIJACCZIaJxgk2clgAY4OAAoEAO\
+        ABCIIDSZIwkIHEBw0YFAAA6IGDCBIkLAhMyICka9cAKZCIRTLEBIMkaA0MSNGjSBEVIgpESEK3LgMCI1\
+        aAWCFDA4EDSQInwaDACBEAImLwCAFARw4HFJJcgGADyZEAL3YQcMGBBpIjHx4EeIGkRoMFJgakWADABx\
+        IkPwIgcIGkdm0AMJDo1g3jQBIBRZAINyKAwxEkyHEUSMIcwYYbEgwYmQGgyI8SD5Jo327hgIIAAQ5cBs\
+        CQpHySgAA7'
+        icon_im =PhotoImage(data=scorch_ico_B64, format='gif')
+        root.call('wm', 'iconphoto', root._w, '-default', icon_im)
+    except:
+        pass
+#####################################################################################
+
 
 if LOAD_MSG != "":
     message_box("K40 Whisperer",LOAD_MSG)
-debug_message("Debuging is turned on.")
-
 
 opts, args = None, None
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hp",["help", "pi"])
+    opts, args = getopt.getopt(sys.argv[1:], "hpd",["help", "pi", "debug"])
 except:
     print('Unable interpret command line options')
     sys.exit()
 
 for option, value in opts:
     if option in ('-h','--help'):
-        pass
         print(' ')
         print('Usage: python k40_whisperer.py [-h -p]')
         print('-h    : print this help (also --help)')
@@ -5788,6 +5771,11 @@ for option, value in opts:
         print("pi mode")
         app.master.minsize(480,320)
         app.master.geometry("480x320")
+    elif option in ('-d','--debug'):
+        DEBUG=True
 
-
+if DEBUG:
+    import inspect
+debug_message("Debuging is turned on.")
+    
 root.mainloop()
