@@ -291,3 +291,7 @@ Version 0.57:
 - Fixed problem with start position (only occurred when using a custom "x scale" factor and "home in upper right")
 - Added Command line option to enable debug mode
 - Some other minor change to the way icons and internal images are handled (no change for user)
+
+Version 0.58:
+- Fixed problem with right mouse click motions that occurred when using "home in upper right"
+
