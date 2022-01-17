@@ -57,7 +57,8 @@ class ECoord:
             dxline= x2-x1
             dyline= y2-y1
             len_line=sqrt(dxline*dxline + dyline*dyline)
-            
+            if len_line==0.0:
+                continue
             dx = oldx - x1
             dy = oldy - y1
             dist   = sqrt(dx*dx + dy*dy)

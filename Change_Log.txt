@@ -286,7 +286,6 @@ Version 0.56:
 - Added code to fix driver conflict new drivers added to Linux
 - Changed default file type to svg/dxf
 
-
 Version 0.57:
 - Fixed problem with start position (only occurred when using a custom "x scale" factor and "home in upper right")
 - Added Command line option to enable debug mode
@@ -295,3 +294,7 @@ Version 0.57:
 Version 0.58:
 - Fixed problem with right mouse click motions that occurred when using "home in upper right"
 
+Version 0.59:
+- Now automatically removes zero length features from input files (caused unnecessary movements before)
+- Removed redundant data sent to laser during raster engraving.  Should reduce pauses for higher speed engraving.
+- Added option for reduced memory use.  This can be enabled to allow for larger designs to be loaded in K40 Whisperer or just increase speed. This option does reduce the resolution of the data coming from Inkscape 500dpi vs 1000dpi.  This should not visibly affect the output in most cases.

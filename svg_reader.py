@@ -685,18 +685,20 @@ class SVG_READER(inkex.Effect):
     def Make_PNG(self):
         #create OS temp folder
         tmp_dir = tempfile.mkdtemp()
-        
+        #tmp_dir = self.tempDir()
         if self.inkscape_exe != None:
             try:                
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
                 png_temp_file = os.path.join(tmp_dir, "k40w_image.png")
-                dpi = "%d" %(self.image_dpi)           
+                dpi = "%d" %(self.image_dpi)
+                #print(dpi)
                 self.document.write(svg_temp_file)
                 #self.document.write("svg_temp_file.svg", encoding='utf-8')
 
                 # Check Version of Inkscape
                 cmd = [ self.inkscape_exe, "-V"]
                 (stdout,stderr)=run_external(cmd, self.timout)
+                #print(stdout)
                 if stdout.find(b'Inkscape 1.')==-1:
                     cmd = [ self.inkscape_exe, self.png_area, "--export-dpi", dpi, \
                             "--export-background","rgb(255, 255, 255)","--export-background-opacity", \
@@ -727,7 +729,8 @@ class SVG_READER(inkex.Effect):
 ##    def open_cdr_file(self,filename):
 ##        #create OS temp folder
 ##        svg_temp_file=filename
-##        tmp_dir = tempfile.mkdtemp()
+##        #tmp_dir = tempfile.mkdtemp()
+##        tmp_dir = self.tempDir()
 ##        if self.inkscape_exe != None:
 ##            try:
 ##                #svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")
@@ -745,9 +748,31 @@ class SVG_READER(inkex.Effect):
 ##        except:
 ##            raise Exception("Temp dir failed to delete:\n%s" %(tmp_dir) )
 
+
+##    def tempDir(self):
+##        tmpdir = tempfile.mkdtemp()
+##        if os.path.isdir(tmpdir):
+##            print("first tmp dir exists")
+##            print(tmpdir)
+##            #raw_input("press any key...")
+##        else:
+##            print("try again")
+##            tmpdir_base = tempfile.gettempdir()
+##            print(tmpdir_base)
+##            tmpdir = tmpdir_base+"/k40whisperer"
+##            os.mkdir(tmpdir)
+##            if not os.path.isdir(tmpdir):
+##                print("still didn't work")
+##            #creatte folder intempdir
+##            #test if new dir exists
+##
+##        return tmpdir
+                
+
     def convert_text2paths(self):
         #create OS temp folder
         tmp_dir = tempfile.mkdtemp()
+        #tmp_dir = self.tempDir()
         if self.inkscape_exe != None:
             try:
                 svg_temp_file = os.path.join(tmp_dir, "k40w_temp.svg")

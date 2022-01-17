@@ -2,7 +2,7 @@
 '''
 This script comunicated with the K40 Laser Cutter.
 
-Copyright (C) 2017-2020 Scorch www.scorchworks.com
+Copyright (C) 2017-2021 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -128,8 +128,12 @@ class K40_CLASS:
         self.USB_Location = None
 
     def pause_un_pause(self):
-        self.send_data([ord('P'),ord('N')])
-    
+        try:
+            self.send_data([ord('P'),ord('N')])
+        except:
+            pass
+        
+        
     #######################################################################
     #  The one wire CRC algorithm is derived from the OneWire.cpp Library
     #  The latest version of this library may be found at:
