@@ -2,7 +2,7 @@
 """
     K40 Whisperer
 
-    Copyright (C) <2017-2021>  <Scorch>
+    Copyright (C) <2017-2022>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.59'
+version = '0.60'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -1945,18 +1945,17 @@ class Application(Frame):
         dymils =   y_end_mils - y_start_mils
         self.Send_Rapid_Move(dxmils,dxmils)
         self.stop[0]=True
-
         
     def Open_SVG(self,filemname):
         self.resetPath()
         self.SVG_FILE = filemname
-        svg_reader =  SVG_READER()
-        svg_reader.set_inkscape_path(self.inkscape_path.get())
         if self.reduced_mem.get():
             self.input_dpi = 500.0
         else:
             self.input_dpi = 1000.0
+        svg_reader =  SVG_READER()
         svg_reader.image_dpi = self.input_dpi
+        svg_reader.set_inkscape_path(self.inkscape_path.get())
         svg_reader.timout = int(float( self.ink_timeout.get())*60.0) 
         dialog_pxpi    = None
         dialog_viewbox = None
@@ -1973,7 +1972,9 @@ class Application(Frame):
                                            svg_reader.SVG_inkscape_version)
                     
                     svg_reader = SVG_READER()
+                    svg_reader.image_dpi = self.input_dpi
                     svg_reader.set_inkscape_path(self.inkscape_path.get())
+                    svg_reader.timout = int(float( self.ink_timeout.get())*60.0) 
                     if pxpi_dialog.result == None:
                         return
                     
@@ -1984,7 +1985,9 @@ class Application(Frame):
                     
             except SVG_TEXT_EXCEPTION as e:
                 svg_reader = SVG_READER()
+                svg_reader.image_dpi = self.input_dpi
                 svg_reader.set_inkscape_path(self.inkscape_path.get())
+                svg_reader.timout = int(float( self.ink_timeout.get())*60.0) 
                 self.statusMessage.set("Converting TEXT to PATHS.")
                 self.master.update()
                 svg_reader.parse_svg(self.SVG_FILE)

@@ -298,3 +298,7 @@ Version 0.59:
 - Now automatically removes zero length features from input files (caused unnecessary movements before)
 - Removed redundant data sent to laser during raster engraving.  Should reduce pauses for higher speed engraving.
 - Added option for reduced memory use.  This can be enabled to allow for larger designs to be loaded in K40 Whisperer or just increase speed. This option does reduce the resolution of the data coming from Inkscape 500dpi vs 1000dpi.  This should not visibly affect the output in most cases.
+
+Version 0.60:
+- Fixed scaling problem when loading an SVG file with 'Reduced Memory Use' enabled.
+  The problem only occurred if the user was prompted for additional scaling information.
