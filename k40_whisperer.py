@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.60'
+version = '0.61'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -238,6 +238,7 @@ class Application(Frame):
         self.inside_first = BooleanVar()
         self.rotary       = BooleanVar()
         self.reduced_mem  = BooleanVar()
+        self.wait         = BooleanVar()
         
 
         self.ht_size    = StringVar()
@@ -334,6 +335,7 @@ class Application(Frame):
         self.inside_first.set(1)
         self.rotary.set(0)
         self.reduced_mem.set(0)
+        self.wait.set(1)
         
         self.ht_size.set(500)
 
@@ -922,6 +924,7 @@ class Application(Frame):
         header.append('(k40_whisperer_set zoom2image    %s )'  %( int(self.zoom2image.get())    ))
         header.append('(k40_whisperer_set rotary        %s )'  %( int(self.rotary.get())        ))
         header.append('(k40_whisperer_set reduced_mem   %s )'  %( int(self.reduced_mem.get())   ))
+        header.append('(k40_whisperer_set wait          %s )'  %( int(self.wait.get())          ))
 
         header.append('(k40_whisperer_set trace_w_laser %s )'  %( int(self.trace_w_laser.get()) ))
 
@@ -2496,6 +2499,8 @@ class Application(Frame):
                          self.rotary.set(line[line.find("rotary"):].split()[1])
                     elif "reduced_mem"  in line:
                          self.reduced_mem.set(line[line.find("reduced_mem"):].split()[1])
+                    elif "wait"  in line:
+                         self.wait.set(line[line.find("wait"):].split()[1])
 
                     elif "trace_w_laser"  in line:
                          self.trace_w_laser.set(line[line.find("trace_w_laser"):].split()[1])
@@ -3631,7 +3636,7 @@ class Application(Frame):
             self.k40.timeout       = int(float( self.t_timeout.get()  )) 
             self.k40.n_timeouts    = int(float( self.n_timeouts.get() ))
             time_start = time()
-            self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC, wait_for_laser=True)
+            self.k40.send_data(data,self.update_gui,self.stop,num_passes,pre_process_CRC, wait_for_laser=self.wait.get())
             self.run_time = time()-time_start
             if DEBUG:
                 print(("Elapsed Time: %.6f" %(time()-time_start)))
@@ -4745,7 +4750,7 @@ class Application(Frame):
     ################################################################################
     def GEN_Settings_Window(self):
         gen_width = 560
-        gen_settings = Toplevel(width=gen_width, height=560) #460+75)
+        gen_settings = Toplevel(width=gen_width, height=575) #460+75)
         gen_settings.grab_set() # Use grab_set to prevent user input in the main window
         gen_settings.focus_set()
         gen_settings.resizable(0,0)
@@ -4830,6 +4835,14 @@ class Application(Frame):
         self.Checkbutton_Reduce_Memory.place(x=xd_entry_L, y=D_Yloc, width=350, height=23)
         self.Checkbutton_Reduce_Memory.configure(variable=self.reduced_mem)
         self.reduced_mem.trace_variable("w", self.Reduced_Memory_Callback)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Wait = Label(gen_settings,text="Wait for Laser to Finish")
+        self.Label_Wait.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_Wait = Checkbutton(gen_settings,text="(after all data has been sent over USB)", anchor=W)
+        self.Checkbutton_Wait.place(x=xd_entry_L, y=D_Yloc, width=350, height=23)
+        self.Checkbutton_Wait.configure(variable=self.wait)
+        #self.wait.trace_variable("w", self.Wait_Callback)
         
         #D_Yloc=D_Yloc+D_dY
         #self.Label_Timeout = Label(gen_settings,text="USB Timeout")

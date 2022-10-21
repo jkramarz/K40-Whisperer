@@ -302,3 +302,6 @@ Version 0.59:
 Version 0.60:
 - Fixed scaling problem when loading an SVG file with 'Reduced Memory Use' enabled.
   The problem only occurred if the user was prompted for additional scaling information.
+  
+Version 0.61:
+- Added option in the General Settings to disable waiting for the laser to finish the job after the last data has been sent to the laser.  This can be used to allow the user to start loading the next design as the laser finishes executing the the final data.
