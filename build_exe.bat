@@ -8,13 +8,13 @@ rmdir /S /Q dist
 rmdir /S /Q dist32
 rmdir /S /Q dist64
 
-C:\Python27_32\python.exe py2exe_setup.py py2exe
+C:\Python310\python.exe py2exe_setup.py py2exe
 rmdir /S /Q build
 move dist dist32
 rem pause
 
 del *.pyc
-C:\Python27_64\python.exe py2exe_setup.py py2exe
+C:\Python310\python.exe py2exe_setup.py py2exe
 rmdir /S /Q build
 move dist dist64
 pause

@@ -20,8 +20,12 @@
 version = '0.61'
 title_text = "K40 Whisperer V"+version
 
+from msilib.schema import CheckBox
 import sys
 from math import *
+from tkinter.ttk import Notebook, Treeview
+from turtle import bgcolor
+# from tkinter.tix import WINDOW
 from egv import egv
 from nano_library import K40_CLASS
 from dxf import DXF_CLASS
@@ -34,6 +38,9 @@ from ecoords import ECoord
 from convex_hull import hull2D
 from embedded_images import K40_Whisperer_Images
 
+from Notifications_Emailer import NotificationsEmailer 
+from Notifications_Manager import NotificationsManager
+
 import inkex
 import simplestyle
 import simpletransform
@@ -41,8 +48,37 @@ import cubicsuperpath
 import cspsubdiv
 import traceback
 import struct
+import re
+import array
 
 DEBUG = False
+
+## for email validity
+regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+
+## check email address is valid function
+
+def Check_Email_Valid(email):
+    try:
+        if(re.fullmatch(regex, email)):
+            return 1
+        else:
+            return 0
+    except:
+        return 0
+            
+## end email address is valid function
+
+## some bit manipulations for Notification Checkboxes
+def set_bit(value, bit):
+    return value | (1 << bit)
+    ##number |= 1UL << n;
+
+def get_bit(byteval,idx):
+    return ((byteval &(1<<idx))!=0)
+
+def clear_bit(value, bit):
+    return value & ~(1<<bit)
 
 if DEBUG:
     import inspect
@@ -155,6 +191,7 @@ class Application(Frame):
         self.master.bind('<F4>', self.KEY_F4)
         self.master.bind('<F5>', self.KEY_F5)
         self.master.bind('<F6>', self.KEY_F6)
+        self.master.bind('<F7>', self.KEY_F7)
         self.master.bind('<Home>', self.Home)
         
 
@@ -219,8 +256,10 @@ class Application(Frame):
         self.include_Gcde = BooleanVar()
         self.include_Time = BooleanVar()
 
+        self.include_RunTime = BooleanVar()
+
         self.advanced = BooleanVar()
-        
+
         self.halftone     = BooleanVar()
         self.mirror       = BooleanVar()
         self.rotate       = BooleanVar()
@@ -240,6 +279,63 @@ class Application(Frame):
         self.reduced_mem  = BooleanVar()
         self.wait         = BooleanVar()
         
+        self.current_runtime = float()
+
+        self.current_operation_start_time = float()
+
+        self.current_runtime_formatted = StringVar()
+
+##      Notifications variables 
+        
+        self.notifications_email = BooleanVar()
+        self.NotifyEmailFrom = StringVar()
+        self.NotifyEmailTo = StringVar()
+        self.NotifyEmailSubject = StringVar()
+        self.NotifySmtpServer = StringVar()
+        self.NotifySmtpPort = StringVar()
+        self.notifications_smtp_auth = BooleanVar()
+        self.NotifySmtpAuthUsername = StringVar()
+        self.NotifySmtpAuthPassword = StringVar()
+        self.notifications_smtp_auth_type = StringVar()
+
+## These need to be created AFTER config file is loaded.
+##         self.email_notif_handler = NotificationsEmailer(self.k40.NotifySmtpServer.get(), self.k40.NotifySmtpPort.get(), self.k40.NotifyEmailFrom.get(), self.k40.NotifyEmailTo.get(), self.k40.notifications_smtp_auth.get(), self.k40.NotifySmtpAuthUsername.get(), self.k40.NotifySmtpAuthPassword.get())
+##        self.email_notification_handler = NotificationsEmailer()
+##        self.notification_manager = NotificationsManager(self)
+
+        ## NOTIFICATION CHECKBOX SELECTION VARIABLES
+
+        ## 1 group (1 byte) represents 8 checkboxes/bits, so 3x8=24
+        self.notifications_cbx_group_1 = IntVar()
+        self.notifications_cbx_group_2 = IntVar()
+        self.notifications_cbx_group_3 = IntVar()
+
+        self.notify_checkbox_100 = IntVar()
+        self.notify_checkbox_2 = IntVar()
+        self.notify_checkbox_3 = IntVar()
+        self.notify_checkbox_4 = IntVar()
+        self.notify_checkbox_5 = IntVar()
+        self.notify_checkbox_6 = IntVar()
+        self.notify_checkbox_7 = IntVar()
+        self.notify_checkbox_8 = IntVar()
+        self.notify_checkbox_9 = IntVar()
+        self.notify_checkbox_10 = IntVar()
+        self.notify_checkbox_11 = IntVar()
+        self.notify_checkbox_12 = IntVar()
+        self.notify_checkbox_13 = IntVar()
+        self.notify_checkbox_14 = IntVar()
+        self.notify_checkbox_15 = IntVar()
+        self.notify_checkbox_16 = IntVar()
+        self.notify_checkbox_17 = IntVar()
+        self.notify_checkbox_18 = IntVar()
+        self.notify_checkbox_19 = IntVar()
+        self.notify_checkbox_20 = IntVar()
+        self.notify_checkbox_21 = IntVar()
+        self.notify_checkbox_22 = IntVar()
+        self.notify_checkbox_23 = IntVar()
+        self.notify_checkbox_24 = IntVar()
+
+##      End Notifications variables
 
         self.ht_size    = StringVar()
         self.Reng_feed  = StringVar()
@@ -317,6 +413,7 @@ class Application(Frame):
         self.include_Gcde.set(1)
         self.include_Time.set(0)
         self.advanced.set(0)
+        self.include_RunTime.set(0)
         
         self.halftone.set(1)
         self.mirror.set(0)
@@ -683,8 +780,6 @@ class Application(Frame):
         # Make Menu Bar
         self.menuBar = Menu(self.master, relief = "raised", bd=2)
 
-        
-
 
         top_File = Menu(self.menuBar, tearoff=0)
         top_File.add("command", label = "Save Settings File", command = self.menu_File_Save)
@@ -731,6 +826,11 @@ class Application(Frame):
         top_View.add_checkbutton(label = "Show Time Estimates",   variable=self.include_Time ,command= self.menu_View_Refresh)
         top_View.add_checkbutton(label = "Zoom to Design Size",   variable=self.zoom2image   ,command= self.menu_View_Refresh)
 
+        top_View.add_separator()
+
+        top_View.add_checkbutton(label = "Show Runtime Status", variable=self.include_RunTime ,command= self.menu_View_Refresh)
+
+
         #top_View.add_separator()
         #top_View.add("command", label = "computeAccurateReng",command= self.computeAccurateReng)
         #top_View.add("command", label = "computeAccurateVeng",command= self.computeAccurateVeng)
@@ -765,6 +865,7 @@ class Application(Frame):
         top_Settings.add("command", label = "Rotary Settings <F4>",  command = self.ROTARY_Settings_Window)
         top_Settings.add_separator()
         top_Settings.add_checkbutton(label = "Advanced Settings <F6>", variable=self.advanced ,command= self.menu_View_Refresh)
+        top_Settings.add("command", label = "Notification Settings <F7>",  command = self.NOTIFICATION_Settings_Window)
         
         self.menuBar.add("cascade", label="Settings", menu=top_Settings)
         
@@ -786,6 +887,9 @@ class Application(Frame):
         elif ( os.path.isfile(home_config1) ):
             self.Open_Settings_File(home_config1)
 
+        ## These can only be created AFTER settings are loaded..
+        self.email_notification_handler = NotificationsEmailer(self.NotifySmtpServer.get(), self.NotifySmtpPort.get(), self.NotifyEmailFrom.get(), self.NotifyEmailTo.get(), self.notifications_smtp_auth.get(), self.NotifySmtpAuthUsername.get(), self.NotifySmtpAuthPassword.get(), self.NotifyEmailSubject.get())
+        self.notification_manager = NotificationsManager(self)
 
 #        opts, args = None, None
 #        try:
@@ -900,6 +1004,7 @@ class Application(Frame):
         header.append('(k40_whisperer_set include_Vcut  %s )'  %( int(self.include_Vcut.get())  ))
         header.append('(k40_whisperer_set include_Gcde  %s )'  %( int(self.include_Gcde.get())  ))
         header.append('(k40_whisperer_set include_Time  %s )'  %( int(self.include_Time.get())  ))
+        header.append('(k40_whisperer_set include_RunTime    %s )'  %(int(self.include_RunTime.get())  ))
         
         header.append('(k40_whisperer_set halftone      %s )'  %( int(self.halftone.get())      ))
         header.append('(k40_whisperer_set HomeUR        %s )'  %( int(self.HomeUR.get())        ))
@@ -976,6 +1081,31 @@ class Application(Frame):
         header.append('(k40_whisperer_set inkscape_path \042%s\042 )' %( self.inkscape_path.get() ))
         header.append('(k40_whisperer_set batch_path    \042%s\042 )' %( self.batch_path.get() ))
 
+## NOTIFICATION SETTINGS
+        header.append('(k40_whisperer_set notifications_email    %s )' %( int(self.notifications_email.get())   ))
+        header.append('(k40_whisperer_set NotifyEmailFrom    %s )' %( self.NotifyEmailFrom.get()   ))
+        header.append('(k40_whisperer_set NotifyEmailTo    %s )' %( self.NotifyEmailTo.get()   ))
+        header.append('(k40_whisperer_set NotifyEmailSubject    %s )' %( self.NotifyEmailSubject.get()   ))
+        header.append('(k40_whisperer_set NotifySmtpServer    %s )' %( self.NotifySmtpServer.get()   ))
+        header.append('(k40_whisperer_set NotifySmtpPort    %s )' %( self.NotifySmtpPort.get()   ))
+        header.append('(k40_whisperer_set notifications_smtp_auth    %s )' %( int(self.notifications_smtp_auth.get())   ))
+        header.append('(k40_whisperer_set NotifySmtpAuthUsername    %s )' %( self.NotifySmtpAuthUsername.get()   ))
+        header.append('(k40_whisperer_set NotifySmtpAuthPassword    %s )' %( self.NotifySmtpAuthPassword.get()   ))
+        header.append('(k40_whisperer_set notifications_smtp_auth_type  %s )' %( self.notifications_smtp_auth_type.get()   ))
+
+## NOTIFICATION SELECTIONS (Checkboxes - BITS represent each checkbox, in groups of 8)
+
+        ## ?set bitwise operators first
+        ## self.notif
+        ##SetNotificationCheckboxBits
+
+        self.SetNotificationCheckboxBits()
+
+        header.append('(k40_whisperer_set notifications_cbx_group_1    %s )'  %( self.notifications_cbx_group_1.get()     ))
+        header.append('(k40_whisperer_set notifications_cbx_group_2    %s )'  %( self.notifications_cbx_group_2.get()     ))
+        header.append('(k40_whisperer_set notifications_cbx_group_3    %s )'  %( self.notifications_cbx_group_3.get()     ))
+
+## END NOTIFICATION SETTINGS
 
         self.jog_step
         header.append("(=========================================================)")
@@ -1152,6 +1282,27 @@ class Application(Frame):
         else :
             return "?" 
 
+    ##todo Add RunTime ..
+    def refreshRunTime(self):
+        if not self.include_RunTime.get():
+            return
+
+        self.current_runtime = time() - self.current_operation_start_time
+
+        self.current_runtime_formatted.set("Current Runtime: %s" %(self.format_time(self.current_runtime)))  
+
+        cszw = int(self.PreviewCanvas.cget("width"))
+        cszh = int(self.PreviewCanvas.cget("height"))
+        HUD_vspace = 15
+        HUD_X = cszw-5
+        HUD_Y = cszh-55
+
+        self.PreviewCanvas.delete("HUD_RUNTIME")
+        self.PreviewCanvas.create_text(HUD_X, HUD_Y, font=("Purisa",18), fill = "green", text =self.current_runtime_formatted.get(), anchor="se", tags="HUD_RUNTIME")
+
+        self.after(1000, self.refreshRunTime)
+
+
     def refreshTime(self):
         if not self.include_Time.get():
             return
@@ -1242,7 +1393,285 @@ class Application(Frame):
         current_name = event.widget.winfo_parent()
         win_id = event.widget.nametowidget(current_name)
         win_id.destroy()
-        
+
+    def Send_Email_Notification(self, subject, message):
+
+        if self.notifications_email.get():
+
+            try:
+                self.email_notification_handler.send_email(subject, message)
+            except Exception as e:
+                self.statusMessage.set("Error sending notification email: " + e)
+                return 1
+
+    def Test_Email_Notification(self,event=None):
+
+        if self.notifications_email.get():
+            self.Send_Email_Notification("Test Notification K40 Whisperer", "This email was sent as a test from K40 Whisperer V" + version)
+            return 0
+        else:
+            tkinter.messagebox.showerror("Error sending test email:", "Email notifications are disabled, please enable first.")
+            return 0
+
+    def ShowHideEvents(self,event=None):
+
+        if self.SHOWEVENTSBUTTON['text'] == "Events >>":
+            self.SHOWEVENTSBUTTON['text'] = "<< Events"
+            ## root.geometry("1520x450")
+            ## self.window_object
+            self.window_object.geometry("850x490")
+            
+        else:
+            self.SHOWEVENTSBUTTON['text'] = "Events >>"
+            ## root.geometry("520x450")
+            self.window_object.geometry("520x490")
+
+
+    def SetNotificationCheckboxBits(self,event=None):
+## self.notify_checkbox_1
+
+        if self.notify_checkbox_100.get(): ## group 1, bit 0
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 0)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 0)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_2.get(): ## group 1, bit 1
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 1)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 1)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_3.get(): ## group 1, bit 2
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 2)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 2)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_4.get(): ## group 1, bit 3
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 3)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 3)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_5.get(): ## group 1, bit 4
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 4)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 4)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_6.get(): ## group 1, bit 5
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 5)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 5)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_7.get(): ## group 1, bit 6
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 6)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 6)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_8.get(): ## group 1, bit 7
+
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = set_bit(existing_group1_value, 7)
+            self.notifications_cbx_group_1.set(new_group1_value)
+        else:
+            existing_group1_value = self.notifications_cbx_group_1.get()
+            new_group1_value = clear_bit(existing_group1_value, 7)
+            self.notifications_cbx_group_1.set(new_group1_value)
+
+        if self.notify_checkbox_9.get(): ## group 2, bit 0
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 0)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 0)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_10.get(): ## group 2, bit 1
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 1)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 1)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_11.get(): ## group 2, bit 2
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 2)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 2)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_12.get(): ## group 2, bit 3
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 3)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 3)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_13.get(): ## group 2, bit 4
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 4)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 4)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_14.get(): ## group 2, bit 5
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 5)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 5)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_15.get(): ## group 2, bit 6
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 6)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 6)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_16.get(): ## group 2, bit 7
+
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = set_bit(existing_group2_value, 7)
+            self.notifications_cbx_group_2.set(new_group2_value)
+        else:
+            existing_group2_value = self.notifications_cbx_group_2.get()
+            new_group2_value = clear_bit(existing_group2_value, 7)
+            self.notifications_cbx_group_2.set(new_group2_value)
+
+        if self.notify_checkbox_17.get(): ## group 3, bit 0
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 0)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 0)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_18.get(): ## group 3, bit 1
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 1)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 1)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_19.get(): ## group 3, bit 2
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 2)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 2)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_20.get(): ## group 3, bit 3
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 3)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 3)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_21.get(): ## group 3, bit 4
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 4)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 4)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_22.get(): ## group 3, bit 5
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 5)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 5)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_23.get(): ## group 3, bit 6
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 6)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 6)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+        if self.notify_checkbox_24.get(): ## group 3, bit 7
+
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = set_bit(existing_group3_value, 7)
+            self.notifications_cbx_group_3.set(new_group3_value)
+        else:
+            existing_group3_value = self.notifications_cbx_group_3.get()
+            new_group3_value = clear_bit(existing_group3_value, 7)
+            self.notifications_cbx_group_3.set(new_group3_value)
+
+ ##       tkinter.messagebox.showinfo(title="Hey!", message="Notification Checkbox Selected!")
+
+
     # Left Column #
     #############################
     def Entry_Reng_feed_Check(self):
@@ -1541,7 +1970,80 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_Laser_R_Scale_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_Laser_R_Scale,self.Entry_Laser_R_Scale_Check(), new=1)
-        
+
+
+    ## Notifications callbacks
+
+    def Entry_Notify_Email_SMTP_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifySmtpServer,self.Entry_Notification_SMTP_Server_Check(), new=1)
+
+    def Entry_Notification_SMTP_Server_Check(self):
+        self.statusMessage.set( " Set SMTP server host to send notifications through " )
+
+
+### Set:
+    def Entry_Notification_SMTP_Port_Check(self):
+        self.statusMessage.set( " Set SMTP server port to send notifications through " )
+
+    def Entry_Notify_Email_SMTP_Port_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifyEmailTo,self.Entry_Notification_SMTP_Port_Check(), new=1)
+### End Set
+
+### Set:
+    def Entry_Notification_SMTP_Auth_Username_Check(self):
+        self.statusMessage.set( " Set SMTP authentication username " )
+
+    def Entry_Notify_Email_SMTP_Auth_Username_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifySmtpAuthUsername,self.Entry_Notification_SMTP_Auth_Username_Check(), new=1)
+### End Set
+
+### Set:
+    def Entry_Notification_SMTP_Auth_Password_Check(self):
+        self.statusMessage.set( " Set SMTP authentication password " )
+
+    def Entry_Notify_Email_SMTP_Auth_Password_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifySmtpAuthPassword,self.Entry_Notification_SMTP_Auth_Password_Check(), new=1)
+### End Set
+
+### Set:
+    def Entry_Notification_Email_From_Check(self):
+
+        try:
+            value = self.NotifyEmailFrom.get()
+
+            if(Check_Email_Valid(value)):
+                self.statusMessage.set(" Valid email address ")
+            else:
+                self.statusMessage.set(" Invalid email address ")
+        except:
+            self.statusMessage.set( " Error checking email address validity ") 
+
+    def Entry_Notify_Email_From_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifyEmailFrom,self.Entry_Notification_Email_From_Check(), new=1)
+### End Set
+
+
+    def Entry_Notify_Email_To_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifyEmailTo,self.Entry_Notification_Email_To_Check(), new=1)
+
+    def Entry_Notification_Email_Subject_Check(self):
+        self.statusMessage.set( " Set subject of notification email " )
+
+    def Entry_Notify_Email_Subject_Callback(self, varName, index, mode):
+        self.entry_set(self.NotifyEmailTo,self.Entry_Notification_Email_Subject_Check(), new=1)
+
+    def Entry_Notification_Email_To_Check(self):
+
+        try:
+            value = self.NotifyEmailTo.get()
+
+            if(Check_Email_Valid(value)):
+                self.statusMessage.set(" Valid email address ")
+            else:
+                self.statusMessage.set(" Invalid email address ")
+        except:
+            self.statusMessage.set( " Error checking email address validity ") 
+
     #############################
     def Entry_Laser_Rapid_Feed_Check(self):
         try:
@@ -2457,6 +2959,8 @@ class Application(Frame):
                         self.include_Gcde.set(line[line.find("include_Gcde"):].split()[1])
                     elif "include_Time"  in line:
                         self.include_Time.set(line[line.find("include_Time"):].split()[1])
+                    elif "include_RunTime" in line:
+                        self.include_RunTime.set(line[line.find("include_RunTime"):].split()[1])
                     elif "halftone"  in line:
                         self.halftone.set(line[line.find("halftone"):].split()[1])
                     elif "negate"  in line:
@@ -2587,6 +3091,87 @@ class Application(Frame):
                          self.inkscape_path.set(line[line.find("inkscape_path"):].split("\042")[1])
                     elif "batch_path"    in line:
                          self.batch_path.set(line[line.find("batch_path"):].split("\042")[1])
+
+
+## NOTIFICATION SETTINGS LOAD
+
+                    ## BOOLS
+                    if "notifications_email"  in line:
+                        self.notifications_email.set(line[line.find("notifications_email"):].split()[1])
+
+                    if "notifications_smtp_auth"  in line:
+                        self.notifications_smtp_auth.set(line[line.find("notifications_smtp_auth"):].split()[1])
+
+                    ## STRINGS
+                    
+                    elif "NotifyEmailFrom" in line:
+                        self.NotifyEmailFrom.set(line[line.find("NotifyEmailFrom"):].split()[1])
+                    
+                    elif "NotifyEmailTo" in line:
+                        self.NotifyEmailTo.set(line[line.find("NotifyEmailTo"):].split()[1])
+
+                    elif "NotifyEmailSubject" in line:
+                        email_subject_raw = line[line.find("NotifyEmailSubject"):].split() ## [1]
+                        self.NotifyEmailSubject.set(' '.join(email_subject_raw[1:len(email_subject_raw)-1]))
+
+                    elif "NotifySmtpServer" in line:
+                        self.NotifySmtpServer.set(line[line.find("NotifySmtpServer"):].split()[1])
+
+                    elif "NotifySmtpPort" in line:
+                        self.NotifySmtpPort.set(line[line.find("NotifySmtpPort"):].split()[1])
+
+                    elif "NotifySmtpAuthUsername" in line:
+                        self.NotifySmtpAuthUsername.set(line[line.find("NotifySmtpAuthUsername"):].split()[1])
+
+                    elif "NotifySmtpAuthPassword" in line:
+                        self.NotifySmtpAuthPassword.set(line[line.find("NotifySmtpAuthPassword"):].split()[1])
+
+                    elif "notifications_smtp_auth_type" in line:
+                        self.notifications_smtp_auth_type.set(line[line.find("notifications_smtp_auth_type"):].split()[1])                        
+
+                    ## NOTIFICATION SELECTIONS (Checkboxes - BITS represent each checkbox, in groups of 8)
+
+                    if "notifications_cbx_group_1"  in line:
+                        self.notifications_cbx_group_1.set(line[line.find("notifications_cbx_group_1"):].split()[1])
+
+                        group_1_cur_val = self.notifications_cbx_group_1.get()
+
+                        self.notify_checkbox_100.set(get_bit(group_1_cur_val, 0))
+                        self.notify_checkbox_2.set(get_bit(group_1_cur_val, 1))
+                        self.notify_checkbox_3.set(get_bit(group_1_cur_val, 2))
+                        self.notify_checkbox_4.set(get_bit(group_1_cur_val, 3))
+                        self.notify_checkbox_5.set(get_bit(group_1_cur_val, 4))
+                        self.notify_checkbox_6.set(get_bit(group_1_cur_val, 5))
+                        self.notify_checkbox_7.set(get_bit(group_1_cur_val, 6))
+                        self.notify_checkbox_8.set(get_bit(group_1_cur_val, 7))
+
+                    if "notifications_cbx_group_2"  in line:
+                        self.notifications_cbx_group_2.set(line[line.find("notifications_cbx_group_2"):].split()[1])
+
+                        group_2_cur_val = self.notifications_cbx_group_2.get()
+                        self.notify_checkbox_9.set(get_bit(group_2_cur_val, 0))
+                        self.notify_checkbox_10.set(get_bit(group_2_cur_val, 1))
+                        self.notify_checkbox_11.set(get_bit(group_2_cur_val, 2))
+                        self.notify_checkbox_12.set(get_bit(group_2_cur_val, 3))
+                        self.notify_checkbox_13.set(get_bit(group_2_cur_val, 4))
+                        self.notify_checkbox_14.set(get_bit(group_2_cur_val, 5))
+                        self.notify_checkbox_15.set(get_bit(group_2_cur_val, 6))
+                        self.notify_checkbox_16.set(get_bit(group_2_cur_val, 7))
+
+                    if "notifications_cbx_group_3"  in line:
+                        self.notifications_cbx_group_3.set(line[line.find("notifications_cbx_group_3"):].split()[1])
+
+                        group_3_cur_val = self.notifications_cbx_group_3.get()
+                        self.notify_checkbox_17.set(get_bit(group_3_cur_val, 0))
+                        self.notify_checkbox_18.set(get_bit(group_3_cur_val, 1))
+                        self.notify_checkbox_19.set(get_bit(group_3_cur_val, 2))
+                        self.notify_checkbox_20.set(get_bit(group_3_cur_val, 3))
+                        self.notify_checkbox_21.set(get_bit(group_3_cur_val, 4))
+                        self.notify_checkbox_22.set(get_bit(group_3_cur_val, 5))
+                        self.notify_checkbox_23.set(get_bit(group_3_cur_val, 6))
+                        self.notify_checkbox_24.set(get_bit(group_3_cur_val, 7))
+
+## END NOTIFICATION SETTINGS LOAD
 
                          
             except:
@@ -2908,21 +3493,46 @@ class Application(Frame):
                 debug_message(traceback.format_exc())
 
     def Vector_Cut(self, output_filename=None):
+       
+        self.notification_manager.doNotify(self.notify_checkbox_5, "Vector Cut", "Started", "Filename: " + self.DESIGN_FILE)
+
         self.Prepare_for_laser_run("Vector Cut: Processing Vector Data.")
         if self.VcutData.ecoords!=[]:
             self.send_data("Vector_Cut", output_filename)
+
+            minutes = floor(self.run_time / 60)
+            seconds = self.run_time - minutes*60
+
+            self.notification_manager.doNotify(self.notify_checkbox_6, "Vector Cut", "Finished", f"Filename: " + self.DESIGN_FILE + "\nRun Time: {minutes}:{seconds}")
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to cut")
+
+            self.notification_manager.doNotify(self.notify_checkbox_10, "Vector Cut", "Failed", "Filename: " + self.DESIGN_FILE + "\nNo vector data to cut")
+
         self.Finish_Job()
         
     def Vector_Eng(self, output_filename=None):
+
+        self.notification_manager.doNotify(self.notify_checkbox_3, "Vector Engrave", "Started", "Filename: " + self.DESIGN_FILE)
+
         self.Prepare_for_laser_run("Vector Engrave: Processing Vector Data.")
         if self.VengData.ecoords!=[]:
             self.send_data("Vector_Eng", output_filename)
+
+            minutes = floor(self.run_time / 60)
+            seconds = self.run_time - minutes*60
+
+            self.notification_manager.doNotify(self.notify_checkbox_4, "Vector Engrave", "Finished", f"Filename: " + self.DESIGN_FILE + "\nRun Time: {minutes}:{seconds}")
+
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No vector data to engrave")
+
+            ##tkinter.messagebox.showinfo(message=f"Vector Engrave Error Notify Enabled? {self.notify_checkbox_9.get()}")
+
+            self.notification_manager.doNotify(self.notify_checkbox_9, "Vector Engrave", "Failed", "Filename: " + self.DESIGN_FILE + "\nNo vector data to engrave")
+
         self.Finish_Job()
 
     def Trace_Eng(self, output_filename=None):
@@ -2934,17 +3544,32 @@ class Application(Frame):
         else:
             self.statusbar.configure( bg = 'yellow' )
             self.statusMessage.set("No trace data to follow")
-        self.Finish_Job()
+
+
+        self.Finish_Job() 
 
     def Raster_Eng(self, output_filename=None):
+
+        ## just for debug purposes, I'm starting the timer here.
+        self.current_operation_start_time = time()
+
+        self.notification_manager.doNotify(self.notify_checkbox_100, "Raster Engrave", "Started", "Filename: " + self.DESIGN_FILE)
+
         self.Prepare_for_laser_run("Raster Engraving: Processing Image Data.")
         try:
             self.make_raster_coords()
             if self.RengData.ecoords!=[]:
                 self.send_data("Raster_Eng", output_filename)
+
+                minutes = floor(self.run_time / 60)
+                seconds = self.run_time - minutes*60
+
+                self.notification_manager.doNotify(self.notify_checkbox_2, "Raster Engrave", "Finished", f"Filename: " + self.DESIGN_FILE + "\nRun Time: {minutes}:{seconds}")
             else:
                 self.statusbar.configure( bg = 'yellow' )
                 self.statusMessage.set("No raster data to engrave")
+
+                self.notification_manager.doNotify(self.notify_checkbox_8, "Raster Engrave", "Failed", "Filename: " + self.DESIGN_FILE + "\nNo raster data to engrave")
 
         except MemoryError as e:
             msg1 = "Memory Error:"
@@ -2954,6 +3579,9 @@ class Application(Frame):
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
             
+            self.notification_manager.doNotify(self.notify_checkbox_12, "Memory Error", "Failed", "Filename: " + self.DESIGN_FILE + "\nMemory error occured while attempting to RASTER ENGRAVE: " + traceback.format_exc())
+
+
         except Exception as e:
             msg1 = "Making Raster Data Stopped: "
             msg2 = "%s" %(e)
@@ -2961,9 +3589,16 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
+
+            self.notification_manager.doNotify(self.notify_checkbox_8, "Raster Engrave", "Failed", "Filename: " + self.DESIGN_FILE + "\nMaking Raster Data Failed: " + traceback.format_exc())
+
         self.Finish_Job()
 
     def Raster_Vector_Eng(self, output_filename=None):
+
+        ## TODO: need to create new config vars to notify on rast+vect, for now using checkbox_100 (rast eng start) 
+        self.notification_manager.doNotify(self.notify_checkbox_100, "Raster+Vector Engrave", "Started", "Filename: " + self.DESIGN_FILE)
+
         self.Prepare_for_laser_run("Raster Engraving: Processing Image and Vector Data.")
         try:
             self.make_raster_coords()
@@ -2979,9 +3614,20 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
+
+        minutes = floor(self.run_time / 60)
+        seconds = self.run_time - minutes*60
+
+        ## TODO: need to create new config vars to notify on rast+vect, for now using checkbox_2 (rast eng finish) 
+        self.notification_manager.doNotify(self.notify_checkbox_2, "Raster+Vector Engrave", "Finished", f"Filename: " + self.DESIGN_FILE + "\nRun Time: {minutes}:{seconds}")
+
         self.Finish_Job()
 
     def Vector_Eng_Cut(self, output_filename=None):
+
+        ## TODO: need to create new config vars to notify on vect eng+cut, for now using checkbox_3 (vect eng start) 
+        self.notification_manager.doNotify(self.notify_checkbox_3, "Vector Engrave+Vector Cut", "Started", "Filename: " + self.DESIGN_FILE)
+
         self.Prepare_for_laser_run("Vector Cut: Processing Vector Data.")
         if self.VcutData.ecoords!=[] or self.VengData.ecoords!=[]:
             self.send_data("Vector_Eng+Vector_Cut", output_filename)
@@ -3006,6 +3652,13 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             message_box(msg1, msg2)
             debug_message(traceback.format_exc())
+
+        minutes = floor(self.run_time / 60)
+        seconds = self.run_time - minutes*60
+
+        ## TODO: need to create new config vars to notify on vect eng+cut, for now using checkbox_4 (vect eng finish) 
+        self.notification_manager.doNotify(self.notify_checkbox_4, "Vector Engrave+Vector Cut", "Finished", f"Filename: " + self.DESIGN_FILE + "\nRun Time: {minutes}:{seconds}")
+
         self.Finish_Job()
         
     def Gcode_Cut(self, output_filename=None):
@@ -3721,6 +4374,7 @@ class Application(Frame):
     def Hide_Advanced(self,event=None):
         self.advanced.set(0)
         self.menu_View_Refresh()
+    
 
     def Release_USB(self):
         if self.k40 != None:
@@ -3879,6 +4533,11 @@ class Application(Frame):
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
         about = about + "https://www.scorchworks.com/\n\n"
+        about = about + "Notifications by Anthony Musgrove\n"
+        about = about + "\141\156\164\150\157\156\171\100\150\165"
+        about = about + "\156\164\145\162\063\144\160\162\151\156"
+        about = about + "\164\151\156\147\056\143\157\155\056\141\165\n"
+        about = about + "https://www.hunter3dprinting.com.au/\n\n"
         try:
             python_version = "%d.%d.%d" %(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
         except:
@@ -3922,6 +4581,12 @@ class Application(Frame):
         if self.GUI_Disabled:
             return
         self.advanced.set(not self.advanced.get())
+        self.menu_View_Refresh()
+
+    def KEY_F7(self, event):
+        if self.GUI_Disabled:
+            return
+        self.NOTIFICATION_Settings_Window()
         self.menu_View_Refresh()
 
     def bindConfigure(self, event):
@@ -4334,6 +4999,109 @@ class Application(Frame):
 ##            self.Label_Unsharp_Threshold.configure(state="disabled")
 ##            self.Entry_Unsharp_Threshold.configure(state="disabled")
 
+    def Set_Input_States_Notify_Email_SMTP(self,event=None):
+        if self.notifications_smtp_auth.get():
+
+            self.Label_Notification_SMTP_Auth_Username.configure(state="normal")
+            self.Entry_Notification_SMTP_Auth_Username.configure(state="normal")
+
+            self.Label_Notification_SMTP_Auth_Password.configure(state="normal")
+            self.Entry_Notification_SMTP_Auth_Password.configure(state="normal")
+
+            self.Label_AUTH_TYPE_Name.configure(state="normal")
+            self.AUTH_TYPE_OptionMenu.configure(state="normal")
+
+        else:
+            self.Label_Notification_SMTP_Auth_Username.configure(state="disabled")
+            self.Entry_Notification_SMTP_Auth_Username.configure(state="disabled")
+
+            self.Label_Notification_SMTP_Auth_Password.configure(state="disabled")
+            self.Entry_Notification_SMTP_Auth_Password.configure(state="disabled")
+
+            self.Label_AUTH_TYPE_Name.configure(state="disabled")
+            self.AUTH_TYPE_OptionMenu.configure(state="disabled")
+
+    def Set_Input_States_Notify_Email(self,event=None):
+
+        if self.notifications_email.get():
+
+            self.Label_Notification_Email_From.configure(state="normal")
+            self.Entry_Notification_Email_From.configure(state="normal")
+
+            self.Label_Notification_Email_To.configure(state="normal")
+            self.Entry_Notification_Email_To.configure(state="normal")
+
+            self.Label_Notification_Email_Subject.configure(state="normal")
+            self.Entry_Notification_Email_Subject.configure(state="normal")
+
+            self.Label_Notification_SMTP_Server.configure(state="normal")
+            self.Entry_Notification_SMTP_Server.configure(state="normal")
+
+            self.Label_Notification_SMTP_Port.configure(state="normal")
+            self.Entry_Notification_SMTP_Port.configure(state="normal")
+
+            self.Label_Notification_SMTP_Auth.configure(state="normal")
+            self.Checkbutton_Notifications_SMTP_Auth.configure(state="normal")
+
+            self.NOTIF_TEST_EMAIL.configure(state="normal")
+
+            if self.notifications_smtp_auth.get():
+                self.Label_Notification_SMTP_Auth_Username.configure(state="normal")
+                self.Entry_Notification_SMTP_Auth_Username.configure(state="normal")
+                self.Label_Notification_SMTP_Auth_Password.configure(state="normal")
+                self.Entry_Notification_SMTP_Auth_Password.configure(state="normal")
+                self.Label_AUTH_TYPE_Name.configure(state="normal")
+                self.AUTH_TYPE_OptionMenu.configure(state="normal")
+            else:
+                self.Label_Notification_SMTP_Auth_Username.configure(state="disabled")
+                self.Entry_Notification_SMTP_Auth_Username.configure(state="disabled")
+                self.Label_Notification_SMTP_Auth_Password.configure(state="disabled")
+                self.Entry_Notification_SMTP_Auth_Password.configure(state="disabled")
+                self.Label_AUTH_TYPE_Name.configure(state="disabled")
+                self.AUTH_TYPE_OptionMenu.configure(state="disabled")
+
+        else:
+
+            self.Label_Notification_Email_From.configure(state="disabled")
+            self.Entry_Notification_Email_From.configure(state="disabled")
+
+            self.Label_Notification_Email_To.configure(state="disabled")
+            self.Entry_Notification_Email_To.configure(state="disabled")
+
+            self.Label_Notification_Email_Subject.configure(state="disabled")
+            self.Entry_Notification_Email_Subject.configure(state="disabled")
+
+            self.Label_Notification_SMTP_Server.configure(state="disabled")
+            self.Entry_Notification_SMTP_Server.configure(state="disabled")
+
+            self.Label_Notification_SMTP_Port.configure(state="disabled")
+            self.Entry_Notification_SMTP_Port.configure(state="disabled")
+
+            self.Label_Notification_SMTP_Auth.configure(state="disabled")
+            self.Checkbutton_Notifications_SMTP_Auth.configure(state="disabled")
+
+            self.Label_Notification_SMTP_Auth_Username.configure(state="disabled")
+            self.Entry_Notification_SMTP_Auth_Username.configure(state="disabled")
+
+            self.NOTIF_TEST_EMAIL.configure(state="disabled")
+
+            if  not self.notifications_smtp_auth.get():
+                self.Label_Notification_SMTP_Auth_Username.configure(state="disabled")
+                self.Entry_Notification_SMTP_Auth_Username.configure(state="disabled")
+                self.Label_Notification_SMTP_Auth_Password.configure(state="disabled")
+                self.Entry_Notification_SMTP_Auth_Password.configure(state="disabled")
+                self.Label_AUTH_TYPE_Name.configure(state="disabled")
+                self.AUTH_TYPE_OptionMenu.configure(state="disabled")
+
+            else:
+                self.Label_Notification_SMTP_Auth_Username.configure(state="normal")
+                self.Entry_Notification_SMTP_Auth_Username.configure(state="normal")
+                self.Label_Notification_SMTP_Auth_Password.configure(state="normal")
+                self.Entry_Notification_SMTP_Auth_Password.configure(state="normal")
+                self.Label_AUTH_TYPE_Name.configure(state="normal")
+                self.AUTH_TYPE_OptionMenu.configure(state="normal")
+
+
     def Set_Input_States_Rotary(self,event=None):
         if self.rotary.get():
             self.Label_Laser_R_Scale.configure(state="normal")
@@ -4597,7 +5365,10 @@ class Application(Frame):
                 yold=y1
 
 
-        ######################################            
+        ######################################   
+        # refreshRunTime 
+        self.refreshRunTime()
+
         self.refreshTime()
         dot_col = "grey50"
         xoff = self.pos_offset[0]/1000.0
@@ -5164,6 +5935,230 @@ class Application(Frame):
         #if DEBUG and show_unsharp:
         #    self.Set_Input_States_Unsharp()
 
+    ################################################################################
+    #                     Notification Settings Window                             #
+    ################################################################################
+    def NOTIFICATION_Settings_Window(self):
+
+        notification_settings = Toplevel(width=520, height=490)
+        notification_settings.grab_set() # Use grab_set to prevent user input in the main window
+        notification_settings.focus_set()
+        notification_settings.resizable(0,0)
+        notification_settings.title('Notification Settings')
+        notification_settings.iconname("Notification Settings")
+
+        self.window_object = notification_settings
+
+        D_Yloc  = 6
+        D_dY = 30
+        xd_label_L = 12
+
+        w_label=180
+        w_entry=280
+        w_units=45
+        xd_entry_L=xd_label_L+w_label+10
+        xd_units_L=xd_entry_L+w_entry+5
+        sep_border=10
+
+        ## TABS ..
+        self.TabManager_Notifications = Notebook(notification_settings)
+        self.TabManager_Notifications.place(x=10, y=10, width=500, height=420)
+
+        self.tab_EmailNotifications = Frame(self.TabManager_Notifications)
+        self.tab_Telegram = Frame(self.TabManager_Notifications)
+        self.tab_Scripts = Frame(self.TabManager_Notifications)
+
+        self.TabManager_Notifications.add(self.tab_EmailNotifications, text="Email")
+        self.TabManager_Notifications.add(self.tab_Scripts, text="Scripts")
+        self.TabManager_Notifications.add(self.tab_Telegram, text="Telegram")
+        
+        D_Yloc=D_Yloc+D_dY-15
+        self.Label_Notifications_Enable = Label(self.tab_EmailNotifications,text="Send Email Notifications")
+        self.Label_Notifications_Enable.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_Notifications_Enable_Email = Checkbutton(self.tab_EmailNotifications,text="", anchor=W, command=self.Set_Input_States_Notify_Email)
+        self.Checkbutton_Notifications_Enable_Email.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_Notifications_Enable_Email.configure(variable=self.notifications_email)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Notification_Email_From = Label(self.tab_EmailNotifications,text="Send From (email):")
+        self.Label_Notification_Email_From.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_Email_From = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_Email_From.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Notification_Email_From.configure(textvariable=self.NotifyEmailFrom)
+        self.NotifyEmailTo.trace_variable("w", self.Entry_Notify_Email_From_Callback)
+        self.entry_set(self.Entry_Notification_Email_From,self.Entry_Notification_Email_From_Check(),2)
+
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Notification_Email_To = Label(self.tab_EmailNotifications,text="Send To (email):")
+        self.Label_Notification_Email_To.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_Email_To = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_Email_To.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Notification_Email_To.configure(textvariable=self.NotifyEmailTo)
+        self.NotifyEmailTo.trace_variable("w", self.Entry_Notify_Email_To_Callback)
+        self.entry_set(self.Entry_Notification_Email_To,self.Entry_Notification_Email_To_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Notification_Email_Subject = Label(self.tab_EmailNotifications,text="Email Subject Prefix:")
+        self.Label_Notification_Email_Subject.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_Email_Subject = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_Email_Subject.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Notification_Email_Subject.configure(textvariable=self.NotifyEmailSubject)
+        self.NotifyEmailSubject.trace_variable("w", self.Entry_Notify_Email_Subject_Callback)
+        self.entry_set(self.Entry_Notification_Email_Subject,self.Entry_Notification_Email_Subject_Check(),2)
+        
+        D_Yloc=D_Yloc+D_dY + (D_dY/2)
+        self.Label_Notification_SMTP_Server = Label(self.tab_EmailNotifications,text="SMTP Server")
+        self.Label_Notification_SMTP_Server.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_SMTP_Server = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_SMTP_Server.place(x=xd_entry_L, y=D_Yloc, width=w_entry - 90, height=23)
+        self.Entry_Notification_SMTP_Server.configure(textvariable=self.NotifySmtpServer)
+        self.NotifySmtpServer.trace_variable("w", self.Entry_Notify_Email_SMTP_Callback)
+        self.entry_set(self.Entry_Notification_SMTP_Server,self.Entry_Notification_SMTP_Server_Check(),2)
+
+        self.Label_Notification_SMTP_Port = Label(self.tab_EmailNotifications,text="Port")
+        self.Label_Notification_SMTP_Port.place(x=xd_label_L+205+ w_label, y=D_Yloc, width=25, height=21)
+        self.Entry_Notification_SMTP_Port = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_SMTP_Port.place(x=xd_label_L+130+ w_label + 105, y=D_Yloc, width=55, height=23)
+        self.Entry_Notification_SMTP_Port.configure(textvariable=self.NotifySmtpPort)
+        self.NotifySmtpPort.trace_variable("w", self.Entry_Notify_Email_SMTP_Port_Callback)
+        self.entry_set(self.Entry_Notification_SMTP_Port,self.Entry_Notification_SMTP_Port_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY + (D_dY/2)
+        self.Label_Notification_SMTP_Auth = Label(self.tab_EmailNotifications,text="Use SMTP authentication")
+        self.Label_Notification_SMTP_Auth.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_Notifications_SMTP_Auth = Checkbutton(self.tab_EmailNotifications,text="", anchor=W, command=self.Set_Input_States_Notify_Email_SMTP)
+        self.Checkbutton_Notifications_SMTP_Auth.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_Notifications_SMTP_Auth.configure(variable=self.notifications_smtp_auth)
+
+## AUTH TYPE DROPDOWN
+
+        D_Yloc=D_Yloc+D_dY 
+        self.Label_AUTH_TYPE_Name      = Label(self.tab_EmailNotifications,text="Auth Type", anchor=CENTER )
+        self.AUTH_TYPE_OptionMenu = OptionMenu(self.tab_EmailNotifications, self.notifications_smtp_auth_type,
+                                            "SSL",
+                                            "TLS")
+        self.Label_AUTH_TYPE_Name.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.AUTH_TYPE_OptionMenu.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+
+## END AUTH TYPE DROPDOWN
+
+        D_Yloc=D_Yloc+D_dY + (D_dY/2)
+        self.Label_Notification_SMTP_Auth_Username = Label(self.tab_EmailNotifications,text="Auth Username")
+        self.Label_Notification_SMTP_Auth_Username.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_SMTP_Auth_Username = Entry(self.tab_EmailNotifications,width="15")
+        self.Entry_Notification_SMTP_Auth_Username.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Notification_SMTP_Auth_Username.configure(textvariable=self.NotifySmtpAuthUsername)
+        self.NotifySmtpAuthUsername.trace_variable("w", self.Entry_Notify_Email_SMTP_Auth_Username_Callback)
+        self.entry_set(self.Entry_Notification_SMTP_Auth_Username,self.Entry_Notification_SMTP_Auth_Username_Check(),2)
+
+        D_Yloc=D_Yloc+D_dY
+        self.Label_Notification_SMTP_Auth_Password = Label(self.tab_EmailNotifications,text="Auth Password")
+        self.Label_Notification_SMTP_Auth_Password.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Entry_Notification_SMTP_Auth_Password = Entry(self.tab_EmailNotifications,width="15",show="*")
+        self.Entry_Notification_SMTP_Auth_Password.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_Notification_SMTP_Auth_Password.configure(textvariable=self.NotifySmtpAuthPassword)
+        self.NotifySmtpAuthPassword.trace_variable("w", self.Entry_Notify_Email_SMTP_Auth_Password_Callback)
+        self.entry_set(self.Entry_Notification_SMTP_Auth_Password,self.Entry_Notification_SMTP_Auth_Password_Check(),2)
+
+        ## TEST SMTP BUTTON ##
+        D_Yloc=D_Yloc+(D_dY*2)
+
+        self.NOTIF_TEST_EMAIL = Button(self.tab_EmailNotifications,text="Test Email Notification")
+        self.NOTIF_TEST_EMAIL.place(x=xd_label_L + 250, y=D_Yloc, width=175, height=30, anchor="center")
+        self.NOTIF_TEST_EMAIL.bind("<ButtonRelease-1>", self.Test_Email_Notification)
+
+        ## Buttons ##
+        notification_settings.update_idletasks()
+        Ybut=int(notification_settings.winfo_height())-30
+        ##Xbut=int(notification_settings.winfo_width()/2)
+        Xbut = 120 
+
+        self.NOTIF_Close = Button(notification_settings,text="Close")
+        self.NOTIF_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="center")
+        self.NOTIF_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
+
+        Xbut = Xbut + 130 + 25
+
+        self.GEN_SaveConfig = Button(notification_settings,text="Save Configuration")
+        self.GEN_SaveConfig.place(x=Xbut, y=Ybut, width=150, height=30, anchor="center")
+        self.GEN_SaveConfig.bind("<ButtonRelease-1>", self.Write_Config_File)  
+
+        Xbut = Xbut + 150 + 25
+
+        ## EVENTS >> Button
+        self.SHOWEVENTSBUTTON = Button(notification_settings,text="Events >>")
+        self.SHOWEVENTSBUTTON.place(x=Xbut, y=Ybut, width=120, height=30, anchor="center")
+        self.SHOWEVENTSBUTTON.bind("<ButtonRelease-1>", self.ShowHideEvents)
+
+        nlabel_y = 33 ## 6 + 30 - 15  (D_Yloc+D_dY-15)
+
+        self.eventlist_frame = Frame(notification_settings, borderwidth=1, relief=RIDGE)
+        self.eventlist_frame.place(x=xd_label_L+515, y=60, width=300, height=368)
+
+        self.Label_Choose_Events = Label(notification_settings,text="Select Events to Notify:")
+        self.Label_Choose_Events.place(x=xd_label_L+497, y=nlabel_y, width=w_label, height=21)
+
+        self.eventlist_frame.columnconfigure(0, weight=3)
+        self.eventlist_frame.columnconfigure(1, weight=3)
+
+        ## NOTIFICATION checkboxes
+        self.Checkbutton_Notify_Raster_Engrave_Start = Checkbutton(self.eventlist_frame, text="Raster Engrave Start", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Raster_Engrave_Start.grid(column=0, row=0, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Raster_Engrave_Start.configure(variable=self.notify_checkbox_100)
+
+        self.Checkbutton_Notify_Raster_Engrave_Finish = Checkbutton(self.eventlist_frame, text="Raster Engrave Finish", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Raster_Engrave_Finish.grid(column=1, row=0, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Raster_Engrave_Finish.configure(variable=self.notify_checkbox_2)
+
+        self.Checkbutton_Notify_Vector_Engrave_Start = Checkbutton(self.eventlist_frame, text="Vector Engrave Start", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Engrave_Start.grid(column=0, row=1, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Engrave_Start.configure(variable=self.notify_checkbox_3)
+
+        self.Checkbutton_Notify_Vector_Engrave_Finish = Checkbutton(self.eventlist_frame, text="Vector Engrave Finish", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Engrave_Finish.grid(column=1, row=1, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Engrave_Finish.configure(variable=self.notify_checkbox_4)
+
+        self.Checkbutton_Notify_Vector_Cut_Start = Checkbutton(self.eventlist_frame, text="Vector Cut Start", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Cut_Start.grid(column=0, row=2, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Cut_Start.configure(variable=self.notify_checkbox_5)
+
+        self.Checkbutton_Notify_Vector_Cut_Finish = Checkbutton(self.eventlist_frame, text="Vector Cut Finish", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Cut_Finish.grid(column=1, row=2, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Cut_Finish.configure(variable=self.notify_checkbox_6)
+
+        self.Label_Blank_01 = Label(self.eventlist_frame, text="")
+        self.Label_Blank_01.grid(column=0, row=3, padx=0, pady=2, sticky="")
+        self.Checkbutton_Notify_Raster_Engrave_Start.configure(variable=self.notify_checkbox_7)
+
+        self.Checkbutton_Notify_Raster_Engrave_Error = Checkbutton(self.eventlist_frame, text="Raster Eng. Error", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Raster_Engrave_Error.grid(column=0, row=4, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Raster_Engrave_Error.configure(variable=self.notify_checkbox_8)
+
+        self.Checkbutton_Notify_Vector_Engrave_Error = Checkbutton(self.eventlist_frame, text="Vector Eng. Error", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Engrave_Error.grid(column=1, row=4, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Engrave_Error.configure(variable=self.notify_checkbox_9)
+
+        self.Checkbutton_Notify_Vector_Cut_Error = Checkbutton(self.eventlist_frame, text="Vector Cut Error", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Vector_Cut_Error.grid(column=1, row=5, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Vector_Cut_Error.configure(variable=self.notify_checkbox_10)
+
+        self.Label_Blank_02 = Label(self.eventlist_frame, text="")
+        self.Label_Blank_02.grid(column=0, row=6, padx=0, pady=2, sticky="")
+
+        self.Checkbutton_Notify_USB_Error = Checkbutton(self.eventlist_frame, text="USB Error", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_USB_Error.grid(column=0, row=7, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_USB_Error.configure(variable=self.notify_checkbox_11)
+
+        self.Checkbutton_Notify_Memory_Error = Checkbutton(self.eventlist_frame, text="Memory Error", command=self.SetNotificationCheckboxBits)
+        self.Checkbutton_Notify_Memory_Error.grid(column=1, row=7, padx=0, pady=0, sticky="w")
+        self.Checkbutton_Notify_Memory_Error.configure(variable=self.notify_checkbox_12)
+
+##        self.gen_separator_x0 = Frame(self.eventlist_frame, height=5, bd=1, relief=SUNKEN)
+##        self.gen_separator_x0.grid(column=1, row=3, padx=0, pady=0, sticky="")
+
+        self.Set_Input_States_Notify_Email()
+    
 
     ################################################################################
     #                         Rotary Settings Window                               #
