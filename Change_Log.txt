@@ -305,3 +305,9 @@ Version 0.60:
   
 Version 0.61:
 - Added option in the General Settings to disable waiting for the laser to finish the job after the last data has been sent to the laser.  This can be used to allow the user to start loading the next design as the laser finishes executing the the final data.
+
+Version 0.62:
+- Fixed problem when using M3 Nano board, new job finished code is now detected. 
+- Fixed problem when using M3 Nano board, laser no longer remains on while moving back to starting position after raster engraving.
+- Fixed registration issue between raster and vector operations when custom rapid speed was used.
+- Added Option in the Tools menu that may unfreeze the controller after a job is improperly terminated (will not always work)

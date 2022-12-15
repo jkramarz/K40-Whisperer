@@ -2,7 +2,7 @@
 '''
 This script reads/writes egv format
 
-Copyright (C) 2017-2020 Scorch www.scorchworks.com
+Copyright (C) 2017-2022 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -682,6 +682,7 @@ class egv:
         self.write(ord("S"))
         self.write(ord("1"))
         self.write(ord("E"))
+        self.write(ord("U"))
 
         if pad:
             self.make_dir_dist(cspad,cspad)
@@ -695,10 +696,11 @@ class egv:
         new_data=[]
         modal_value = -1
         for code in EGV_data:
-            if code == modal_value:
+            if code == modal_value and modal_value != E:
                 continue
             elif (code == self.RIGHT) or (code == self.LEFT) or \
-                 (code == self.UP   ) or (code == self.DOWN) or (code == E):
+                 (code == self.UP   ) or (code == self.DOWN) or \
+                 (code == self.ANGLE) or (code == E):
                 modal_value = code
             new_data.append(code)
         return new_data

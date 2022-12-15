@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.61'
+version = '0.62'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -205,6 +205,7 @@ class Application(Frame):
 
         #####
         self.master.bind('<Control-i>' , self.Initialize_Laser)
+        self.master.bind('<Control-f>' , self.Unfreeze_Laser)
         self.master.bind('<Control-o>' , self.menu_File_Open_Design)
         self.master.bind('<Control-l>' , self.menu_Reload_Design)
         self.master.bind('<Control-h>' , self.Home)
@@ -746,6 +747,7 @@ class Application(Frame):
         top_Tools.add("command", label = "Trace Design Boundary <Ctrl-t>", command = self.TRACE_Settings_Window)
         top_Tools.add_separator()
         top_Tools.add("command", label = "Initialize Laser <Ctrl-i>", command = self.Initialize_Laser)
+        top_Tools.add("command", label = "Unfreeze Laser <Ctrl-f>"  , command = self.Unfreeze_Laser)
         top_Tools.add_cascade(label="USB", menu=USBmenu)
         USBmenu.add("command", label = "Reset USB", command = self.Reset)
         USBmenu.add("command", label = "Release USB", command = self.Release_USB)
@@ -3762,6 +3764,17 @@ class Application(Frame):
             self.statusbar.configure( bg = 'red' )
             self.k40=None
             debug_message(traceback.format_exc())
+
+    def Unfreeze_Laser(self,event=None):
+        if self.GUI_Disabled:
+            return
+        if self.k40 != None:
+            try:
+                self.k40.unfreeze()
+                self.statusMessage.set("Unfreeze Complete")
+                self.statusbar.configure( bg = 'white' )
+            except:
+                pass
             
     def Unlock(self,event=None):
         if self.GUI_Disabled:
