@@ -311,3 +311,6 @@ Version 0.62:
 - Fixed problem when using M3 Nano board, laser no longer remains on while moving back to starting position after raster engraving.
 - Fixed registration issue between raster and vector operations when custom rapid speed was used.
 - Added Option in the Tools menu that may unfreeze the controller after a job is improperly terminated (will not always work)
+
+Version 0.63:
+- Fixed rapid moves with M3 Nano.  Rapid moves failed if the move command filled exactly one packet of data.  Sending an additional packet of data without any data after the full packet resolved the issue.

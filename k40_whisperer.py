@@ -2,7 +2,7 @@
 """
     K40 Whisperer
 
-    Copyright (C) <2017-2022>  <Scorch>
+    Copyright (C) <2017-2023>  <Scorch>
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.62'
+version = '0.63'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -156,7 +156,11 @@ class Application(Frame):
         self.master.bind('<F5>', self.KEY_F5)
         self.master.bind('<F6>', self.KEY_F6)
         self.master.bind('<Home>', self.Home)
-        
+
+        #self.master.bind('<Control-R>', self.Raster_Eng)
+        #self.master.bind('<Control-V>', self.Vector_Eng)
+        #self.master.bind('<Control-C>', self.Vector_Cut)
+        #self.master.bind('<Control-G>', self.Gcode_Cut)
 
         self.master.bind('<Control-Left>'  , self.Move_Left)
         self.master.bind('<Control-Right>' , self.Move_Right)
@@ -2849,6 +2853,7 @@ class Application(Frame):
                     self.slow_jog(int(dxmils),int(dymils))
                 else:
                     self.k40.rapid_move(int(dxmils),int(dymils))
+
 
                 return True
             else:

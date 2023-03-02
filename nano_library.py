@@ -2,7 +2,7 @@
 '''
 This script comunicated with the K40 Laser Cutter.
 
-Copyright (C) 2017-2022 Scorch www.scorchworks.com
+Copyright (C) 2017-2023 Scorch www.scorchworks.com
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -138,7 +138,7 @@ class K40_CLASS:
     def unfreeze(self):
         try:
             self.send_data([ord('F'),ord('N'),ord('S'),ord('E')])
-            print("unfreeze sent")
+            #print("unfreeze sent")
         except:
             pass
         
@@ -174,7 +174,7 @@ class K40_CLASS:
         NoSleep = WindowsInhibitor()
         NoSleep.inhibit()
 
-        blank   = [166,0,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,0]
+        blank   = [166,0,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,166,80]
         packets = []
         packet  = blank[:]
         cnt=2
@@ -216,8 +216,13 @@ class K40_CLASS:
         packet[-1]=self.OneWireCRC(packet[1:len(packet)-2])
         if not preprocess_crc:
             self.send_packet_w_error_checking(packet,update_gui,stop_calc)
+            if cnt > 31:
+                self.send_packet_w_error_checking(blank,update_gui,stop_calc)
+            
         else:
             packets.append(packet)
+            if cnt > 31:
+                packets.append(blank[:])
             update_gui("CRC data and Packets are Ready")
         packet_cnt = 0
 
@@ -318,6 +323,12 @@ class K40_CLASS:
     def send_packet(self,line):
         self.dev.write(self.write_addr,line,self.timeout)
 
+    def print_command(self,data):
+        for x in data:
+            sys.stdout.write(chr(x))
+        sys.stdout.write("\n")
+
+        
     def rapid_move(self,dxmils,dymils):
         if (dxmils!=0 or dymils!=0):
             data=[]
