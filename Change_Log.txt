@@ -314,3 +314,6 @@ Version 0.62:
 
 Version 0.63:
 - Fixed rapid moves with M3 Nano.  Rapid moves failed if the move command filled exactly one packet of data.  Sending an additional packet of data without any data after the full packet resolved the issue.
+
+Version 0.64:
+- Fixed arcs being drawn in the wrong direction when the radius value was specified as a negative number in an SVG file.
