@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.64'
+version = '0.65'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -95,6 +95,11 @@ try:
     from PIL import _imaging
 except:
     pass #Don't worry everything will still work
+
+try:
+    Image.LANCZOS
+except:
+    Image.LANCZOS=Image.ANTIALIAS
 
 PYCLIPPER=True
 try:
@@ -4474,10 +4479,10 @@ class Application(Frame):
                             nw=int(self.SCALE*self.him)
                             
                         try:
-                            self.UI_image = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.ANTIALIAS))
+                            self.UI_image = ImageTk.PhotoImage(plot_im.resize((nw,nh), Image.LANCZOS))
                         except:
                             debug_message("Imaging_Free Used.")
-                            self.UI_image = self.Imaging_Free(plot_im.resize((nw,nh), Image.ANTIALIAS))
+                            self.UI_image = self.Imaging_Free(plot_im.resize((nw,nh), Image.LANCZOS))
                 except:
                     self.SCALE = 1
                     debug_message(traceback.format_exc())
