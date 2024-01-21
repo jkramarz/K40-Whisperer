@@ -249,7 +249,7 @@ class egv:
         pass
 
     def ecoord_adj(self,ecoords_adj_in,scale,FlipXoffset):
-        if FlipXoffset > 0:
+        if FlipXoffset != None:
             e0 = int(round((FlipXoffset-ecoords_adj_in[0])*scale,0))
         else:
             e0 = int(round(ecoords_adj_in[0]*scale,0))
@@ -267,7 +267,7 @@ class egv:
                             Raster_step=0,
                             update_gui=None,
                             stop_calc=None,
-                            FlipXoffset=0,
+                            FlipXoffset=None,
                             Rapid_Feed_Rate=0,
                             use_laser=True):
 
@@ -403,7 +403,7 @@ class egv:
                     scanline.append([ecoords_in[i]])
                     scanline_y = y
                 else:
-                    if bool(FlipXoffset) ^ bool(Raster_step > 0.0): # ^ is bitwise XOR
+                    if bool(FlipXoffset!=None) ^ bool(Raster_step > 0.0): # ^ is bitwise XOR
                         scanline[-1].insert(0,ecoords_in[i])
                     else:
                         scanline[-1].append(ecoords_in[i])

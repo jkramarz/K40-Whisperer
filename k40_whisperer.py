@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-version = '0.65'
+version = '0.68'
 title_text = "K40 Whisperer V"+version
 
 import sys
@@ -3396,18 +3396,18 @@ class Application(Frame):
             if self.inputCSYS.get() and self.RengData.image == None:
                 xmin,xmax,ymin,ymax = 0.0,0.0,0.0,0.0
             else:
-                xmin,xmax,ymin,ymax = self.Get_Design_Bounds()
+                xmin,xmax,ymin,ymax = self.Get_Design_Bounds() 
                         
             startx = xmin
             starty = ymax
 
             if self.HomeUR.get():
                 Xscale = float(self.LaserXscale.get())
-                FlipXoffset = Xscale*abs(xmax-xmin)
+                FlipXoffset = Xscale*xmin + Xscale*xmax
                 if self.rotate.get():
                     startx = -xmin
             else:
-                FlipXoffset = 0
+                FlipXoffset = None
 
             if self.rotary.get():
                 Rapid_Feed = float(self.rapid_feed.get())*feed_factor
@@ -4423,11 +4423,14 @@ class Application(Frame):
         else:
             XlineShift = self.laserX
         YlineShift = self.laserY    
-
         if min((xmax-xmin),(ymax-ymin)) > 0 and self.zoom2image.get():
             self.PlotScale = max((xmax-xmin)/(cszw-buff), (ymax-ymin)/(cszh-buff))
-            x_lft =  minx / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
-            x_rgt =  maxx / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
+            if self.HomeUR.get():
+                x_rgt =  (xmax-minx) / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
+                x_lft =  (xmax-maxx) / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
+            else:
+                x_lft =  minx / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
+                x_rgt =  maxx / self.PlotScale - self.laserX / self.PlotScale + (cszw-(xmax-xmin)/self.PlotScale)/2
             y_bot = -miny / self.PlotScale + self.laserY / self.PlotScale + (cszh-(ymax-ymin)/self.PlotScale)/2
             y_top = -maxy / self.PlotScale + self.laserY / self.PlotScale + (cszh-(ymax-ymin)/self.PlotScale)/2
             self.segID.append( self.PreviewCanvas.create_rectangle(

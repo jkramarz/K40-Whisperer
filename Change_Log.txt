@@ -321,3 +321,12 @@ Version 0.64:
 Version 0.65:
 - Updated to work with latest Pillow release (changed ANTIALIAS call to LANCZOS)
 
+Version 0.66:
+- Fixed error that occurred with Inkscape 1.3 and files with empty text objects 
+
+Version 0.67:
+- Fixed DXF engraving/cutting for machines that home in upper right.
+
+Version 0.68:
+- Fixed "Zoom to Design Size" for machines that home in upper right.
+
