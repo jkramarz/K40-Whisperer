@@ -29,6 +29,7 @@ class ScanOffset:
 
     def canExactOffset(self, speed):
         """Check if an exact offset can be found for a given speed.
+            Made for internal use, but can be used externally.
 
         Args:
             speed (int): The speed to check.
@@ -61,6 +62,7 @@ class ScanOffset:
 
     def approximateOffset(self, speed):
         """Approximate the offset for a given speed.
+            Made for internal use, but can be used externally. (No can approximate check)
 
         Args:
             speed (int): The speed to approximate the offset for.
